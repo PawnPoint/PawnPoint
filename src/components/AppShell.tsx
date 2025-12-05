@@ -28,6 +28,12 @@ const links = [
   { label: "Practice", href: "/practice", icon: Target },
 ];
 
+const mobileLinks = [
+  ...links,
+  { label: "Profile", href: "/profile", icon: UserRound },
+  { label: "Settings", href: "/settings", icon: Settings },
+];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout, setUser } = useAuth();
   const [, navigate] = useLocation();
@@ -112,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={`min-h-screen ${themeBg}`}>
       <header className={`sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.25)] overflow-hidden">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
@@ -239,36 +245,66 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         {open && (
-          <div className="md:hidden border-t border-white/10 bg-slate-900/90">
-            <div className="px-4 py-3 space-y-3">
-              {links.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-2 text-sm text-white/80 hover:text-white"
-                  onClick={() => setOpen(false)}
+          <div className="md:hidden border-t border-white/10 bg-slate-900/95 backdrop-blur">
+            <div className="px-4 py-4 space-y-4">
+              {user && (
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                  {user?.avatarUrl ? (
+                    <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15 shadow-glow">
+                      <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-glow">
+                      {initials}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-semibold">{nameLabel}</div>
+                    <div className="text-xs text-white/60">
+                      LVL {level} • {xp} XP
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {mobileLinks.map(({ href, label, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    onClick={() => setOpen(false)}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
+                  onClick={() => setIsLight((v) => !v)}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
-              ))}
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  logout();
-                  navigate("/login");
-                }}
-                className="w-full"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Log out
-              </Button>
+                  {isLight ? <Sun className="h-4 w-4 text-amber-300" /> : <Moon className="h-4 w-4 text-amber-300" />}
+                  <span>Theme</span>
+                </button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                  }}
+                  className="flex-1 min-w-[140px]"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </Button>
+              </div>
             </div>
           </div>
         )}
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
+      <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</main>
 
       {feedbackOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">

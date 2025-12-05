@@ -301,7 +301,7 @@ export default function Settings() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto px-4 pb-16">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pb-16">
         <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
         <div className="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl overflow-hidden">
           <div className="divide-y divide-white/5">
@@ -323,7 +323,7 @@ export default function Settings() {
             </div>
           </div>
 
-                  <div className="min-w-[140px] flex justify-end">
+                  <div className="w-full sm:min-w-[140px] flex justify-start sm:justify-end">
                     {(() => {
                       const action = item.action;
                       if (action.type === "button") {
@@ -485,7 +485,7 @@ export default function Settings() {
                 <div className="text-white mb-3 font-semibold">Active Piece: White Queen</div>
                 <div className="flex flex-col gap-3 items-center">
                   <div className="relative inline-block">
-                    <div className="grid grid-cols-8 grid-rows-8 w-[360px] aspect-square overflow-hidden rounded-xl border border-white/10">
+                    <div className="grid grid-cols-8 grid-rows-8 w-full max-w-[320px] sm:max-w-[360px] mx-auto aspect-square overflow-hidden rounded-xl border border-white/10">
                       {sampleSquares.map((sq) => (
                         <div
                           key={sq.name}

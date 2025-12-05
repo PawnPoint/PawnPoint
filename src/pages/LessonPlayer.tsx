@@ -1238,9 +1238,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   return (
     <AppShell>
-      <div className="flex items-start gap-6">
+      <div className="flex flex-col xl:flex-row items-start gap-4 xl:gap-6">
         {showMovesList && (
-          <div className="min-w-[220px] max-w-[260px] rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl">
+          <div className="w-full xl:min-w-[240px] xl:max-w-[280px] rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl">
             <div className="p-4">
               <div className="font-semibold text-lg">{activeSubsection?.type === "quiz" ? "Options" : "Moves"}</div>
               <div className="text-xs text-white/60 mb-2">
@@ -1328,7 +1328,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   {movePairs.map((pair, idx) => (
                     <div
                       key={idx}
-                      className="grid grid-cols-[32px_1fr_1fr] items-center gap-3 text-sm py-1"
+                      className="grid grid-cols-[32px_1fr_1fr] items-center gap-2 sm:gap-3 text-xs sm:text-sm py-1"
                     >
                       <div className="text-white/50">{idx + 1}.</div>
                       <button
@@ -1358,22 +1358,22 @@ export default function LessonPlayer({ id }: { id?: string }) {
         )}
 
         <div className="flex-1">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
               <div className="text-xl font-bold text-white">{course?.title || "Course"}</div>
               <div className="text-sm text-white/60">{course?.description || "Live course layout"}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" className="bg-white/5 hover:bg-white/10" onClick={() => setNavOpen(true)}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="ghost" className="bg-white/5 hover:bg-white/10 w-full sm:w-auto" onClick={() => setNavOpen(true)}>
                 <LayoutList className="h-5 w-5 mr-2" />
                 Chapters
               </Button>
             </div>
           </div>
 
-              <div className="grid grid-cols-[minmax(320px,1fr)_280px] gap-4 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,1fr)_300px] gap-4 items-start">
             <div className="relative">
-              <div className="relative inline-block pl-8 pb-8 w-full max-w-[840px]">
+              <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[840px] mx-auto">
                 {activeSubsection?.type === "video" ? (
                   <div className="w-full rounded-[28px] overflow-hidden border border-white/10 bg-slate-900/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
                     <div className="flex flex-col gap-3 px-6 py-5 border-b border-white/10 sm:flex-row sm:items-center sm:justify-between">

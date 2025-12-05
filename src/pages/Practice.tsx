@@ -685,7 +685,7 @@ export default function Practice() {
   return (
     <AppShell>
       <div className="flex flex-col gap-4 text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <div className="text-xl font-bold flex items-center gap-2">
               <Rocket className="h-5 w-5 text-emerald-300" />
@@ -693,12 +693,11 @@ export default function Practice() {
             </div>
             <div className="text-sm text-white/60">Choose your color, then play on a live board.</div>
           </div>
-          <div />
         </div>
 
-        <div className="grid grid-cols-[minmax(320px,1fr)_260px] gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,1fr)_280px] gap-4 items-start">
           <div className="relative">
-            <div className="relative inline-block pl-8 pb-8 w-full max-w-[840px]">
+            <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[840px] mx-auto">
               <div
                 className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
                 style={{ backgroundColor: boardColors.dark }}

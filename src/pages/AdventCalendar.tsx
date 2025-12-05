@@ -180,12 +180,12 @@ export default function AdventCalendar() {
             <img src={christmasPawn} alt="Pawn counter" className="h-6 w-6 object-contain" />
             <div className="text-sm font-semibold">{pawnCount} Pawns</div>
           </div>
-          <div className="w-full max-w-5xl flex flex-col gap-2">
-            <div className="flex items-center gap-4">
-              <img src={christmasPawn} alt="Christmas Pawn" className="h-16 w-16 object-contain" />
-              <div className="text-left text-white">
+          <div className="w-full max-w-5xl flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 text-center sm:text-left">
+              <img src={christmasPawn} alt="Christmas Pawn" className="h-16 w-16 object-contain mx-auto sm:mx-0" />
+              <div className="text-white space-y-1">
                 <div className="text-lg font-semibold">Welcome to the Pawn Point Advent Calendar!</div>
-                <div className="text-sm text-white/80">
+                <div className="text-sm text-white/80 leading-relaxed">
                   Every day leading up to Christmas, you can open a new tile and unlock a special holiday-themed cosmetic,
                   surprise reward, or limited-edition item. Check back daily to discover what the South Knight has prepared
                   for you—your festive journey begins now!
@@ -196,7 +196,7 @@ export default function AdventCalendar() {
 
           <div className="w-full max-w-5xl rounded-3xl bg-slate-900 border border-white/10 shadow-2xl overflow-hidden relative mx-auto">
             <img src={adventImage} alt="Advent Calendar" className="w-full h-full object-contain" />
-            <div className="absolute inset-4 grid grid-cols-6 grid-rows-4 gap-1.5 p-1 pointer-events-none">
+            <div className="absolute inset-3 sm:inset-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 grid-rows-4 gap-2 sm:gap-1.5 p-1 pointer-events-none">
               {Array.from({ length: 24 }).map((_, idx) => {
                 const day = idx + 1;
                 const unlocked = day <= unlockedCount;
