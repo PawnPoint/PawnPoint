@@ -1,0 +1,10 @@
+                          {isLastMove && <div className="absolute inset-0 bg-yellow-400/50 pointer-events-none z-0" />}
+                          {piece ? (
+                            <img
+                              src={pieceSprite(piece) || ""}
+                              alt=""
+                              className={`relative z-10 w-full h-full object-contain ${
+                                piece.color === "w" && piece.type === "p" ? "p-0 scale-110" : "p-1"
+                              } ${piece.color === "b" && piece.type === "k" ? "scale-110 translate-y-0.5" : ""}`}
+                            />
+                          ) : null}
