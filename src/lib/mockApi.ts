@@ -925,6 +925,43 @@ export async function saveSubsection(
   return cleanedExisting[id];
 }
 
+export async function reorderSubsections(
+  courseId: string,
+  chapterId: string,
+  orderedIds: string[],
+): Promise<Record<string, Subsection> | null> {
+  const record = await fetchCourseRecord();
+  const course = record[courseId];
+  const chapter = course?.chapters?.[chapterId];
+  const subs = chapter?.subsections;
+  if (!course || !chapter || !subs) return null;
+
+  const seen = new Set<string>();
+  const orderedEntries: [string, Subsection][] = [];
+  orderedIds.forEach((id) => {
+    if (subs[id] && !seen.has(id)) {
+      orderedEntries.push([id, subs[id]]);
+      seen.add(id);
+    }
+  });
+  Object.entries(subs).forEach(([id, sub]) => {
+    if (!seen.has(id)) {
+      orderedEntries.push([id, sub]);
+      seen.add(id);
+    }
+  });
+
+  const reordered = orderedEntries.reduce<Record<string, Subsection>>((acc, [id, sub]) => {
+    acc[id] = sub;
+    return acc;
+  }, {});
+
+  course.chapters![chapterId] = { ...chapter, subsections: reordered };
+  record[courseId] = { ...course };
+  await writeCourseRecord(record);
+  return reordered;
+}
+
 export async function deleteSubsection(courseId: string, chapterId: string, subsectionId: string): Promise<void> {
   const record = await fetchCourseRecord();
   const course = record[courseId];

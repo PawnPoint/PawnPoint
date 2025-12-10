@@ -41,6 +41,7 @@ import {
   deleteSubsection,
   getCourse,
   listenCourse,
+  reorderSubsections,
   saveSubsection,
   updateChapter,
   type Chapter,
@@ -650,6 +651,57 @@ export default function LessonPlayer({ id }: { id?: string }) {
     await deleteSubsection(courseId, chapterId, subsectionId);
   };
 
+  const handleReorderSubsection = async (chapterId: string, subsectionId: string) => {
+    if (!isAdmin || !courseId) return;
+    const chapter = course?.chapters?.[chapterId];
+    const subs = chapter?.subsections;
+    if (!chapter || !subs) return;
+    const subsections = Object.values(subs);
+    const currentIdx = subsections.findIndex((s) => s.id === subsectionId);
+    if (currentIdx === -1) return;
+    const listText = subsections.map((s, idx) => `${idx + 1}. ${s.title || s.id}`).join("\n");
+    const input = window.prompt(
+      `Current order (top to bottom):\n${listText}\nEnter new position for "${subsections[currentIdx].title}":`,
+      String(currentIdx + 1),
+    );
+    if (input == null) return;
+    const parsed = Number.parseInt(input.trim(), 10);
+    if (!Number.isFinite(parsed)) return;
+    const nextPos = Math.min(Math.max(parsed, 1), subsections.length);
+    if (nextPos === currentIdx + 1) return;
+    const reorderedList = [...subsections];
+    const [item] = reorderedList.splice(currentIdx, 1);
+    reorderedList.splice(nextPos - 1, 0, item);
+    const orderedIds = reorderedList.map((s) => s.id);
+    try {
+      await reorderSubsections(courseId, chapterId, orderedIds);
+      setCourse((prev) => {
+        const targetCourse = prev;
+        const targetChapter = targetCourse?.chapters?.[chapterId];
+        const targetSubs = targetChapter?.subsections;
+        if (!targetCourse || !targetChapter || !targetSubs) return prev;
+        const reordered = orderedIds.reduce<Record<string, Subsection>>((acc, id) => {
+          const sub = targetSubs[id];
+          if (sub) acc[id] = sub;
+          return acc;
+        }, {});
+        Object.entries(targetSubs).forEach(([id, sub]) => {
+          if (!reordered[id]) reordered[id] = sub;
+        });
+        return {
+          ...targetCourse,
+          chapters: {
+            ...targetCourse.chapters,
+            [chapterId]: { ...targetChapter, subsections: reordered },
+          },
+        };
+      });
+    } catch (err) {
+      console.warn("Failed to reorder subsections", err);
+      window.alert("Could not reorder subsections. Please try again.");
+    }
+  };
+
   const handleCompleteSubsection = async (subsection: Subsection) => {
     if (!user || !courseId) return;
     if (subsection.type === "quiz") return;
@@ -897,18 +949,17 @@ export default function LessonPlayer({ id }: { id?: string }) {
   }, [activeSubsection, activeMoveIndex, history]);
 
   useEffect(() => {
-    if (activeSubsection?.type === "study") {
-      let record: MoveRecord | undefined;
-      if (activeMoveIndex >= 0 && history[activeMoveIndex]) {
-        record = history[activeMoveIndex];
-      } else if (history.length) {
-        record = history[history.length - 1];
-      }
-      if (record) {
-        setLastMoveSquares([record.from as Square, record.to as Square]);
-      } else {
-        setLastMoveSquares([]);
-      }
+    if (activeSubsection?.type !== "study") {
+      setLastMoveSquares([]);
+      return;
+    }
+    if (activeMoveIndex < 0 || !history.length) {
+      setLastMoveSquares([]);
+      return;
+    }
+    const record = history[activeMoveIndex];
+    if (record) {
+      setLastMoveSquares([record.from as Square, record.to as Square]);
     } else {
       setLastMoveSquares([]);
     }
@@ -1987,6 +2038,19 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                     Complete
                                   </Button>
                                 )
+                              )}
+                              {isAdmin && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReorderSubsection(chapter.id, item.id);
+                                  }}
+                                  aria-label="Reorder subsection"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
                               )}
                               {isAdmin && (
                                 <Button
