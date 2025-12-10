@@ -1371,9 +1371,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,1fr)_300px] gap-4 items-start">
+          <div className="grid grid-cols-1 2xl:grid-cols-[minmax(720px,1.4fr)_minmax(280px,0.6fr)] gap-4 2xl:gap-6 items-start">
             <div className="relative">
-              <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[840px] mx-auto">
+              <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[1200px] 2xl:max-w-[1400px] mx-auto">
                 {activeSubsection?.type === "video" ? (
                   <div className="w-full rounded-[28px] overflow-hidden border border-white/10 bg-slate-900/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
                     <div className="flex flex-col gap-3 px-6 py-5 border-b border-white/10 sm:flex-row sm:items-center sm:justify-between">
@@ -1533,7 +1533,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                       className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
                       style={{ backgroundColor: boardColors.dark }}
                     >
-                      <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[840px] aspect-square mx-auto">
+                      <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[1200px] 2xl:max-w-[1400px] aspect-square mx-auto">
                         {board.map((row, rIdx) =>
                           row.map((piece, cIdx) => {
                             const sq = squareName(rIdx, cIdx);

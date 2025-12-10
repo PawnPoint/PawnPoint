@@ -13,7 +13,7 @@ import { AppShell } from "../components/AppShell";
 import { Card, CardContent } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Progress } from "../components/ui/Progress";
-import { Search, Filter, Trash2, Plus, X } from "lucide-react";
+import { Search, Filter, Trash2, Plus, X, Pencil } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { nanoid } from "../lib/nanoid";
 
@@ -248,6 +248,7 @@ export default function Courses() {
               course={course}
               onOpen={() => navigate(`/lesson/${course.id}`)}
               isAdmin={isAdmin}
+              onEdit={() => startEditingCourse(course)}
               onDelete={handleDeleteCourse}
             />
           ))}
@@ -443,11 +444,13 @@ function CourseCard({
   course,
   onOpen,
   isAdmin,
+  onEdit,
   onDelete,
 }: {
   course: Course;
   onOpen: () => void;
   isAdmin: boolean;
+  onEdit: (course: Course) => void;
   onDelete: (course: Course) => void;
 }) {
   const thumbnail = course.thumbnailUrl || DEFAULT_COURSE_THUMBNAIL;
@@ -456,6 +459,13 @@ function CourseCard({
     <Card className="relative overflow-hidden hover:border-white/20 transition border border-white/10">
       {isAdmin && (
         <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1">
+          <button
+            onClick={() => onEdit(course)}
+            className="p-1 rounded-md hover:bg-white/10 text-white"
+            aria-label="Edit course"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           <button
             onClick={() => onDelete(course)}
             className="p-1 rounded-md hover:bg-white/10 text-red-200"

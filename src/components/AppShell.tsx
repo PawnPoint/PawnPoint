@@ -304,7 +304,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</main>
+      <main className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {children}
+      </main>
 
       {feedbackOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">
