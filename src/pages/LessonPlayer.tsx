@@ -656,7 +656,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
     const chapter = course?.chapters?.[chapterId];
     const subs = chapter?.subsections;
     if (!chapter || !subs) return;
-    const subsections = Object.values(subs);
+    const subsections = Object.values(subs).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     const currentIdx = subsections.findIndex((s) => s.id === subsectionId);
     if (currentIdx === -1) return;
     const listText = subsections.map((s, idx) => `${idx + 1}. ${s.title || s.id}`).join("\n");
@@ -674,28 +674,21 @@ export default function LessonPlayer({ id }: { id?: string }) {
     reorderedList.splice(nextPos - 1, 0, item);
     const orderedIds = reorderedList.map((s) => s.id);
     try {
-      await reorderSubsections(courseId, chapterId, orderedIds);
-      setCourse((prev) => {
-        const targetCourse = prev;
-        const targetChapter = targetCourse?.chapters?.[chapterId];
-        const targetSubs = targetChapter?.subsections;
-        if (!targetCourse || !targetChapter || !targetSubs) return prev;
-        const reordered = orderedIds.reduce<Record<string, Subsection>>((acc, id) => {
-          const sub = targetSubs[id];
-          if (sub) acc[id] = sub;
-          return acc;
-        }, {});
-        Object.entries(targetSubs).forEach(([id, sub]) => {
-          if (!reordered[id]) reordered[id] = sub;
+      const updated = await reorderSubsections(courseId, chapterId, orderedIds);
+      if (updated) {
+        setCourse((prev) => {
+          const targetCourse = prev;
+          const targetChapter = targetCourse?.chapters?.[chapterId];
+          if (!targetCourse || !targetChapter) return prev;
+          return {
+            ...targetCourse,
+            chapters: {
+              ...targetCourse.chapters,
+              [chapterId]: { ...targetChapter, subsections: updated },
+            },
+          };
         });
-        return {
-          ...targetCourse,
-          chapters: {
-            ...targetCourse.chapters,
-            [chapterId]: { ...targetChapter, subsections: reordered },
-          },
-        };
-      });
+      }
     } catch (err) {
       console.warn("Failed to reorder subsections", err);
       window.alert("Could not reorder subsections. Please try again.");
@@ -1959,7 +1952,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
               )}
               {chapters.map((chapter) => {
                 const expanded = expandedChapters[chapter.id];
-                const subsections = Object.values(chapter.subsections || {});
+                const subsections = Object.values(chapter.subsections || {}).sort(
+                  (a, b) => (a.index ?? 0) - (b.index ?? 0),
+                );
                 return (
                   <div
                     key={chapter.id}

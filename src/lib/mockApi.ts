@@ -58,6 +58,7 @@ export type Subsection =
       type: "video";
       title: string;
       videoUrl: string;
+      index?: number;
       trainerNote?: string;
     }
   | {
@@ -65,12 +66,14 @@ export type Subsection =
       type: "study";
       title: string;
       pgn: string;
+      index?: number;
     }
   | {
       id: string;
       type: "quiz";
       title: string;
       fen?: string;
+      index?: number;
       trainerNote?: string;
       questions: {
         id: string;
@@ -230,6 +233,9 @@ function sanitizeThumbnail(url?: string): string {
 
 function cleanSubsection(sub: Subsection): Subsection {
   const base: any = { ...sub };
+  if (typeof base.index !== "number") {
+    delete base.index;
+  }
   if ("trainerNote" in base) {
     const note = typeof base.trainerNote === "string" ? base.trainerNote.trim() : "";
     if (!note) {
@@ -246,6 +252,35 @@ function cleanSubsection(sub: Subsection): Subsection {
   return base as Subsection;
 }
 
+function reindexSubsections(subsections: Record<string, Subsection>, orderedIds?: string[]): Record<string, Subsection> {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  const compareByIndex = (a: string, b: string) => {
+    const ai = typeof subsections[a]?.index === "number" ? (subsections[a] as Subsection).index! : Number.MAX_SAFE_INTEGER;
+    const bi = typeof subsections[b]?.index === "number" ? (subsections[b] as Subsection).index! : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return a.localeCompare(b);
+  };
+  const append = (ids: string[]) => {
+    ids.forEach((id) => {
+      if (subsections[id] && !seen.has(id)) {
+        ordered.push(id);
+        seen.add(id);
+      }
+    });
+  };
+
+  if (orderedIds?.length) {
+    append(orderedIds);
+  }
+  append(Object.keys(subsections).sort(compareByIndex));
+
+  return ordered.reduce<Record<string, Subsection>>((acc, id, idx) => {
+    acc[id] = { ...subsections[id], index: idx };
+    return acc;
+  }, {});
+}
+
 function normalizeCourseRecord(record: CourseRecord): CourseRecord {
   const next: CourseRecord = {};
   Object.entries(record || {}).forEach(([id, course]) => {
@@ -258,7 +293,7 @@ function normalizeCourseRecord(record: CourseRecord): CourseRecord {
         if (!sub) return;
         subsections[subId] = cleanSubsection(sub);
       });
-      chapters[chId] = { ...chapter, subsections };
+      chapters[chId] = { ...chapter, subsections: reindexSubsections(subsections) };
     });
     next[id] = {
       ...course,
@@ -918,11 +953,13 @@ export async function saveSubsection(
     Object.entries(subs).map(([key, val]) => [key, cleanSubsection(val as Subsection)]),
   ) as Record<string, Subsection>;
   const id = subsection.id || nanoid();
-  cleanedExisting[id] = cleanSubsection({ ...subsection, id } as Subsection);
-  chapters[chapterId] = { ...chapter, subsections: cleanedExisting };
+  const nextIndex = typeof subsection.index === "number" ? subsection.index : Object.keys(cleanedExisting).length;
+  cleanedExisting[id] = cleanSubsection({ ...subsection, id, index: nextIndex } as Subsection);
+  const reindexed = reindexSubsections(cleanedExisting);
+  chapters[chapterId] = { ...chapter, subsections: reindexed };
   record[courseId] = { ...course, chapters };
   await writeCourseRecord(record);
-  return cleanedExisting[id];
+  return reindexed[id];
 }
 
 export async function reorderSubsections(
@@ -956,10 +993,11 @@ export async function reorderSubsections(
     return acc;
   }, {});
 
-  course.chapters![chapterId] = { ...chapter, subsections: reordered };
+  const reindexed = reindexSubsections(reordered, orderedIds);
+  course.chapters![chapterId] = { ...chapter, subsections: reindexed };
   record[courseId] = { ...course };
   await writeCourseRecord(record);
-  return reordered;
+  return reindexed;
 }
 
 export async function deleteSubsection(courseId: string, chapterId: string, subsectionId: string): Promise<void> {
