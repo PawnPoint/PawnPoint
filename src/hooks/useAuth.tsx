@@ -7,6 +7,9 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  browserPopupRedirectResolver,
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { ensureProfile, logout as mockLogout, type UserProfile } from "../lib/mockApi";
@@ -41,6 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const googleProvider = new GoogleAuthProvider();
   const todayKey = new Date().toDateString();
+
+  // Ensure we stay in a popup-only flow (avoid redirect in WebViews) and persist session locally.
+  useEffect(() => {
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.warn("Failed to set auth persistence", err);
+    });
+  }, []);
 
   const bumpStreak = (profile: UserProfile | null): UserProfile | null => {
     if (!profile) return profile;
@@ -77,35 +87,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     mode: "login" | "signup" = "login",
   ) => {
     setLoading(true);
-    if (mode === "signup") {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      if (displayName) {
-        await updateProfile(cred.user, { displayName });
+    try {
+      if (mode === "signup") {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        if (displayName) {
+          await updateProfile(cred.user, { displayName });
+        }
+        const profile = await ensureProfile(
+          cred.user.email || email,
+          displayName || cred.user.displayName || email.split("@")[0],
+          cred.user.uid,
+        );
+        const withStreak = bumpStreak(profile);
+        setUser(withStreak);
+      } else {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const profile = await ensureProfile(
+          cred.user.email || email,
+          cred.user.displayName || displayName || email.split("@")[0],
+          cred.user.uid,
+        );
+        const withStreak = bumpStreak(profile);
+        setUser(withStreak);
       }
-      const profile = await ensureProfile(
-        cred.user.email || email,
-        displayName || cred.user.displayName || email.split("@")[0],
-        cred.user.uid,
-      );
-      const withStreak = bumpStreak(profile);
-      setUser(withStreak);
-    } else {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const profile = await ensureProfile(
-        cred.user.email || email,
-        cred.user.displayName || displayName || email.split("@")[0],
-        cred.user.uid,
-      );
-      const withStreak = bumpStreak(profile);
-      setUser(withStreak);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const googleLoginHandler = async () => {
     setLoading(true);
     try {
-      const cred = await signInWithPopup(auth, googleProvider);
+      // Force popup resolver to avoid redirect flows that fail in WebViews/partitioned storage.
+      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
       const email = cred.user.email || "";
       const profile = await ensureProfile(
         email,

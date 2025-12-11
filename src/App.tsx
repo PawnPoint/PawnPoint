@@ -17,12 +17,13 @@ import Profile from "./pages/Profile";
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
+  const shouldRedirect = !loading && !user;
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (shouldRedirect) {
       navigate("/login");
     }
-  }, [loading, user, navigate]);
+  }, [shouldRedirect, navigate]);
 
   if (loading) {
     return (
@@ -32,9 +33,7 @@ function Protected({ children }: { children: JSX.Element }) {
     );
   }
 
-  if (!user) {
-    // Render login directly to avoid empty screens during redirects
-    navigate("/login");
+  if (shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
         Redirecting to login...

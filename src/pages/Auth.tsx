@@ -8,12 +8,31 @@ import loginBg from "../assets/Login screen.png";
 type Mode = "login" | "signup";
 
 export default function AuthPage({ mode }: { mode: Mode }) {
-  const { user, login, loginWithGoogle } = useAuth();
+  const { user, login, loginWithGoogle, loading } = useAuth();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [lockoutUntil, setLockoutUntil] = useState<number>(0);
   const isLogin = mode === "login";
+  const now = Date.now();
+  const locked = lockoutUntil > now;
+  const [lockSeconds, setLockSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!locked) {
+      setLockSeconds(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockSeconds(remaining);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [locked, lockoutUntil]);
 
   useEffect(() => {
     if (user) navigate("/dashboard");
@@ -21,22 +40,50 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
   const handleSubmit = async () => {
     if (!email || (!isLogin && !name) || !password) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    if (locked) {
+      const seconds = Math.max(1, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setError(`Too many attempts. Please wait ${seconds}s before trying again.`);
       return;
     }
     try {
+      setError("");
       await login(email, password, name || email.split("@")[0], isLogin ? "login" : "signup");
       navigate("/dashboard");
     } catch (err: unknown) {
       console.error("Auth error", err);
+      const code = (err as any)?.code || "";
+      if (code === "auth/email-already-in-use") {
+        setError("That email is already registered. Try logging in instead.");
+      } else if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+        setError("Invalid email or password. Please try again.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a minute and try again.");
+        setLockoutUntil(Date.now() + 60_000);
+      } else {
+        setError("Sign-in failed. Please check your details and try again.");
+      }
     }
   };
 
   const handleGoogle = async () => {
     try {
+      setError("");
       await loginWithGoogle();
       navigate("/dashboard");
     } catch (err: unknown) {
       console.error("Google auth error", err);
+      const code = (err as any)?.code || "";
+      if (code === "auth/popup-closed-by-user") {
+        setError("Google popup was closed. Please try again.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a minute and try again.");
+        setLockoutUntil(Date.now() + 60_000);
+      } else {
+        setError("Google sign-in failed. Please try again or use email/password.");
+      }
     }
   };
 
@@ -62,9 +109,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         </div>
 
         <div className="space-y-3">
-          <Button variant="outline" className="w-full justify-center" onClick={handleGoogle}>
+          <Button
+            variant="outline"
+            className="w-full justify-center"
+            onClick={handleGoogle}
+            disabled={loading || locked}
+          >
             <Chrome className="h-4 w-4 mr-2" />
-            Continue with Google
+            {loading ? "Please wait..." : "Continue with Google"}
           </Button>
 
           <div className="flex items-center gap-3 text-xs text-white/60">
@@ -72,6 +124,12 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             or
             <span className="h-px flex-1 bg-white/10" />
           </div>
+
+          {error && (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
+              {error} {locked && lockSeconds > 0 ? `(wait ${lockSeconds}s)` : ""}
+            </div>
+          )}
 
           {!isLogin && (
             <div>
@@ -115,8 +173,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </div>
           </div>
 
-          <Button className="w-full justify-center" onClick={handleSubmit}>
-            {isLogin ? "Log In" : "Create Account"}
+          <Button className="w-full justify-center" onClick={handleSubmit} disabled={loading || locked}>
+            {loading ? "One moment..." : locked ? `Please wait${lockSeconds ? ` (${lockSeconds}s)` : "..."}` : isLogin ? "Log In" : "Create Account"}
           </Button>
 
           <div className="text-sm text-white/70 text-center">
