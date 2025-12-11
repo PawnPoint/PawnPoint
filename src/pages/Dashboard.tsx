@@ -12,7 +12,22 @@ import southKnightImg from "../assets/The South Knight.png";
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [topTwitchChannel, setTopTwitchChannel] = useState("chess");
+  const [topTwitchChannel, setTopTwitchChannel] = useState<string | null>(null);
+  const featuredChannels = useMemo(
+    () => [
+      "gothamchess",
+      "gmhikaru",
+      "jesse_feb",
+      "chesscom",
+      "botezlive",
+      "chessbrah",
+      "annacramling",
+      "thechessnerd",
+      "dinabelenkaya",
+      "chessdojo",
+    ],
+    [],
+  );
   const twitchParent = useMemo(
     () => (typeof window !== "undefined" ? window.location.hostname || "localhost" : "localhost"),
     [],
@@ -34,43 +49,50 @@ export default function Dashboard() {
     let cancelled = false;
     const fetchTopChessStream = async () => {
       try {
-        const query = {
-          operationName: "DirectoryAllBrowsePage_Game",
-          variables: {
-            name: "Chess",
-            options: {
-              sort: "VIEWER_COUNT",
-              recommendationsContext: { platform: "web" },
-              requestID: "pawnpoint",
-              limit: 1,
-              platform: "web",
-              tags: [],
-            },
-          },
-          extensions: {
-            persistedQuery: {
-              version: 1,
-              // Hash used by Twitch web client for game directory queries
-              sha256Hash: "fcb82e9785a1fd8e97ab3c4b8d4288b7d2e0bc1c1d318cc031ee332b2f7f9a9b",
-            },
-          },
-        };
+        // Single GQL query asking for the live stream status of all featured channels.
+        const fields = featuredChannels
+          .map(
+            (login, idx) => `
+            c${idx}: user(login: "${login}") {
+              login
+              displayName
+              stream {
+                id
+                viewersCount
+              }
+            }`,
+          )
+          .join("\n");
+        const gqlQuery = { query: `query FeaturedLive { ${fields} }` };
+
         const res = await fetch("https://gql.twitch.tv/gql", {
           method: "POST",
           headers: {
             "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify([query]),
+          body: JSON.stringify(gqlQuery),
         });
         const json = await res.json();
-        const edge = json?.[0]?.data?.game?.streams?.edges?.[0];
-        const channelLogin = edge?.node?.broadcaster?.login || edge?.node?.broadcaster?.displayName;
-        if (!cancelled && channelLogin) {
-          setTopTwitchChannel(channelLogin.toLowerCase());
+        const data = json?.data || {};
+        const liveChannels: { login: string; viewers: number }[] = Object.values(data)
+          .map((entry: any) => {
+            if (!entry?.stream?.id || !entry?.login) return null;
+            return { login: entry.login.toLowerCase(), viewers: entry.stream.viewersCount ?? 0 };
+          })
+          .filter(Boolean) as { login: string; viewers: number }[];
+
+        if (!cancelled) {
+          if (liveChannels.length > 0) {
+            const pick = liveChannels[Math.floor(Math.random() * liveChannels.length)];
+            setTopTwitchChannel(pick.login);
+          } else {
+            setTopTwitchChannel("chess");
+          }
         }
       } catch (err) {
         console.warn("Failed to fetch top chess stream, using default channel.", err);
+        if (!cancelled) setTopTwitchChannel("chess");
       }
     };
     fetchTopChessStream();
@@ -80,8 +102,9 @@ export default function Dashboard() {
   }, []);
 
   const twitchSrc = useMemo(() => {
+    if (!topTwitchChannel) return "";
     const base = `https://player.twitch.tv/?channel=${encodeURIComponent(topTwitchChannel)}`;
-    const params = `&parent=${encodeURIComponent(twitchParent)}&muted=true&autoplay=false`;
+    const params = `&parent=${encodeURIComponent(twitchParent)}&muted=true&autoplay=true&playsinline=true`;
     return base + params;
   }, [topTwitchChannel, twitchParent]);
 

@@ -2,6 +2,7 @@ import { nanoid } from "./nanoid";
 import { db } from "./firebase";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
 import { DEFAULT_BOARD_THEME, resolveBoardTheme } from "./boardThemes";
+import { DEFAULT_PIECE_THEME, resolvePieceTheme } from "./pieceThemes";
 
 export type UserProfile = {
   id: string;
@@ -25,6 +26,7 @@ export type UserProfile = {
   createdAt?: number;
   xpReachedAt?: number;
   boardTheme?: string;
+  pieceTheme?: string;
 };
 
 export type Lesson = {
@@ -188,6 +190,7 @@ function readUser(): UserProfile | null {
     parsed.taglinesEnabled = parsed.taglinesEnabled ?? true;
     parsed.selectedTagline = parsed.selectedTagline ?? "";
     parsed.boardTheme = resolveBoardTheme(parsed.boardTheme).key;
+    parsed.pieceTheme = resolvePieceTheme(parsed.pieceTheme).key;
     writeUser(parsed);
     if (parsed.xpReachedAt === undefined) {
       parsed.xpReachedAt = parsed.createdAt ?? Date.now();
@@ -758,6 +761,7 @@ export async function ensureProfile(
           selectedTagline: localUser.selectedTagline ?? "",
           taglinesEnabled: localUser.taglinesEnabled ?? true,
           boardTheme: resolveBoardTheme(localUser.boardTheme).key,
+          pieceTheme: resolvePieceTheme(localUser.pieceTheme).key,
         }
       : {
           id: idOverride || nanoid(),
@@ -781,6 +785,7 @@ export async function ensureProfile(
           selectedTagline: "",
           taglinesEnabled: true,
           boardTheme: DEFAULT_BOARD_THEME,
+          pieceTheme: DEFAULT_PIECE_THEME,
         };
 
   const userNodeRef = ref(db, `users/${baseProfile.id}`);
@@ -808,6 +813,7 @@ export async function ensureProfile(
       selectedTagline: remote?.selectedTagline ?? baseProfile.selectedTagline ?? "",
       taglinesEnabled: remote?.taglinesEnabled ?? baseProfile.taglinesEnabled ?? true,
       boardTheme: resolveBoardTheme(remote?.boardTheme || baseProfile.boardTheme).key,
+      pieceTheme: resolvePieceTheme(remote?.pieceTheme || baseProfile.pieceTheme).key,
     };
     writeUser(merged);
     await update(userNodeRef, merged);
@@ -835,14 +841,15 @@ export async function setChessUsername(username: string): Promise<UserProfile | 
   return updated;
 }
 
-export async function updateBoardTheme(theme: string): Promise<UserProfile | null> {
+export async function updateBoardTheme(theme: string, pieceTheme?: string): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
   const resolved = resolveBoardTheme(theme).key;
-  const updated: UserProfile = { ...user, boardTheme: resolved };
+  const resolvedPiece = resolvePieceTheme(pieceTheme || user.pieceTheme).key;
+  const updated: UserProfile = { ...user, boardTheme: resolved, pieceTheme: resolvedPiece };
   writeUser(updated);
   try {
-    await update(ref(db, `users/${user.id}`), { boardTheme: resolved });
+    await update(ref(db, `users/${user.id}`), { boardTheme: resolved, pieceTheme: resolvedPiece });
   } catch (err) {
     console.warn("Failed to sync board theme", err);
   }
@@ -1081,6 +1088,8 @@ function normalizeUser(u: UserProfile): UserProfile {
     unlockedSets: u.unlockedSets || [],
     selectedTagline: u.selectedTagline ?? "",
     taglinesEnabled: u.taglinesEnabled ?? true,
+    pieceTheme: resolvePieceTheme(u.pieceTheme).key,
+    boardTheme: resolveBoardTheme(u.boardTheme).key,
   };
 }
 

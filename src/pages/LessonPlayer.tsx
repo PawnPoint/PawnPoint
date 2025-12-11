@@ -17,22 +17,11 @@ import {
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
-import whitePawn from "../assets/White Pawn.png";
-import whiteRook from "../assets/White Rook.png";
-import whiteKnight from "../assets/White Knight.png";
-import whiteBishop from "../assets/White Bishop.png";
-import whiteQueen from "../assets/White Queen.png";
-import whiteKing from "../assets/White King.png";
-import blackPawn from "../assets/Black Pawn.png";
-import blackRook from "../assets/Black Rook.png";
-import blackKnight from "../assets/Black Knight.png";
-import blackBishop from "../assets/Black Bishop.png";
-import blackQueen from "../assets/Black Queen.png";
-import blackKing from "../assets/Black King.png";
 import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import { useAuth } from "../hooks/useAuth";
 import { resolveBoardTheme } from "../lib/boardThemes";
+import { resolvePieceTheme } from "../lib/pieceThemes";
 import {
   addChapter,
   completeSubsection,
@@ -362,6 +351,7 @@ const piecePalette: { label: string; color: Color; type: PieceSymbol | "empty" }
 export default function LessonPlayer({ id }: { id?: string }) {
   const { user } = useAuth();
   const boardColors = resolveBoardTheme(user?.boardTheme).colors;
+  const { key: pieceThemeKey, pieces: pieceSet } = useMemo(() => resolvePieceTheme(user?.pieceTheme), [user?.pieceTheme]);
   const isAdmin = !!user?.isAdmin;
   const gameRef = useRef(new Chess());
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -482,23 +472,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const pieceSprite = (piece: { color: Color; type: PieceSymbol } | null) => {
     if (!piece) return null;
-    const whiteMap: Record<PieceSymbol, string> = {
-      p: whitePawn,
-      r: whiteRook,
-      n: whiteKnight,
-      b: whiteBishop,
-      q: whiteQueen,
-      k: whiteKing,
-    };
-    const blackMap: Record<PieceSymbol, string> = {
-      p: blackPawn,
-      r: blackRook,
-      n: blackKnight,
-      b: blackBishop,
-      q: blackQueen,
-      k: blackKing,
-    };
-    return piece.color === "w" ? whiteMap[piece.type] : blackMap[piece.type];
+    return piece.color === "w" ? pieceSet.w[piece.type] : pieceSet.b[piece.type];
   };
 
   const squareName = (rowIdx: number, colIdx: number): Square => {
@@ -1718,10 +1692,6 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                 }}
                                 className={`w-full h-full flex items-center justify-center text-2xl font-semibold relative overflow-hidden ${
                                   isSelected ? "ring-2 ring-pink-400" : ""
-                                } ${
-                                  isLegal
-                                    ? "after:absolute after:h-3 after:w-3 after:rounded-full after:bg-pink-400/70"
-                                    : ""
                                 } ${piece ? "cursor-piece" : "cursor-auto"}`}
                                 style={
                                   {
@@ -1746,14 +1716,21 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                 {isLastMove && (
                                   <div className="absolute inset-0 bg-yellow-400/50 pointer-events-none z-0" />
                                 )}
+                                {isLegal && (
+                                  <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+                                    <div className="h-3 w-3 rounded-full bg-pink-400/80" />
+                                  </div>
+                                )}
                                 {piece ? (
                                   <img
                                     src={pieceSprite(piece) || ""}
                                     alt=""
                                     className={`relative z-10 w-full h-full object-contain ${
-                                      piece.color === "w" && piece.type === "p" ? "p-0 scale-110" : "p-1"
+                                      pieceThemeKey === "freestyle" ? "p-1" : "p-1"
                                     } ${
-                                      piece.color === "b" && piece.type === "k" ? "scale-110 translate-y-0.5" : ""
+                                      pieceThemeKey === "freestyle" && piece.color === "b" && piece.type === "p"
+                                        ? "scale-110"
+                                        : ""
                                     }`}
                                   />
                                 ) : null}

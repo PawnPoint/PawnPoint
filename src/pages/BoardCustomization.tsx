@@ -2,22 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronDown } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
-import whitePawn from "../assets/White Pawn.png";
-import whiteRook from "../assets/White Rook.png";
-import whiteKnight from "../assets/White Knight.png";
-import whiteBishop from "../assets/White Bishop.png";
-import whiteQueen from "../assets/White Queen.png";
-import whiteKing from "../assets/White King.png";
-import blackPawn from "../assets/Black Pawn.png";
-import blackRook from "../assets/Black Rook.png";
-import blackKnight from "../assets/Black Knight.png";
-import blackBishop from "../assets/Black Bishop.png";
-import blackQueen from "../assets/Black Queen.png";
-import blackKing from "../assets/Black King.png";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { updateBoardTheme } from "../lib/mockApi";
 import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
+import { PIECE_THEMES, resolvePieceTheme } from "../lib/pieceThemes";
 
 type Option = { label: string; value: string };
 
@@ -25,11 +14,10 @@ const boardOptions: Option[] = Object.keys(BOARD_THEMES).map((key) => ({
   label: key.charAt(0).toUpperCase() + key.slice(1),
   value: key,
 }));
-const pieceOptions: Option[] = [{ label: "chess.com", value: "chesscom" }];
-const defaultPieces = {
-  w: { p: whitePawn, r: whiteRook, n: whiteKnight, b: whiteBishop, q: whiteQueen, k: whiteKing },
-  b: { p: blackPawn, r: blackRook, n: blackKnight, b: blackBishop, q: blackQueen, k: blackKing },
-} as const;
+const pieceOptions: Option[] = Object.keys(PIECE_THEMES).map((key) => ({
+  label: key.charAt(0).toUpperCase() + key.slice(1),
+  value: key,
+}));
 
 const sampleFen =
   "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1"; // matches the mock layout roughly
@@ -40,15 +28,19 @@ export default function BoardCustomization() {
   const [, navigate] = useLocation();
   const { user, setUser } = useAuth();
   const [boardTheme, setBoardTheme] = useState(() => resolveBoardTheme(user?.boardTheme).key);
-  const [pieceTheme, setPieceTheme] = useState(pieceOptions[0].value);
+  const [pieceTheme, setPieceTheme] = useState(() => resolvePieceTheme(user?.pieceTheme).key);
 
   useEffect(() => {
     setBoardTheme(resolveBoardTheme(user?.boardTheme).key);
   }, [user?.boardTheme]);
+  useEffect(() => {
+    setPieceTheme(resolvePieceTheme(user?.pieceTheme).key);
+  }, [user?.pieceTheme]);
 
   const squares = useMemo(() => buildBoard(sampleFen), []);
   const highlightColor = highlightPreviewColor;
   const colors = resolveBoardTheme(boardTheme).colors;
+  const activePieces = resolvePieceTheme(pieceTheme).pieces;
 
   return (
     <AppShell>
@@ -80,9 +72,13 @@ export default function BoardCustomization() {
                         )}
                         {sq.piece && (
                           <img
-                            src={defaultPieces[sq.piece[0] as "w" | "b"][sq.piece[1] as any]}
+                            src={activePieces[sq.piece[0] as "w" | "b"][sq.piece[1] as any]}
                             alt=""
-                            className="relative z-10 h-[36px] w-[36px] object-contain"
+                            className={`relative z-10 h-[36px] w-[36px] object-contain ${
+                              pieceTheme === "freestyle" ? "p-1" : ""
+                            } ${
+                              pieceTheme === "freestyle" && sq.piece === "p" ? "scale-110" : ""
+                            }`}
                             draggable={false}
                           />
                         )}
@@ -116,7 +112,8 @@ export default function BoardCustomization() {
                 className="px-6"
                 onClick={async () => {
                   const resolved = resolveBoardTheme(boardTheme).key;
-                  const updated = await updateBoardTheme(resolved);
+                  const resolvedPieces = resolvePieceTheme(pieceTheme).key;
+                  const updated = await updateBoardTheme(resolved, resolvedPieces);
                   if (updated) setUser(updated);
                 }}
               >
