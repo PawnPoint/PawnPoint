@@ -67,6 +67,7 @@ export type Subsection =
       title: string;
       pgn: string;
       index?: number;
+      fen?: string;
     }
   | {
       id: string;
@@ -235,6 +236,14 @@ function cleanSubsection(sub: Subsection): Subsection {
   const base: any = { ...sub };
   if (typeof base.index !== "number") {
     delete base.index;
+  }
+  if ("fen" in base) {
+    const fen = typeof base.fen === "string" ? base.fen.trim() : "";
+    if (!fen) {
+      delete base.fen;
+    } else {
+      base.fen = fen;
+    }
   }
   if ("trainerNote" in base) {
     const note = typeof base.trainerNote === "string" ? base.trainerNote.trim() : "";

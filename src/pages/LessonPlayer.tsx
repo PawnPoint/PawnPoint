@@ -167,6 +167,22 @@ function loadFenOrNull(fen?: string | null): string | null {
   }
 }
 
+function createChess(startFen?: string | null): Chess {
+  if (startFen) {
+    try {
+      return new Chess(startFen);
+    } catch {
+      // fall through to default
+    }
+  }
+  return new Chess();
+}
+
+function resolveStudyStartFen(raw?: string | null): string {
+  const normalized = raw ? normalizeFenString(raw) : null;
+  return loadFenOrNull(normalized) || new Chess().fen();
+}
+
 function extractQuizFen(subsection: Subsection | any): string | null {
   const candidateKeys = [
     subsection?.fen,
@@ -254,11 +270,14 @@ type ParsedMove = {
   variations?: ParsedMove[][];
 };
 
-function parsePgnWithVariations(pgn: string): {
+function parsePgnWithVariations(pgn: string, startFen?: string): {
   mainline: MoveRecord[];
   rootVariations: MoveRecord[][];
   variationMap: Record<string, MoveRecord[][]>;
 } {
+  const startingFen = resolveStudyStartFen(startFen);
+  const newBaseChess = () => createChess(startingFen);
+
   try {
     const games = parsePgn(pgn, { startRule: "games", sloppy: true }) as any[];
     const game = games?.[0];
@@ -303,10 +322,10 @@ function parsePgnWithVariations(pgn: string): {
     };
 
     const rootVariations: MoveRecord[][] = [];
-    const mainline = buildLine(game.moves as ParsedMove[], new Chess(), (vars) => rootVariations.push(...vars));
+    const mainline = buildLine(game.moves as ParsedMove[], newBaseChess(), (vars) => rootVariations.push(...vars));
     if (game.variations?.length) {
       game.variations.forEach((variation: ParsedMove[]) => {
-        rootVariations.push(buildLine(variation, new Chess()));
+        rootVariations.push(buildLine(variation, newBaseChess()));
       });
     }
     return { mainline, rootVariations, variationMap };
@@ -703,21 +722,23 @@ export default function LessonPlayer({ id }: { id?: string }) {
     await completeSubsection(user.id, courseId, subsection.id, subsection.type);
   };
 
-  const loadStudyPgn = (pgn: string) => {
+  const loadStudyPgn = (pgn: string, startFen?: string | null) => {
     setStudyError(null);
+    const startingFen = resolveStudyStartFen(startFen);
+    setFen(startingFen);
     try {
       // Parse using robust PGN parser first (preserves variations)
-      let { mainline, variationMap } = parsePgnWithVariations(pgn);
+      let { mainline, variationMap } = parsePgnWithVariations(pgn, startingFen);
 
       // If variation parsing failed, try plain chess.js linear loads
       if (!mainline.length) {
         const attempts = [pgn];
         for (const candidate of attempts) {
-          const fallback = new Chess();
+          const fallback = createChess(startingFen);
           if (fallback.loadPgn(candidate, { sloppy: true })) {
             const moves = fallback.history({ verbose: true });
             const records: MoveRecord[] = [];
-            const replay = new Chess();
+            const replay = createChess(startingFen);
             moves.forEach((mv) => {
               replay.move(mv);
               records.push({
@@ -739,7 +760,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       // fallback: linearize tokens ignoring variation structure but preserving sequence
       if (!mainline.length) {
         const tokens = tokenizePgn(pgn);
-        const linear = new Chess();
+        const linear = createChess(startingFen);
         const records: MoveRecord[] = [];
         tokens.forEach((tok) => {
           if (tok === "(" || tok === ")" || typeof tok === "object") return;
@@ -767,7 +788,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       if (!mainline.length) {
         const base = normalizeWhitespace(stripParenthesesContent(stripPgnTags(pgn))).replace(/\{[^}]*\}/g, "");
         const tokens = base.split(/\s+/).filter(Boolean);
-        const linear = new Chess();
+        const linear = createChess(startingFen);
         const records: MoveRecord[] = [];
         tokens.forEach((tok) => {
           const t = sanitizeMove(tok);
@@ -799,7 +820,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
         setHistory([]);
         setActiveMoveIndex(-1);
         setActiveMoveFen(null);
-        setFen(new Chess().fen());
+        setFen(startingFen);
         setSelected(null);
         setDragFrom(null);
         return;
@@ -809,7 +830,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       const buildMainlineLookup = (line: MoveRecord[]) => {
         const map: Record<string, MoveRecord> = {};
         const idxMap: Record<string, number> = {};
-        const g = new Chess();
+        const g = createChess(startingFen);
         line.forEach((mv, idx) => {
           const fenBefore = g.fen();
           map[fenBefore] = mv;
@@ -828,7 +849,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       // start at the beginning so root-level variations are visible
       setActiveMoveIndex(-1);
       setActiveMoveFen(null);
-      setFen(new Chess().fen());
+      setFen(startingFen);
       setSelected(null);
       setDragFrom(null);
       setStudyError(null);
@@ -841,7 +862,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       setHistory([]);
       setActiveMoveIndex(-1);
       setActiveMoveFen(null);
-      setFen(new Chess().fen());
+      setFen(startingFen);
       setStudyError("Could not load this PGN. Try another file or share the PGN text.");
     }
     setSelected(null);
@@ -850,12 +871,26 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const handleSelectSubsection = (sub: Subsection) => {
     setActiveSubsection(sub);
-    if (sub.type === "study" && sub.pgn) {
+    if (sub.type === "study") {
       setQuizAnswers([]);
       setSelectedOption(null);
       setTrainerNote(null);
       setStudyError(null);
-      loadStudyPgn(sub.pgn);
+      const startingFen = resolveStudyStartFen(sub.fen);
+      setFen(startingFen);
+      if (sub.pgn) {
+        loadStudyPgn(sub.pgn, startingFen);
+      } else {
+        setHistory([]);
+        setStudyMainline([]);
+        setVariationsByFen({});
+        setMainlineByFen({});
+        setMainlineIndexByFen({});
+        setActiveMoveIndex(-1);
+        setActiveMoveFen(null);
+        setSelected(null);
+        setDragFrom(null);
+      }
       return;
     }
 
@@ -908,14 +943,15 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   useEffect(() => {
     if (activeSubsection?.type !== "study") return;
+    const startFen = resolveStudyStartFen(activeSubsection.fen);
     if (!history.length) {
       setActiveMoveIndex(-1);
       setActiveMoveFen(null);
-      setFen(new Chess().fen());
+      setFen(startFen);
       return;
     }
     // pause autoadvance when a branch exists from the current position
-    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : new Chess().fen();
+    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : startFen;
     if (variationsByFen[currentFen]?.length) return;
   }, [history, activeMoveIndex, variationsByFen, setFen, activeSubsection]);
 
@@ -971,7 +1007,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const goNextMove = () => {
     if (!history.length) return;
-    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : new Chess().fen();
+    const baseFen =
+      activeSubsection?.type === "study" ? resolveStudyStartFen(activeSubsection.fen) : new Chess().fen();
+    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     if (variationsByFen[currentFen]?.length) return;
     const target =
       activeMoveIndex === -1 ? 0 : Math.min(history.length - 1, activeMoveIndex + 1);
@@ -1157,7 +1195,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const currentVariations = useMemo(() => {
     if (activeSubsection?.type !== "study") return [];
-    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : new Chess().fen();
+    const baseFen = resolveStudyStartFen(activeSubsection.fen);
+    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     return variationsByFen[currentFen] || [];
   }, [activeMoveIndex, activeSubsection, history, variationsByFen]);
   const quizBlock = useMemo(() => {
@@ -1193,12 +1232,15 @@ export default function LessonPlayer({ id }: { id?: string }) {
   }, [activeSubsection]);
   const currentMainlineMove = useMemo(() => {
     if (activeSubsection?.type !== "study") return null;
-    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : new Chess().fen();
+    const baseFen = resolveStudyStartFen(activeSubsection.fen);
+    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     return mainlineByFen[currentFen] || null;
   }, [activeMoveIndex, activeSubsection, history, mainlineByFen]);
   const isBranchPoint = activeSubsection?.type === "study" && currentVariations.length > 0;
 
   const applyVariation = (branch: MoveRecord[] | null) => {
+    const baseFen =
+      activeSubsection?.type === "study" ? resolveStudyStartFen(activeSubsection.fen) : new Chess().fen();
     // If selecting a variation, push current state so we can restore mainline
     if (branch && branch.length) {
       const branchSourceIndex = activeMoveIndex + 1;
@@ -1206,7 +1248,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       const newHistory = [...prefix, ...branch];
       setHistory(newHistory);
       const nextIndex = prefix.length;
-      const nextFen = newHistory[nextIndex]?.fen || new Chess().fen();
+      const nextFen = newHistory[nextIndex]?.fen || baseFen;
       setActiveMoveIndex(nextIndex);
       setActiveMoveFen(nextFen);
       setFen(nextFen);
@@ -1216,7 +1258,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
     }
 
     // Selecting mainline: restore the last saved mainline state or advance the next mainline move
-    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : new Chess().fen();
+    const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     const mainlineMove = mainlineByFen[currentFen];
     const mainlineIdx = mainlineIndexByFen[currentFen];
     if (mainlineMove != null && mainlineIdx != null) {
@@ -2284,6 +2326,17 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     }}
                     className="w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
                   />
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/80">Starting position (FEN)</label>
+                    <input
+                      value={subsectionModal.fen}
+                      onChange={(e) =>
+                        setSubsectionModal((prev) => (prev ? { ...prev, fen: e.target.value } : prev))
+                      }
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
+                      placeholder="e.g. rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -2426,11 +2479,13 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         ...(trainerNote ? { trainerNote } : {}),
                       };
                     } else if (subsectionModal.type === "study") {
+                      const fenText = subsectionModal.fen.trim();
                       payload = {
                         id: "",
                         type: "study",
                         title: trimmedTitle,
                         pgn: subsectionModal.pgn.trim(),
+                        ...(fenText ? { fen: fenText } : {}),
                       };
                     } else {
                       const optionsArr = subsectionModal.quizQuestions.map((q) => q.prompt.trim());
@@ -2481,4 +2536,3 @@ export default function LessonPlayer({ id }: { id?: string }) {
     </AppShell>
   );
 }
-
