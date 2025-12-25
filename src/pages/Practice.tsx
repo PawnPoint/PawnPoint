@@ -374,6 +374,16 @@ export default function Practice() {
     return piece.color === "w" ? pieceSet.w[piece.type] : pieceSet.b[piece.type];
   };
 
+  const pawnScaleClass = (piece: { color: Color; type: PieceSymbol } | null) => {
+    if (!piece) return "";
+    if (pieceThemeKey === "chesscom") {
+      if (piece.type === "p") return piece.color === "w" ? "scale-110" : "scale-90";
+      if (piece.type === "k" && piece.color === "b") return "scale-110 translate-y-[1px]";
+    }
+    if (pieceThemeKey === "freestyle" && piece.type === "p" && piece.color === "b") return "scale-110";
+    return "";
+  };
+
   const squareName = (rowIdx: number, colIdx: number): Square => {
     const file = "abcdefgh"[orientation === "w" ? colIdx : 7 - colIdx];
     const rank = orientation === "w" ? 8 - rowIdx : rowIdx + 1;
@@ -1220,11 +1230,7 @@ export default function Practice() {
                               alt=""
                               className={`relative z-10 w-full h-full object-contain ${
                                 pieceThemeKey === "freestyle" ? "p-1" : "p-1"
-                              } ${
-                                pieceThemeKey === "freestyle" && piece.color === "b" && piece.type === "p"
-                                  ? "scale-110"
-                                  : ""
-                              }`}
+                              } ${pawnScaleClass(piece)}`}
                             />
                           ) : null}
                         </button>

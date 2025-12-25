@@ -13,6 +13,7 @@ import LessonPlayer from "./pages/LessonPlayer";
 import Settings from "./pages/Settings";
 import AdventCalendar from "./pages/AdventCalendar";
 import Profile from "./pages/Profile";
+import Ranks from "./pages/Ranks";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -100,6 +101,13 @@ function Router() {
         )}
       </Route>
       <Route path="/practice" component={Practice} />
+      <Route path="/ranks">
+        {() => (
+          <Protected>
+            <Ranks />
+          </Protected>
+        )}
+      </Route>
       <Route path="/profile">
         {() => (
           <Protected>

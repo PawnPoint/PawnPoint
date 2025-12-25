@@ -9,7 +9,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
+  ArrowLeftRight,
+  Users,
+  AlertTriangle,
+  X,
 } from "lucide-react";
+import { updateEmail as updateAuthEmail } from "firebase/auth";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
@@ -20,10 +25,21 @@ import {
   setSuggestedCourses,
   setChessUsername,
   updateBoardTheme,
+  choosePersonalAccount,
+  createGroupForUser,
+  joinGroupWithCode,
+  leaveGroup,
+  getGroupMembers,
+  renameGroup,
+  deleteGroup,
+  removeGroupMember,
+  updateUserEmail,
+  type GroupMember,
   type Course,
 } from "../lib/mockApi";
 import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
 import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceThemes";
+import { auth } from "../lib/firebase";
 
 type SettingAction =
   | { type: "button"; label: string; onClick: () => void; variant?: "primary" | "ghost" | "outline" }
@@ -74,6 +90,19 @@ export default function Settings() {
   const [resetCourses, setResetCourses] = useState<{ course: Course; percent: number }[]>([]);
   const [resetLoading, setResetLoading] = useState(false);
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [switchModalOpen, setSwitchModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState(user?.email || "");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [emailError, setEmailError] = useState("");
+  const [manageGroupOpen, setManageGroupOpen] = useState(false);
+  const [groupJoinCode, setGroupJoinCode] = useState("");
+  const [groupNameInput, setGroupNameInput] = useState(user?.groupName || "");
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [groupActionError, setGroupActionError] = useState("");
+  const [groupActionLoading, setGroupActionLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
   const sampleSquares = useMemo(() => buildBoard(sampleFen), []);
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
@@ -91,6 +120,25 @@ export default function Settings() {
   useEffect(() => {
     setPieceTheme(resolvePieceTheme(user?.pieceTheme).key);
   }, [user?.pieceTheme]);
+
+  const inGroup = !!user?.groupId && user?.accountType === "group";
+  const isGroupAdmin = inGroup && user?.groupRole === "admin";
+
+  useEffect(() => {
+    setGroupNameInput(user?.groupName || "");
+  }, [user?.groupName]);
+
+  useEffect(() => {
+    setEmailInput(user?.email || "");
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (manageGroupOpen && inGroup) {
+      getGroupMembers(user?.groupId)
+        .then((members) => setGroupMembers(members))
+        .catch(() => setGroupMembers([]));
+    }
+  }, [manageGroupOpen, inGroup, user?.groupId]);
 
   const fetchTopOpenings = async (username: string): Promise<string[]> => {
     // chess.com archives list
@@ -148,7 +196,197 @@ export default function Settings() {
     }
   };
 
+  const handleEmailUpdate = async () => {
+    const next = emailInput.trim();
+    if (!next) {
+      setEmailError("Enter an email address.");
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailStatus("loading");
+    setEmailError("");
+    try {
+      const fbUser = auth.currentUser;
+      if (!fbUser) throw new Error("Sign in again to change your email.");
+      await updateAuthEmail(fbUser, next);
+      const updated = await updateUserEmail(next);
+      if (updated) setUser(updated);
+      setEmailStatus("success");
+      setEmailModalOpen(false);
+    } catch (err: any) {
+      const code = err?.code || "";
+      const message =
+        code === "auth/requires-recent-login"
+          ? "Please sign out and sign back in, then try again to change your email."
+          : err?.message || "Could not update email right now.";
+      setEmailError(message);
+      setEmailStatus("error");
+    }
+  };
+
+  const openSwitchModal = () => {
+    setSwitchModalOpen(true);
+    setGroupActionError("");
+    setGroupJoinCode("");
+    setGroupNameInput(user?.groupName || "");
+  };
+
+  const handleLeaveGroup = async () => {
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const updated = await leaveGroup();
+      if (updated) setUser(updated);
+      setSwitchModalOpen(false);
+      setManageGroupOpen(false);
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not leave the group.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!groupJoinCode.trim()) {
+      setGroupActionError("Enter the #1234 code to join.");
+      return;
+    }
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const result = await joinGroupWithCode(groupJoinCode.trim());
+      if (result?.profile) {
+        setUser(result.profile);
+        setSwitchModalOpen(false);
+      }
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not join that group.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupNameInput.trim()) {
+      setGroupActionError("Name your group first.");
+      return;
+    }
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const result = await createGroupForUser(groupNameInput.trim());
+      if (result?.profile) {
+        setUser(result.profile);
+        setSwitchModalOpen(false);
+      }
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not create the group.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleRenameGroup = async () => {
+    if (!groupNameInput.trim()) {
+      setGroupActionError("Enter a name for your group.");
+      return;
+    }
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const renamed = await renameGroup(user || null, groupNameInput.trim());
+      if (renamed && user) {
+        setUser({ ...user, groupName: renamed.name });
+      }
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not rename the group.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (deleteConfirm !== "DELETE") {
+      setGroupActionError('Type "DELETE" to confirm.');
+      return;
+    }
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const updated = await deleteGroup(user || null);
+      if (updated) setUser(updated);
+      setManageGroupOpen(false);
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not delete the group.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!user) return;
+    setGroupActionLoading(true);
+    setGroupActionError("");
+    try {
+      const members = await removeGroupMember(user, memberId);
+      setGroupMembers(members);
+    } catch (err: any) {
+      setGroupActionError(err?.message || "Could not remove that member.");
+    } finally {
+      setGroupActionLoading(false);
+    }
+  };
+
+  const filteredMembers = groupMembers.filter((member) => {
+    const term = groupSearch.trim().toLowerCase();
+    if (!term) return true;
+    const name = (member.displayName || member.email || "").toLowerCase();
+    return name.includes(term);
+  });
+
   const items: SettingItem[] = [
+    {
+      key: "switch-account",
+      title: "Switch Account",
+      description: inGroup
+        ? `Currently in ${user?.groupName || "a group"} (${user?.groupCode || "no code yet"})`
+        : "Personal account active. Join or create a group to collaborate.",
+      accent: "bg-indigo-700",
+      icon: ArrowLeftRight,
+      action: {
+        type: "button",
+        label: inGroup ? "Leave or change" : "Create or Join",
+        variant: "outline",
+        onClick: openSwitchModal,
+      },
+    },
+    ...(isGroupAdmin
+      ? [
+          {
+            key: "manage-group",
+            title: "Manage Group",
+            description: "Invite or remove members, rename the group, or delete it entirely.",
+            accent: "bg-emerald-700",
+            icon: Users,
+            action: {
+              type: "button",
+              label: "Manage Group",
+              variant: "outline",
+              onClick: () => {
+                setGroupActionError("");
+                setDeleteConfirm("");
+                setManageGroupOpen(true);
+                getGroupMembers(user?.groupId)
+                  .then((members) => setGroupMembers(members))
+                  .catch(() => setGroupMembers([]));
+              },
+            },
+          } as SettingItem,
+        ]
+      : []),
     {
       key: "logout",
       title: "Log Out",
@@ -239,14 +477,19 @@ export default function Settings() {
         type: "button",
         label: "Change Email",
         variant: "outline",
-        onClick: () => {},
+        onClick: () => {
+          setEmailModalOpen(true);
+          setEmailStatus("idle");
+          setEmailError("");
+          setEmailInput(user?.email || "");
+        },
       },
     },
     {
       key: "delete",
       title: "Delete Account",
       description:
-        "Important: Deleting your account will permanently remove all your progress and data. This action cannot be undone.",
+        "Important: Deleting your account will permanently remove all your progress and data.",
       accent: "bg-rose-700",
       icon: ShieldOff,
       danger: true,
@@ -307,24 +550,24 @@ export default function Settings() {
                   className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-white/5"
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white ${item.accent}`}>
+                    <div className={`h-12 w-12 shrink-0 rounded-full border border-white/10 flex items-center justify-center text-white ${item.accent}`}>
                       <Icon className="h-6 w-6" />
                     </div>
                     <div className="space-y-1">
                       <div className="text-lg font-semibold text-white">{item.title}</div>
-              <div className="text-sm text-white/70 leading-snug">{item.description}</div>
-              {item.highlight && <div className="text-sm font-semibold text-emerald-300">{item.highlight}</div>}
-            </div>
-          </div>
+                      <div className="text-sm text-white/70 leading-snug">{item.description}</div>
+                      {item.highlight && <div className="text-sm font-semibold text-emerald-300">{item.highlight}</div>}
+                    </div>
+                  </div>
 
-                  <div className="w-full sm:min-w-[140px] flex justify-start sm:justify-end">
+                  <div className="w-full sm:w-[180px] flex justify-start sm:justify-end">
                     {(() => {
                       const action = item.action;
                       if (action.type === "button") {
                         return (
                           <Button
                             variant={action.variant ?? "outline"}
-                            className={`w-full sm:w-auto ${item.danger ? "border-rose-300 text-rose-100 hover:bg-rose-500/20" : ""}`}
+                            className={`w-full sm:w-[180px] min-w-[180px] h-11 justify-center whitespace-nowrap ${item.danger ? "border-rose-300 text-rose-100 hover:bg-rose-500/20" : ""}`}
                             onClick={action.onClick}
                           >
                             {action.label}
@@ -362,6 +605,242 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {switchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Switch Account</div>
+                <div className="text-sm text-white/70">
+                  Personal accounts keep data to yourself. Groups share courses and leaderboards only with members.
+                </div>
+              </div>
+              <button
+                className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                onClick={() => {
+                  setSwitchModalOpen(false);
+                  setGroupActionError("");
+                }}
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
+
+            {groupActionError && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
+                {groupActionError}
+              </div>
+            )}
+
+            {inGroup ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+                  <div className="text-sm text-white/70">Current group</div>
+                  <div className="text-lg font-semibold">{user?.groupName || "Unnamed group"}</div>
+                  <div className="text-xs text-white/60">Code: {user?.groupCode || "N/A"}</div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={handleLeaveGroup}
+                  disabled={groupActionLoading}
+                >
+                  {groupActionLoading ? "Leaving..." : "Leave group and use personal account"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-sm font-semibold">Personal account</div>
+                  <div className="text-xs text-white/70">You are currently using a personal account.</div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-white/80">Join a group with code</label>
+                  <input
+                    value={groupJoinCode}
+                    onChange={(e) => setGroupJoinCode(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="#1234"
+                  />
+                  <Button className="w-full justify-center" onClick={handleJoinGroup} disabled={groupActionLoading}>
+                    {groupActionLoading ? "Joining..." : "Join Group"}
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-white/80">Create a new group</label>
+                  <input
+                    value={groupNameInput}
+                    onChange={(e) => setGroupNameInput(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                    placeholder="Team Knights"
+                  />
+                  <Button className="w-full justify-center" onClick={handleCreateGroup} disabled={groupActionLoading}>
+                    {groupActionLoading ? "Creating..." : "Create Group"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {manageGroupOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 py-10 overflow-y-auto">
+          <div className="w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-semibold">Manage Group</div>
+                <div className="text-sm text-white/70">Only members in this group can see these courses and leaderboards.</div>
+              </div>
+              <button
+                className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                onClick={() => {
+                  setManageGroupOpen(false);
+                  setGroupActionError("");
+                }}
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
+
+            {groupActionError && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
+                {groupActionError}
+              </div>
+            )}
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+              <div className="text-sm text-white/70">Group name</div>
+              <input
+                value={groupNameInput}
+                  onChange={(e) => setGroupNameInput(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="Team Knights"
+                />
+                <Button variant="outline" onClick={handleRenameGroup} disabled={groupActionLoading}>
+                  {groupActionLoading ? "Saving..." : "Rename Group"}
+                </Button>
+                <div className="text-xs text-white/60">Code: {user?.groupCode || "No code yet"} (share this to invite)</div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>Members</span>
+                <span className="text-white/60 text-xs">{groupMembers.length} total</span>
+              </div>
+              <input
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                placeholder="Search members"
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              {filteredMembers.length === 0 ? (
+                <div className="text-xs text-white/60">No members listed yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {filteredMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center uppercase">
+                          {(member.displayName || member.email || "U").slice(0, 2)}
+                        </div>
+                        <div>
+                          <div className="font-semibold">{member.displayName || "Member"}</div>
+                          <div className="text-xs text-white/60">{member.role === "admin" ? "Admin" : "Member"}</div>
+                        </div>
+                      </div>
+                      {member.id !== user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          disabled={groupActionLoading}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            </div>
+
+            <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-rose-100">
+                <AlertTriangle className="h-4 w-4" />
+                <div className="font-semibold">Delete group</div>
+              </div>
+              <div className="text-xs text-white/70">
+                Deleting will remove the group, its private courses, and leaderboard visibility for all members.
+              </div>
+              <input
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder='Type "DELETE" to confirm'
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-400"
+              />
+              <Button variant="outline" onClick={handleDeleteGroup} disabled={groupActionLoading}>
+                {groupActionLoading ? "Deleting..." : "Delete group"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {emailModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Change email</div>
+                <div className="text-xs text-white/60">Update the email for your account and notifications.</div>
+              </div>
+              <button
+                className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                onClick={() => setEmailModalOpen(false)}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.08em] text-white/50">New email</label>
+              <input
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                placeholder="you@example.com"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleEmailUpdate();
+                  }
+                }}
+              />
+              {emailError && <div className="text-xs text-rose-300">{emailError}</div>}
+              {emailStatus === "success" && <div className="text-xs text-emerald-300">Email updated.</div>}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setEmailModalOpen(false)} className="min-w-[100px]">
+                Cancel
+              </Button>
+              <Button onClick={handleEmailUpdate} disabled={emailStatus === "loading"} className="min-w-[100px]">
+                {emailStatus === "loading" ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {accountModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
@@ -471,7 +950,7 @@ export default function Settings() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div className="text-lg font-semibold">Board customization</div>
               <button className="text-white/70 hover:text-white" onClick={() => setBoardModalOpen(false)} aria-label="Close">
-                ×
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-5 space-y-6">
@@ -501,9 +980,7 @@ export default function Settings() {
                           alt=""
                           className={`relative z-10 h-[36px] w-[36px] object-contain ${
                             pieceTheme === "freestyle" ? "p-1" : ""
-                          } ${
-                            pieceTheme === "freestyle" && sq.piece === "p" ? "scale-110" : ""
-                          }`}
+                          } ${pawnScaleForFen(pieceTheme, sq.piece)}`}
                           draggable={false}
                         />
                       )}
@@ -682,3 +1159,17 @@ function pieceSpriteFromFen(symbol: string, pieces: PieceTheme) {
   const type = symbol.toLowerCase() as "p" | "n" | "b" | "r" | "q" | "k";
   return isWhite ? pieces.w[type] : pieces.b[type];
 }
+
+function pawnScaleForFen(pieceTheme: string, symbol: string) {
+  if (!symbol) return "";
+  const isWhite = symbol === symbol.toUpperCase();
+  const lower = symbol.toLowerCase();
+  if (pieceTheme === "chesscom") {
+    if (lower === "p") return isWhite ? "scale-110" : "scale-90";
+    if (!isWhite && lower === "k") return "scale-110 translate-y-[1px]";
+  }
+  if (pieceTheme === "freestyle" && lower === "p" && !isWhite) return "scale-110";
+  return "";
+}
+
+

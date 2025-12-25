@@ -19,12 +19,12 @@ export default function CourseDetail({ id }: { id: string }) {
   const queryClient = useQueryClient();
 
   const { data: course } = useQuery({
-    queryKey: ["course", id],
-    queryFn: () => getCourse(id),
+    queryKey: ["course", id, user?.groupId, user?.accountType],
+    queryFn: () => getCourse(id, user || undefined),
   });
 
   const { data: progress } = useQuery<CourseProgress | null>({
-    queryKey: ["progress", id],
+    queryKey: ["progress", id, user?.groupId, user?.accountType],
     enabled: !!user,
     queryFn: () => getProgressForCourse(user!.id, id),
   });

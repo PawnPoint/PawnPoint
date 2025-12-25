@@ -76,9 +76,7 @@ export default function BoardCustomization() {
                             alt=""
                             className={`relative z-10 h-[36px] w-[36px] object-contain ${
                               pieceTheme === "freestyle" ? "p-1" : ""
-                            } ${
-                              pieceTheme === "freestyle" && sq.piece === "p" ? "scale-110" : ""
-                            }`}
+                            } ${pawnScaleForFen(pieceTheme, sq.piece)}`}
                             draggable={false}
                           />
                         )}
@@ -150,6 +148,18 @@ function buildBoard(fen: string) {
   // simple highlights to mimic mock
   const highlights = ["d3", "e2", "e5", "f3"];
   return squares.map((sq) => ({ ...sq, isHighlight: highlights.includes(sq.name) }));
+}
+
+function pawnScaleForFen(pieceTheme: string, symbol: string) {
+  if (!symbol) return "";
+  const isWhite = symbol === symbol.toUpperCase();
+  const lower = symbol.toLowerCase();
+  if (pieceTheme === "chesscom") {
+    if (lower === "p") return isWhite ? "scale-110" : "scale-90";
+    if (!isWhite && lower === "k") return "scale-110 translate-y-[1px]";
+  }
+  if (pieceTheme === "freestyle" && lower === "p" && !isWhite) return "scale-110";
+  return "";
 }
 
 function Select({

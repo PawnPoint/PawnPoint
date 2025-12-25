@@ -58,6 +58,7 @@ export default function Courses() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAdmin = !!user?.isAdmin;
+  const inGroup = user?.accountType === "group" && !!user?.groupId;
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -69,7 +70,7 @@ export default function Courses() {
   const MAX_THUMB_DATA_URL = 5_000_000;
 
   const { data: courses = [] } = useQuery<Course[]>({
-    queryKey: ["courses", search, category],
+    queryKey: ["courses", search, category, user?.groupId, user?.id, user?.accountType],
     queryFn: () => getCourses(search, category),
   });
 
@@ -197,7 +198,7 @@ export default function Courses() {
           </div>
           <div className="flex items-center gap-2 text-white/70 text-sm">
             <Filter className="h-4 w-4" />
-            Club catalog
+            {inGroup ? "Group catalog" : "Personal catalog"}
           </div>
         </div>
 
@@ -241,18 +242,34 @@ export default function Courses() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {courses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              onOpen={() => navigate(`/lesson/${course.id}`)}
-              isAdmin={isAdmin}
-              onEdit={() => startEditingCourse(course)}
-              onDelete={handleDeleteCourse}
-            />
-          ))}
-        </div>
+        {courses.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/80">
+            {inGroup
+              ? "No courses available for this group yet."
+              : "Create your first course to get started."}
+            {isAdmin && !inGroup && (
+              <div className="mt-3">
+                <Button variant="outline" onClick={() => startEditingCourse()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add course
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-4">
+            {courses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                onOpen={() => navigate(`/lesson/${course.id}`)}
+                isAdmin={isAdmin}
+                onEdit={() => startEditingCourse(course)}
+                onDelete={handleDeleteCourse}
+              />
+            ))}
+          </div>
+        )}
 
         {editorOpen && (
           <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
@@ -313,7 +330,7 @@ export default function Courses() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-3">
+                <div className="grid md:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <label className="text-sm text-white/80">Category</label>
                     <div className="relative">
@@ -342,7 +359,7 @@ export default function Courses() {
                               >
                                 {cat.label}
                               </button>
-                            ))}
+                          ))}
                         </div>
                       )}
                     </div>
@@ -375,18 +392,6 @@ export default function Courses() {
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm text-white/80 flex items-center justify-between">
-                      <span>Accent color</span>
-                      <span className="text-xs text-white/60">{courseDraft.accentColor}</span>
-                    </label>
-                    <input
-                      type="color"
-                      value={courseDraft.accentColor}
-                      onChange={(e) => setCourseDraft((prev) => ({ ...prev, accentColor: e.target.value }))}
-                      className="h-[44px] w-full rounded-xl border border-white/10 bg-white/5"
-                    />
                   </div>
                 </div>
 

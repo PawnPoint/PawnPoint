@@ -25,6 +25,10 @@ export default function Dashboard() {
       "thechessnerd",
       "dinabelenkaya",
       "chessdojo",
+      "chesstopia1",
+      "chess24",
+      "wittyalien",
+      "ericrosen",
     ],
     [],
   );
@@ -38,7 +42,7 @@ export default function Dashboard() {
   }, [user, navigate]);
 
   const { data } = useQuery({
-    queryKey: ["dashboard", user?.id],
+    queryKey: ["dashboard", user?.id, user?.groupId, user?.accountType],
     enabled: !!user,
     queryFn: () => getDashboard(user!),
   });

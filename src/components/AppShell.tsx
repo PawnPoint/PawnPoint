@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Menu,
@@ -15,16 +15,19 @@ import {
   Sun,
   XCircle,
   Gift,
+  ArrowLeft,
+  Crown,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
 import pawnPointIcon from "../assets/Pawn Point Icon.png";
-import { setAdminStatus } from "../lib/mockApi";
+import { choosePersonalAccount, createGroupForUser, joinGroupWithCode, setAdminStatus } from "../lib/mockApi";
 
 const links = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "All Courses", href: "/courses", icon: BookOpen },
   { label: "Leaderboards", href: "/leaderboard", icon: Trophy },
+  { label: "Ranks", href: "/ranks", icon: Crown },
   { label: "Practice", href: "/practice", icon: Target },
 ];
 
@@ -44,6 +47,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [feedbackMood, setFeedbackMood] = useState("Meh");
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [groupMode, setGroupMode] = useState<"choose" | "join" | "create">("choose");
+  const [groupName, setGroupName] = useState("");
+  const [groupCode, setGroupCode] = useState("");
+  const [groupError, setGroupError] = useState("");
+  const [groupBusy, setGroupBusy] = useState(false);
 
   const nameLabel = user?.chessUsername || user?.displayName || user?.email?.split("@")[0] || "Player";
   const initials =
@@ -55,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() || "PP";
   const level = user?.level ?? 1;
   const xp = user?.totalXp ?? 0;
+  const forceGroupChoice = !!user && !user.accountType;
 
   const emotions = [
     { label: "Angry", emoji: "😠" },
@@ -69,6 +79,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navText = isLight ? "text-slate-700" : "text-white/80";
   const isMehMood = feedbackMood === "Meh";
   const canSubmitFeedback = feedbackText.trim().length > 0;
+
+  useEffect(() => {
+    if (forceGroupChoice) {
+      setGroupModalOpen(true);
+      setGroupMode("choose");
+      setGroupError("");
+      setGroupName(user?.groupName || "");
+      setGroupCode("");
+    }
+  }, [forceGroupChoice, user?.groupName]);
 
   const closeFeedback = () => {
     setFeedbackOpen(false);
@@ -112,6 +132,67 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     if (feedbackText.trim()) {
       closeFeedback();
+    }
+  };
+
+  const closeGroupModal = () => {
+    if (forceGroupChoice) return;
+    setGroupModalOpen(false);
+    setGroupError("");
+    setGroupMode("choose");
+  };
+
+  const handlePersonalAccount = async () => {
+    setGroupBusy(true);
+    setGroupError("");
+    try {
+      const updated = await choosePersonalAccount();
+      if (updated) setUser(updated);
+      setGroupModalOpen(false);
+    } catch (err: any) {
+      setGroupError(err?.message || "Could not switch to a personal account.");
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      setGroupError("Name your group to continue.");
+      return;
+    }
+    setGroupBusy(true);
+    setGroupError("");
+    try {
+      const result = await createGroupForUser(groupName.trim());
+      if (result?.profile) {
+        setUser(result.profile);
+        setGroupModalOpen(false);
+      }
+    } catch (err: any) {
+      setGroupError(err?.message || "Could not create the group. Try again.");
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!groupCode.trim()) {
+      setGroupError("Enter the group code shown to you.");
+      return;
+    }
+    setGroupBusy(true);
+    setGroupError("");
+    try {
+      const result = await joinGroupWithCode(groupCode.trim());
+      if (result?.profile) {
+        setUser(result.profile);
+        setGroupModalOpen(false);
+      }
+    } catch (err: any) {
+      setGroupError(err?.message || "Could not join that group.");
+    } finally {
+      setGroupBusy(false);
     }
   };
 
@@ -180,6 +261,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <div className="text-xs text-emerald-300 font-semibold">
                         LVL {level} | {xp} XP
                       </div>
+                      {user?.accountType && (
+                        <div className="text-[10px] uppercase text-white/50">
+                          {user.accountType === "group" ? "Group account" : "Personal account"}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -307,6 +393,130 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
+
+      {groupModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xl font-semibold">
+                  {forceGroupChoice ? "Choose your account type" : "Switch account"}
+                </div>
+                <div className="text-sm text-white/70">
+                  Pick personal to keep your data private, or join/create a group to share courses and leaderboards only with members.
+                </div>
+              </div>
+              {!forceGroupChoice && (
+                <button
+                  className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  onClick={closeGroupModal}
+                  aria-label="Close group dialog"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {groupError && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
+                {groupError}
+              </div>
+            )}
+
+            {groupMode === "choose" && (
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full !justify-start !items-start text-left px-5"
+                  onClick={handlePersonalAccount}
+                  disabled={groupBusy}
+                >
+                  <div className="text-left flex flex-col items-start">
+                    <div className="font-semibold">Personal Account</div>
+                    <div className="text-xs text-white/80">Only you can see your courses and leaderboard data.</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full !justify-start !items-start text-left px-5"
+                  onClick={() => {
+                    setGroupMode("join");
+                    setGroupError("");
+                  }}
+                  disabled={groupBusy}
+                >
+                  <div className="text-left flex flex-col items-start">
+                    <div className="font-semibold">Join a Group</div>
+                    <div className="text-xs text-white/80">Use a #1234 code that was shared with you.</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full !justify-start !items-start text-left px-5"
+                  onClick={() => {
+                    setGroupMode("create");
+                    setGroupError("");
+                  }}
+                  disabled={groupBusy}
+                >
+                  <div className="text-left flex flex-col items-start">
+                    <div className="font-semibold">Create a Group</div>
+                    <div className="text-xs text-white/80">Generate a private code and invite teammates.</div>
+                  </div>
+                </Button>
+              </div>
+            )}
+
+            {groupMode === "join" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-white/70">
+                  <span>Enter the group code</span>
+                  <button
+                    className="flex items-center gap-1 text-white/70 hover:text-white text-xs"
+                    onClick={() => setGroupMode("choose")}
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Back to options
+                  </button>
+                </div>
+                <input
+                  value={groupCode}
+                  onChange={(e) => setGroupCode(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
+                  placeholder="#1234"
+                />
+                <Button className="w-full justify-center" onClick={handleJoinGroup} disabled={groupBusy}>
+                  {groupBusy ? "Joining..." : "Join Group"}
+                </Button>
+              </div>
+            )}
+
+            {groupMode === "create" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-white/70">
+                  <span>Name your group</span>
+                  <button
+                    className="flex items-center gap-1 text-white/70 hover:text-white text-xs"
+                    onClick={() => setGroupMode("choose")}
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Back to options
+                  </button>
+                </div>
+                <input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
+                  placeholder="Team Knights"
+                />
+                <Button className="w-full justify-center" onClick={handleCreateGroup} disabled={groupBusy}>
+                  {groupBusy ? "Creating..." : "Create Group"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {feedbackOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">

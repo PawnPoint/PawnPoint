@@ -9,6 +9,8 @@ import { getDashboard, updateTaglineSettings } from "../lib/mockApi";
 import southKnight from "../assets/The South Knight.png";
 import background from "../assets/Snowflake Background.png";
 import { Pencil, X } from "lucide-react";
+import { db } from "../lib/firebase";
+import { ref, update } from "firebase/database";
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -16,51 +18,45 @@ export default function Profile() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || southKnight);
 
-const { data } = useQuery({
-  queryKey: ["profile", user?.id],
-  enabled: !!user,
-  queryFn: () => getDashboard(user!),
-});
+  const { data } = useQuery({
+    queryKey: ["profile", user?.id],
+    enabled: !!user,
+    queryFn: () => getDashboard(user!),
+  });
 
-const totalXp = user?.totalXp || 0;
-const level = user?.level || 1;
-const streak = user?.streak || 0;
-const unlockedPfps = user?.unlockedPfps || [];
-const unlockedTaglines = user?.unlockedTaglines || [];
-const [taglineEnabled, setTaglineEnabled] = useState(user?.taglinesEnabled ?? true);
-const [selectedTagline, setSelectedTagline] = useState(user?.selectedTagline || "");
+  const totalXp = user?.totalXp || 0;
+  const level = user?.level || 1;
+  const streak = user?.streak || 0;
+  const unlockedPfps = user?.unlockedPfps || [];
+  const unlockedTaglines = user?.unlockedTaglines || [];
+  const [taglineEnabled, setTaglineEnabled] = useState(user?.taglinesEnabled ?? true);
+  const [selectedTagline, setSelectedTagline] = useState(user?.selectedTagline || "");
+  const inGroup = user?.accountType === "group" && !!user?.groupId;
+  const isGroupAdmin = inGroup && user?.groupRole === "admin";
 
-const handleTaglineToggle = async (next: boolean) => {
-  setTaglineEnabled(next);
-  if (user) {
-    const updated = { ...user, taglinesEnabled: next };
-    setUser(updated);
-    localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
-    await updateTaglineSettings(user.id, { enabled: next });
-  }
-};
+  const handleTaglineToggle = async (next: boolean) => {
+    setTaglineEnabled(next);
+    if (user) {
+      const updated = { ...user, taglinesEnabled: next };
+      setUser(updated);
+      localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
+      await updateTaglineSettings(user.id, { enabled: next });
+    }
+  };
 
-const handleTaglineSelect = async (tag: string) => {
-  setSelectedTagline(tag);
-  if (user) {
-    const updated = { ...user, selectedTagline: tag };
-    setUser(updated);
-    localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
-    await updateTaglineSettings(user.id, { selected: tag });
-  }
-};
+  const handleTaglineSelect = async (tag: string) => {
+    setSelectedTagline(tag);
+    if (user) {
+      const updated = { ...user, selectedTagline: tag };
+      setUser(updated);
+      localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
+      await updateTaglineSettings(user.id, { selected: tag });
+    }
+  };
 
   // XP distribution removed per request
 
-  const avatars = [
-    { id: "south", label: "South Knight", url: southKnight },
-    { id: "pink", label: "Sunrise", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%23ff6b9a' offset='0%' /><stop stop-color='%23ffb347' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🦄</text></svg>" },
-    { id: "mint", label: "Minty", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='0'><stop stop-color='%2322d3ee' offset='0%' /><stop stop-color='%2322c55e' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🦓</text></svg>" },
-    { id: "violet", label: "Night", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%237c3aed' offset='0%' /><stop stop-color='%230ea5e9' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🐉</text></svg>" },
-    { id: "aqua", label: "Aqua", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='0'><stop stop-color='%230ea5e9' offset='0%' /><stop stop-color='%233b82f6' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🐬</text></svg>" },
-    { id: "rose", label: "Rose", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%23ec4899' offset='0%' /><stop stop-color='%23a855f7' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🦊</text></svg>" },
-    { id: "mono", label: "Classic", url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%234b5563' offset='0%' /><stop stop-color='%239ca3af' offset='100%' /></linearGradient></defs><rect width='200' height='200' rx='100' fill='url(%23g)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='96' font-family='Segoe UI Emoji'>🐺</text></svg>" },
-  ];
+  const avatars = [{ id: "south", label: "South Knight", url: southKnight }];
 
   const handleAvatarSelect = (url: string) => {
     setAvatarUrl(url);
@@ -68,24 +64,38 @@ const handleTaglineSelect = async (tag: string) => {
       const updated = { ...user, avatarUrl: url };
       localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
       setUser(updated);
+      update(ref(db, `users/${user.id}`), { avatarUrl: url }).catch((err) =>
+        console.warn("Failed to persist avatar to Firebase", err),
+      );
     }
     setPickerOpen(false);
   };
 
-useEffect(() => {
-  if (user?.avatarUrl) {
-    setAvatarUrl(user.avatarUrl);
-  }
-  setTaglineEnabled(user?.taglinesEnabled ?? true);
-  setSelectedTagline(user?.selectedTagline || "");
-}, [user?.avatarUrl, user?.taglinesEnabled, user?.selectedTagline]);
+  const handleAvatarUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === "string") {
+        handleAvatarSelect(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
-useEffect(() => {
-  if (!selectedTagline && unlockedTaglines.length) {
-    const first = unlockedTaglines[0];
-    setSelectedTagline(first);
-  }
-}, [unlockedTaglines, selectedTagline]);
+  useEffect(() => {
+    if (user?.avatarUrl) {
+      setAvatarUrl(user.avatarUrl);
+    }
+    setTaglineEnabled(user?.taglinesEnabled ?? true);
+    setSelectedTagline(user?.selectedTagline || "");
+  }, [user?.avatarUrl, user?.taglinesEnabled, user?.selectedTagline]);
+
+  useEffect(() => {
+    if (!selectedTagline && unlockedTaglines.length) {
+      const first = unlockedTaglines[0];
+      setSelectedTagline(first);
+    }
+  }, [unlockedTaglines, selectedTagline]);
 
   if (!user) return null;
 
@@ -129,6 +139,16 @@ useEffect(() => {
                     : "your start date"}
                 </div>
                 <div className="text-sm text-white/70">Chess.com: {user.chessUsername || "Not linked"}</div>
+                {inGroup && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
+                    <span className="rounded-full bg-white/10 px-2 py-1">{user.groupName || "Group member"}</span>
+                    {isGroupAdmin && user.groupCode && (
+                      <span className="rounded-full bg-emerald-500/20 border border-emerald-300/40 px-2 py-1 text-emerald-100">
+                        Group Code: {user.groupCode}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex-1 flex flex-wrap items-center gap-3 justify-start lg:justify-end">
@@ -149,7 +169,7 @@ useEffect(() => {
           <Card>
             <CardContent className="flex items-center gap-3 py-4">
               <div className="h-11 w-11 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-200 font-semibold">
-                ⚡
+                XP
               </div>
               <div>
                 <div className="text-xl font-bold text-white">{totalXp}</div>
@@ -160,7 +180,7 @@ useEffect(() => {
           <Card>
             <CardContent className="flex items-center gap-3 py-4">
               <div className="h-11 w-11 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-200 font-semibold">
-                🏅
+                Lv
               </div>
               <div>
                 <div className="text-xl font-bold text-white">{level}</div>
@@ -209,6 +229,20 @@ useEffect(() => {
                     </button>
                   );
                 })}
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm cursor-pointer hover:border-white/20">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarUpload(file);
+                    }}
+                  />
+                  Upload custom photo
+                </label>
               </div>
               <div className="flex justify-end">
                 <Button variant="outline" onClick={() => setPickerOpen(false)}>
