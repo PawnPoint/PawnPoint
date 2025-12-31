@@ -1,0 +1,11 @@
+# Large datasets
+src/lib/*.csv
+src/lib/*.zst
+
+# Optional: node stuff
+node_modules/
+dist/
+
+# OS junk
+.DS_Store
+Thumbs.db
