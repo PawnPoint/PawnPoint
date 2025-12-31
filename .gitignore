@@ -1,6 +1,8 @@
 # Large datasets
 src/lib/*.csv
 src/lib/*.zst
+src/lib/lichess_db_puzzle.csv
+src/lib/lichess_db_puzzle.csv.zst
 
 # Optional: node stuff
 node_modules/
