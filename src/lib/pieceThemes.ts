@@ -23,6 +23,18 @@ import freestyleBlackKnight from "../assets/Freestyle Black Knight.png";
 import freestyleBlackBishop from "../assets/Freestyle Black Bishop.png";
 import freestyleBlackQueen from "../assets/Freestyle Black Queen.png";
 import freestyleBlackKing from "../assets/Freestyle Black King.png";
+import lichessWhitePawn from "../assets/Lichess White Pawn.svg";
+import lichessWhiteRook from "../assets/Lichess White Rook.svg";
+import lichessWhiteKnight from "../assets/Lichess White Knight.svg";
+import lichessWhiteBishop from "../assets/Lichess White Bishop.svg";
+import lichessWhiteQueen from "../assets/Lichess White Queen.svg";
+import lichessWhiteKing from "../assets/Lichess White King.svg";
+import lichessBlackPawn from "../assets/Lichess Black Pawn.svg";
+import lichessBlackRook from "../assets/Lichess Black Rook.svg";
+import lichessBlackKnight from "../assets/Lichess Black Knight.svg";
+import lichessBlackBishop from "../assets/Lichess Black Bishop.svg";
+import lichessBlackQueen from "../assets/Lichess Black Queen.svg";
+import lichessBlackKing from "../assets/Lichess Black King.svg";
 
 export type PieceTheme = {
   w: { p: string; r: string; n: string; b: string; q: string; k: string };
@@ -50,6 +62,24 @@ export const PIECE_THEMES: Record<string, PieceTheme> = {
       b: freestyleBlackBishop,
       q: freestyleBlackQueen,
       k: freestyleBlackKing,
+    },
+  },
+  lichess: {
+    w: {
+      p: lichessWhitePawn,
+      r: lichessWhiteRook,
+      n: lichessWhiteKnight,
+      b: lichessWhiteBishop,
+      q: lichessWhiteQueen,
+      k: lichessWhiteKing,
+    },
+    b: {
+      p: lichessBlackPawn,
+      r: lichessBlackRook,
+      n: lichessBlackKnight,
+      b: lichessBlackBishop,
+      q: lichessBlackQueen,
+      k: lichessBlackKing,
     },
   },
 };

@@ -47,16 +47,25 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
+  @apply antialiased;
+  font-family: "Manrope", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-x: hidden;
+}
+
+body.theme-dark {
   background: #0b0f1c;
   color: #fff;
-  @apply antialiased;
-  font-family: "Manrope", "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  overflow-x: hidden;
+  color-scheme: dark;
+}
+
+body.theme-light {
+  background: #f7f9fc;
+  color: #0f172a;
+  color-scheme: light;
 }
 
 .cursor-piece {
@@ -75,7 +84,71 @@ body {
 }
 
 .glass {
-  @apply bg-white/5 border border-white/10 backdrop-blur-xl;
+  @apply bg-[#2d3749] border border-white/10;
+}
+
+.theme-light .glass {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.theme-light .card-solid {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-700,
+.theme-light .bg-slate-900\/95,
+.theme-light .bg-\[\#101319\],
+.theme-light .bg-\[\#111724\],
+.theme-light .bg-\[\#1b2230\],
+.theme-light .bg-\[\#2d3749\],
+.theme-light .bg-\[\#202736\] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.theme-light .bg-white\/5 {
+  background-color: #f1f5f9 !important;
+}
+
+.theme-light .bg-white\/10,
+.theme-light .bg-white\/20 {
+  background-color: #e2e8f0 !important;
+}
+
+.theme-light .border-white\/10,
+.theme-light .border-white\/20,
+.theme-light .border-white\/30 {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.theme-light .text-white,
+.theme-light .text-white\/90 {
+  color: #0f172a !important;
+}
+
+.theme-light .text-white\/80 {
+  color: #1e293b !important;
+}
+
+.theme-light .text-white\/70 {
+  color: #334155 !important;
+}
+
+.theme-light .text-white\/60 {
+  color: #475569 !important;
+}
+
+.theme-light .text-white\/50,
+.theme-light .text-white\/40 {
+  color: #64748b !important;
+}
+
+.theme-light .text-emerald-300 {
+  color: #059669 !important;
 }
 
 .pill {

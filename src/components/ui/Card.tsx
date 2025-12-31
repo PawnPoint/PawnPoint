@@ -2,7 +2,9 @@ import clsx from "clsx";
 import { PropsWithChildren } from "react";
 
 export function Card({ children, className }: PropsWithChildren<{ className?: string }>) {
-  return <div className={clsx("glass rounded-2xl", className)}>{children}</div>;
+  const isSolid = className?.includes("card-solid");
+  const base = isSolid ? "rounded-2xl" : "glass rounded-2xl";
+  return <div className={clsx(base, className)}>{children}</div>;
 }
 
 export function CardHeader({ children, className }: PropsWithChildren<{ className?: string }>) {

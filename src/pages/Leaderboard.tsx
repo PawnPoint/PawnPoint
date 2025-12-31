@@ -12,7 +12,8 @@ import {
   updateClubPerformance,
   resetAllXp,
 } from "../lib/mockApi";
-import { Sparkles, Zap, Trophy, ChevronDown } from "lucide-react";
+import { Sparkles, Zap, ChevronDown } from "lucide-react";
+import { PodiumBarsIcon } from "../components/icons/PodiumBars";
 import { db } from "../lib/firebase";
 import { onValue, ref } from "firebase/database";
 
@@ -230,8 +231,11 @@ export default function Leaderboard() {
   return (
     <AppShell>
       <div className="grid lg:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-col items-center gap-3">
+        <Card className="w-full max-w-xs self-start justify-self-center">
+          <CardHeader className="flex flex-col items-center gap-4">
+            <CardTitle className="text-3xl font-extrabold text-white text-center">
+              {user.chessUsername || user.displayName}
+            </CardTitle>
             <div className="relative h-28 w-28">
               <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-400 via-blue-400 to-purple-500 opacity-80" />
               <div className="relative h-full w-full rounded-full bg-slate-900 p-1">
@@ -246,29 +250,20 @@ export default function Leaderboard() {
                 </div>
               </div>
             </div>
-            <CardTitle className="text-3xl font-extrabold text-white text-center">
-              {user.chessUsername || user.displayName}
-            </CardTitle>
+            <div className="relative h-32 w-32 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-purple-500/60 blur-sm" />
+              <div className="absolute inset-1 rounded-full border-2 border-purple-400/80 animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-purple-600/20 animate-[spin_6s_linear_infinite]" />
+              <div className="relative z-10 flex flex-col items-center justify-center rounded-full h-24 w-24 bg-slate-900 border border-purple-300/40 shadow-[0_0_20px_rgba(168,85,247,0.35)]">
+                <Zap className="h-6 w-6 text-purple-300" />
+                <div className="text-xl font-bold text-white">{user.totalXp}</div>
+                <div className="text-[11px] uppercase tracking-wide text-purple-200/80">XP</div>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3 text-sm text-white/80 items-stretch">
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <Zap className="h-5 w-5 text-emerald-300" />
-              <div>
-                <div className="text-lg font-semibold text-white">{user.totalXp}</div>
-                <div className="text-xs text-white/70">Total XP</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <Trophy className="h-5 w-5 text-emerald-300" />
-              <div>
-                <div className="text-lg font-semibold text-white">{user.level}</div>
-                <div className="text-xs text-white/70">Level</div>
-              </div>
-            </div>
-          </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-brand.pink" />

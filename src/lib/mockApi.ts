@@ -21,11 +21,10 @@ export type UserProfile = {
   selectedTagline?: string;
   taglinesEnabled?: boolean;
   streak?: number;
+  lastStreakAt?: number;
   pawns?: number;
   chessUsername?: string;
   onlineRating?: number;
-  subscriptionPlan: "free" | "monthly" | "yearly";
-  subscriptionActive: boolean;
   totalXp: number;
   level: number;
   isAdmin: boolean;
@@ -84,14 +83,25 @@ export type Subsection =
       videoUrl: string;
       index?: number;
       trainerNote?: string;
+      parentStudyId?: string;
+    }
+  | {
+      id: string;
+      type: "pgn";
+      title: string;
+      pgn: string;
+      index?: number;
+      fen?: string;
+      parentStudyId?: string;
+      trainerNote?: string;
     }
   | {
       id: string;
       type: "study";
       title: string;
-      pgn: string;
       index?: number;
-      fen?: string;
+      parentStudyId?: string;
+      trainerNote?: string;
     }
   | {
       id: string;
@@ -100,6 +110,7 @@ export type Subsection =
       fen?: string;
       index?: number;
       trainerNote?: string;
+      parentStudyId?: string;
       questions: {
         id: string;
         prompt: string;
@@ -122,6 +133,15 @@ export type ClubLeaderboardEntry = {
   performance?: number;
   addedBy?: string;
   createdAt?: number;
+};
+
+export type SquareBaseBook = {
+  id: string;
+  title: string;
+  url: string;
+  addedBy?: string;
+  addedByName?: string;
+  createdAt: number;
 };
 
 export type LiveMatchPlayer = {
@@ -173,16 +193,17 @@ const STORAGE_KEYS = {
   user: "pawnpoint_user",
   progress: "pawnpoint_progress",
   courses: "pawnpoint_courses",
-  subscription: "pawnpoint_subscription",
   suggestions: "pawnpoint_suggestions",
   xpHistory: "pawnpoint_xp_history",
   clubLeaderboard: "pawnpoint_club_leaderboard",
+  squareBase: "pawnpoint_square_base",
 };
 
 export const DEFAULT_COURSE_THUMBNAIL = "/pieces/wQ.png";
 
 const COURSES_PATH = "courses";
 const XP_HISTORY_PATH = "xpHistory";
+const SQUARE_BASE_PATH = "squareBaseBooks";
 const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", "/pieces/bK.png"];
 const DEFAULT_GROUP_NAME = "My Group";
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
@@ -220,16 +241,6 @@ const sampleCourses: Course[] = [
             videoUrl: "https://www.youtube.com/embed/GlOQ8k8ZHbM",
             index: 0,
           },
-          "london-study-1": {
-            id: "london-study-1",
-            type: "study",
-            title: "Typical London pawn chain",
-            pgn: `[Event "London Structure"]
-[Site "?"]
-[Result "*"]
-1.d4 d5 2.Nf3 Nf6 3.Bf4 e6 4.e3 c5 5.c3 Nc6 6.Nbd2 Bd6 7.Bg3 O-O 8.Bd3 Re8 9.Ne5 *`,
-            index: 1,
-          },
         },
       },
       "london-2": {
@@ -243,21 +254,6 @@ const sampleCourses: Course[] = [
             title: "Hitting kingside fianchettos",
             videoUrl: "https://www.youtube.com/embed/oo8g52D0F8E",
             index: 0,
-          },
-          "london-quiz-1": {
-            id: "london-quiz-1",
-            type: "quiz",
-            title: "Spot the plan",
-            fen: "rnbq1rk1/pp1nppbp/3p1np1/2pP4/2P1P3/2N2N2/PP1B1PPP/R2QKB1R w KQ - 0 7",
-            index: 1,
-            questions: [
-              {
-                id: "q1",
-                prompt: "White to move: which idea keeps the London grip?",
-                options: ["a4", "h3", "Bd3", "Be2"],
-                correctIndex: 1,
-              },
-            ],
           },
         },
       },
@@ -324,6 +320,17 @@ function readUser(): UserProfile | null {
       parsed.createdAt = Date.now();
       writeUser(parsed);
     }
+    if (parsed.lastStreakAt === undefined) {
+      parsed.lastStreakAt = startOfDayMs(new Date(parsed.createdAt || Date.now()));
+      writeUser(parsed);
+    }
+    const today = startOfDayMs(new Date());
+    const lastStreakDay = startOfDayMs(new Date(parsed.lastStreakAt || parsed.createdAt || Date.now()));
+    if (today - lastStreakDay > 24 * 60 * 60 * 1000) {
+      parsed.streak = 0;
+      parsed.lastStreakAt = lastStreakDay;
+      writeUser(parsed);
+    }
     if (parsed.pawns === undefined) {
       parsed.pawns = 0;
       writeUser(parsed);
@@ -379,6 +386,17 @@ function writeSuggestions(courseIds: string[], source?: string) {
   );
 }
 
+function normalizeSquareBaseBook(raw: Partial<SquareBaseBook>): SquareBaseBook {
+  return {
+    id: raw.id || nanoid(),
+    title: (raw.title || "").trim(),
+    url: (raw.url || "").trim(),
+    addedBy: raw.addedBy,
+    addedByName: raw.addedByName,
+    createdAt: raw.createdAt || Date.now(),
+  };
+}
+
 function normalizeClubEntry(raw: Partial<ClubLeaderboardEntry>): ClubLeaderboardEntry {
   return {
     id: raw.id || nanoid(),
@@ -407,6 +425,28 @@ function writeClubLeaderboardLocal(entries: ClubLeaderboardEntry[], scope?: Data
   const resolved = scope || resolveScope();
   try {
     localStorage.setItem(scopedStorageKey(STORAGE_KEYS.clubLeaderboard, resolved), JSON.stringify(entries));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readSquareBaseLocal(scope?: DataScope): SquareBaseBook[] {
+  const resolved = scope || resolveScope();
+  try {
+    const raw = localStorage.getItem(scopedStorageKey(STORAGE_KEYS.squareBase, resolved));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((entry) => normalizeSquareBaseBook(entry || {}));
+  } catch {
+    return [];
+  }
+}
+
+function writeSquareBaseLocal(entries: SquareBaseBook[], scope?: DataScope) {
+  const resolved = scope || resolveScope();
+  try {
+    localStorage.setItem(scopedStorageKey(STORAGE_KEYS.squareBase, resolved), JSON.stringify(entries));
   } catch {
     // ignore storage errors
   }
@@ -548,20 +588,6 @@ function applyCoursePatches(record: CourseRecord): { record: CourseRecord; chang
     }
     next[id] = course;
   });
-  Object.entries(SAMPLE_COURSE_RECORD).forEach(([id, sample]) => {
-    const existing = next[id];
-    if (!existing) {
-      next[id] = sample;
-      changed = true;
-      return;
-    }
-    const hasChapters = existing.chapters && Object.keys(existing.chapters).length > 0;
-    const sampleChapters = sample.chapters && Object.keys(sample.chapters).length > 0;
-    if (!hasChapters && sampleChapters) {
-      next[id] = { ...existing, chapters: sample.chapters };
-      changed = true;
-    }
-  });
   return { record: next, changed };
 }
 
@@ -620,14 +646,7 @@ async function fetchCourseRecord(user?: UserProfile | null): Promise<CourseRecor
       }
       return patched;
     }
-    if (scope.scope === "public") {
-      // seed with sample courses only for unauthenticated/public scope
-      const seed = SAMPLE_COURSE_RECORD;
-      await set(ref(db, path), seed);
-      writeCoursesLocal(seed, scope);
-      return seed;
-    }
-    // for personal/group scopes, return empty when none exist
+    // if nothing exists, return empty (no auto-seed)
     return {};
   } catch (err) {
     const local = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
@@ -638,13 +657,7 @@ async function fetchCourseRecord(user?: UserProfile | null): Promise<CourseRecor
       }
       return patched;
     }
-    if (scope.scope === "public") {
-      console.warn("Failed to fetch courses from Firebase, using samples.", err);
-      const fallback = SAMPLE_COURSE_RECORD;
-      writeCoursesLocal(fallback, scope);
-      return fallback;
-    }
-    console.warn("Failed to fetch courses for scoped user/group; returning empty.", err);
+    console.warn("Failed to fetch courses; returning local/empty.", err);
     return {};
   }
 }
@@ -680,13 +693,7 @@ export function listenCourses(callback: (courses: Course[]) => void, user?: User
     },
     () => {
       const local = toList(stripUndefinedDeep(readCoursesLocal(scope)));
-      if (local.length) {
-        callback(local);
-      } else if (scope.scope === "public") {
-        callback(sampleCourses);
-      } else {
-        callback([]);
-      }
+      callback(local);
     },
   );
   return () => off();
@@ -804,10 +811,10 @@ async function recordXpEvent(userId: string, event: Omit<XpEvent, "id">) {
   writeXpEventsLocal(userId, merged);
 }
 
-async function persistTotalXp(userId: string, newTotal: number) {
+async function persistTotalXp(userId: string, newTotal: number, extra?: Partial<UserProfile>) {
   const timestamp = Date.now();
   const level = Math.floor(newTotal / 100) + 1;
-  const payload = { totalXp: newTotal, level, xpReachedAt: timestamp };
+  const payload = { totalXp: newTotal, level, xpReachedAt: timestamp, ...(extra || {}) };
   const userNodeRef = ref(db, `users/${userId}`);
   try {
     await update(userNodeRef, payload);
@@ -829,17 +836,43 @@ export async function awardXp(
 ) {
   const xpGain = Math.max(0, amount);
   if (!xpGain) return;
+  const today = startOfDayMs(new Date());
   const userNodeRef = ref(db, `users/${userId}`);
+  let nextStreak = 1;
   try {
     const snap = await get(userNodeRef);
     const existingUser = snap.val() || {};
+    const priorStreak = existingUser.streak || 0;
+    const lastStreakAt = startOfDayMs(
+      new Date(existingUser.lastStreakAt || existingUser.xpReachedAt || existingUser.createdAt || 0),
+    );
+    if (lastStreakAt === today) {
+      nextStreak = priorStreak || 1;
+    } else if (today - lastStreakAt === 24 * 60 * 60 * 1000) {
+      nextStreak = (priorStreak || 0) + 1;
+    } else {
+      nextStreak = 1;
+    }
     const newTotal = (existingUser.totalXp || 0) + xpGain;
-    await persistTotalXp(userId, newTotal);
+    await persistTotalXp(userId, newTotal, { streak: nextStreak, lastStreakAt: today });
   } catch (err) {
     console.warn("Failed to update XP in Firebase, continuing locally", err);
     const localUser = readUser();
     const baseTotal = localUser && localUser.id === userId ? localUser.totalXp || 0 : 0;
-    await persistTotalXp(userId, baseTotal + xpGain);
+    const lastStreakAt =
+      localUser?.lastStreakAt !== undefined
+        ? startOfDayMs(new Date(localUser.lastStreakAt))
+        : startOfDayMs(new Date(localUser?.xpReachedAt || localUser?.createdAt || 0));
+    if (localUser) {
+      if (lastStreakAt === today) {
+        nextStreak = localUser.streak || 1;
+      } else if (today - lastStreakAt === 24 * 60 * 60 * 1000) {
+        nextStreak = (localUser.streak || 0) + 1;
+      } else {
+        nextStreak = 1;
+      }
+    }
+    await persistTotalXp(userId, baseTotal + xpGain, { streak: nextStreak, lastStreakAt: today });
   }
   try {
     await recordXpEvent(userId, {
@@ -1013,6 +1046,11 @@ function countTotalSubsections(course: Course | null): number {
   return Object.values(course.chapters).reduce((sum, ch) => sum + Object.keys(ch.subsections || {}).length, 0);
 }
 
+function courseSubsectionIds(course: Course | null): string[] {
+  if (!course?.chapters) return [];
+  return Object.values(course.chapters).flatMap((ch) => Object.keys(ch.subsections || {}));
+}
+
 function xpForSubsection(type: Subsection["type"]): number {
   if (type === "video") return 100;
   if (type === "study") return 150;
@@ -1054,8 +1092,6 @@ export async function ensureProfile(
           displayName: displayName || email.split("@")[0],
           chessUsername: displayName || email.split("@")[0],
           avatarUrl: undefined,
-          subscriptionPlan: "free",
-          subscriptionActive: false,
           totalXp: 120,
           level: 2,
           streak: 1,
@@ -1075,6 +1111,7 @@ export async function ensureProfile(
           unlockedSets: [],
           selectedTagline: "",
           taglinesEnabled: true,
+          lastStreakAt: startOfDayMs(new Date()),
           boardTheme: DEFAULT_BOARD_THEME,
           pieceTheme: DEFAULT_PIECE_THEME,
         };
@@ -1100,8 +1137,6 @@ export async function ensureProfile(
       onlineRating: remote?.onlineRating ?? baseProfile.onlineRating ?? 1000,
       totalXp: remote?.totalXp ?? baseProfile.totalXp,
       level: remote?.level ?? baseProfile.level,
-      subscriptionActive: remote?.subscriptionActive ?? baseProfile.subscriptionActive,
-      subscriptionPlan: remote?.subscriptionPlan ?? baseProfile.subscriptionPlan,
       // group/account scope
       accountType: inferredAccountType,
       groupId: remote?.groupId ?? baseProfile.groupId ?? null,
@@ -1114,6 +1149,7 @@ export async function ensureProfile(
       unlockedSets: remote?.unlockedSets || baseProfile.unlockedSets || [],
       selectedTagline: remote?.selectedTagline ?? baseProfile.selectedTagline ?? "",
       taglinesEnabled: remote?.taglinesEnabled ?? baseProfile.taglinesEnabled ?? true,
+      lastStreakAt: remote?.lastStreakAt ?? baseProfile.lastStreakAt ?? startOfDayMs(new Date()),
       boardTheme: resolveBoardTheme(remote?.boardTheme || baseProfile.boardTheme).key,
       pieceTheme: resolvePieceTheme(remote?.pieceTheme || baseProfile.pieceTheme).key,
     };
@@ -1580,12 +1616,57 @@ export async function joinGroupWithCode(
   if (digits.length !== 4) throw new Error("Enter a valid 4-digit code.");
   const codeRef = ref(db, `groupCodes/${digits}`);
   const codeSnap = await get(codeRef);
+
+  const ensureSouthKnightGroup = async () => {
+    const groupId = "south-knight";
+    const groupRef = ref(db, `groups/${groupId}`);
+    let baseGroup: Group & { members?: Record<string, GroupMember> } | null = null;
+    try {
+      const existing = await get(groupRef);
+      baseGroup =
+        (existing.val() as Group & { members?: Record<string, GroupMember> }) || {
+          id: groupId,
+          name: "South Knight",
+          code: formatGroupCode(digits),
+          createdBy: "system",
+          createdAt: Date.now(),
+          members: {},
+        };
+      await set(groupRef, baseGroup);
+      await set(codeRef, groupId);
+    } catch {
+      baseGroup = {
+        id: groupId,
+        name: "South Knight",
+        code: formatGroupCode(digits),
+        createdBy: "system",
+        createdAt: Date.now(),
+        members: {},
+      };
+    }
+    return baseGroup;
+  };
+
+  let groupId: string;
+  let groupData: (Group & { members?: Record<string, GroupMember> }) | null = null;
   if (!codeSnap.exists()) {
-    throw new Error("No group found for that code.");
+    if (digits === "0055") {
+      groupData = await ensureSouthKnightGroup();
+      groupId = groupData.id;
+    } else {
+      throw new Error("No group found for that code.");
+    }
+  } else {
+    groupId = codeSnap.val() as string;
+    groupData = await fetchGroupById(groupId);
+    if (!groupData) {
+      if (digits === "0055") {
+        groupData = await ensureSouthKnightGroup();
+      } else {
+        throw new Error("That group no longer exists.");
+      }
+    }
   }
-  const groupId = codeSnap.val() as string;
-  const groupData = await fetchGroupById(groupId);
-  if (!groupData) throw new Error("That group no longer exists.");
   const group: Group = {
     id: groupId,
     name: groupData.name || DEFAULT_GROUP_NAME,
@@ -1984,12 +2065,13 @@ export async function getProgress(userId: string): Promise<Record<string, Course
   await Promise.all(
     Object.entries(progress).map(async ([courseId, val]) => {
       const course = await getCourse(courseId, readUser());
-      const total = countTotalSubsections(course) || 1;
-      const completedIds = Object.keys(val.completedSubsections || {});
+      const total = countTotalSubsections(course);
+      const validIds = courseSubsectionIds(course);
+      const completedIds = Object.keys(val.completedSubsections || {}).filter((id) => validIds.includes(id));
       result[courseId] = {
         courseId,
         completedLessonIds: completedIds,
-        progressPercent: val.percent ?? Math.round((completedIds.length / total) * 100),
+        progressPercent: total > 0 ? Math.round((completedIds.length / total) * 100) : 0,
         lastLessonId: completedIds[completedIds.length - 1],
       };
     }),
@@ -2001,13 +2083,14 @@ export async function getProgressForCourse(userId: string, courseId: string): Pr
   const progress = await fetchProgress(userId);
   const entry = progress[courseId];
   const course = await getCourse(courseId, readUser());
-  const total = countTotalSubsections(course) || 1;
+  const total = countTotalSubsections(course);
+  const validIds = courseSubsectionIds(course);
   if (!entry) return null;
-  const completedIds = Object.keys(entry.completedSubsections || {});
+  const completedIds = Object.keys(entry.completedSubsections || {}).filter((id) => validIds.includes(id));
   return {
     courseId,
     completedLessonIds: completedIds,
-    progressPercent: entry.percent ?? Math.round((completedIds.length / total) * 100),
+    progressPercent: total > 0 ? Math.round((completedIds.length / total) * 100) : 0,
     lastLessonId: completedIds[completedIds.length - 1],
   };
 }
@@ -2119,6 +2202,17 @@ export async function getDashboard(user: UserProfile) {
       suggested = mapped.slice(0, 3);
     }
   }
+  const desired = Math.min(3, courses.length);
+  if (suggested.length < desired) {
+    const seen = new Set(suggested.map((c) => c.id));
+    for (const course of courses) {
+      if (suggested.length >= desired) break;
+      if (!seen.has(course.id)) {
+        suggested.push(course);
+        seen.add(course.id);
+      }
+    }
+  }
   return {
     profile: user,
     xpHistory: history,
@@ -2149,8 +2243,8 @@ export async function getLeaderboard(user: UserProfile) {
       return timeA - timeB;
     });
     return {
-      locked: !user.subscriptionActive,
-      entries: user.subscriptionActive ? sorted : sorted.slice(0, 3),
+      locked: false,
+      entries: sorted,
     };
   } catch (err) {
     console.warn("Failed to load leaderboard from Firebase", err);
@@ -2169,8 +2263,8 @@ export async function getLeaderboard(user: UserProfile) {
             selfEntry,
           ];
     return {
-      locked: !user.subscriptionActive,
-      entries: entries.slice(0, user.subscriptionActive ? entries.length : 3),
+      locked: false,
+      entries,
     };
   }
 }
@@ -2195,8 +2289,6 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
         id: "u1",
         displayName: "AceKnight",
         email: "ace@example.com",
-        subscriptionPlan: "free",
-        subscriptionActive: true,
         totalXp: 52000,
         level: 521,
         pawns: 0,
@@ -2207,8 +2299,6 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
         id: "u2",
         displayName: "DiamondDynamo",
         email: "dynamo@example.com",
-        subscriptionPlan: "free",
-        subscriptionActive: true,
         totalXp: 18000,
         level: 181,
         pawns: 0,
@@ -2219,8 +2309,6 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
         id: "u3",
         displayName: "GoldGrinder",
         email: "grinder@example.com",
-        subscriptionPlan: "free",
-        subscriptionActive: true,
         totalXp: 4500,
         level: 46,
         pawns: 0,
@@ -2313,10 +2401,83 @@ export async function removeClubParticipant(admin: UserProfile | null, id: strin
   return existing;
 }
 
-export async function subscribe(user: UserProfile, plan: "monthly" | "yearly"): Promise<UserProfile> {
-  const updated = { ...user, subscriptionActive: true, subscriptionPlan: plan };
-  writeUser(updated);
-  return updated;
+export async function getSquareBaseBooks(user?: UserProfile | null): Promise<SquareBaseBook[]> {
+  const scope = resolveScope(user);
+  const { path } = scopedPath(SQUARE_BASE_PATH, user);
+  const fallback = () => readSquareBaseLocal(scope);
+  try {
+    const snap = await get(ref(db, path));
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, SquareBaseBook> | null;
+      const list = Object.values(val || {}).map((b) => normalizeSquareBaseBook(b || {}));
+      writeSquareBaseLocal(list, scope);
+      return list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+    return fallback();
+  } catch (err) {
+    console.warn("Failed to load Square Base books from Firebase", err);
+    return fallback();
+  }
+}
+
+export function listenSquareBaseBooks(
+  callback: (books: SquareBaseBook[]) => void,
+  user?: UserProfile | null,
+): () => void {
+  const scope = resolveScope(user);
+  const { path } = scopedPath(SQUARE_BASE_PATH, user);
+  const refPath = ref(db, path);
+  const off = onValue(
+    refPath,
+    (snap) => {
+      const val = snap.val() as Record<string, SquareBaseBook> | null;
+      const list = Object.values(val || {}).map((b) => normalizeSquareBaseBook(b || {}));
+      writeSquareBaseLocal(list, scope);
+      callback(list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+    },
+    () => {
+      callback(readSquareBaseLocal(scope));
+    },
+  );
+  return () => off();
+}
+
+export async function addSquareBaseBook(
+  admin: UserProfile | null,
+  payload: { title: string; url: string },
+): Promise<SquareBaseBook> {
+  if (!admin?.isAdmin) throw new Error("Only admins can add books.");
+  const trimmedUrl = (payload.url || "").trim();
+  if (!trimmedUrl) throw new Error("PDF URL is required.");
+  const book = normalizeSquareBaseBook({
+    ...payload,
+    url: trimmedUrl,
+    addedBy: admin.id,
+    addedByName: admin.displayName || admin.email || "Admin",
+  });
+  const scope = resolveScope(admin);
+  const { path } = scopedPath(SQUARE_BASE_PATH, admin);
+  const next = [...readSquareBaseLocal(scope), book];
+  writeSquareBaseLocal(next, scope);
+  try {
+    await set(ref(db, `${path}/${book.id}`), stripUndefinedShallow(book));
+  } catch (err) {
+    console.warn("Failed to sync Square Base book to Firebase", err);
+  }
+  return book;
+}
+
+export async function removeSquareBaseBook(admin: UserProfile | null, id: string): Promise<void> {
+  if (!admin?.isAdmin) throw new Error("Only admins can remove books.");
+  const scope = resolveScope(admin);
+  const { path } = scopedPath(SQUARE_BASE_PATH, admin);
+  const filtered = readSquareBaseLocal(scope).filter((b) => b.id !== id);
+  writeSquareBaseLocal(filtered, scope);
+  try {
+    await remove(ref(db, `${path}/${id}`));
+  } catch (err) {
+    console.warn("Failed to remove Square Base book from Firebase", err);
+  }
 }
 
 export async function completeSubsection(
@@ -2327,12 +2488,19 @@ export async function completeSubsection(
 ): Promise<CourseProgress> {
   const record = await fetchProgress(userId);
   const course = await getCourse(courseId, readUser());
-  const total = countTotalSubsections(course) || 1;
+  const total = countTotalSubsections(course);
+  const validIds = courseSubsectionIds(course);
   const existing = record[courseId] || { completedSubsections: {}, percent: 0 };
+  // prune any stale completions that no longer exist in the course
+  existing.completedSubsections = Object.fromEntries(
+    Object.keys(existing.completedSubsections || {})
+      .filter((id) => validIds.includes(id))
+      .map((id) => [id, true]),
+  );
   const alreadyCompleted = !!existing.completedSubsections[subsectionId];
   existing.completedSubsections[subsectionId] = true;
   const completedCount = Object.keys(existing.completedSubsections).length;
-  existing.percent = Math.min(100, Math.round((completedCount / total) * 100));
+  existing.percent = total > 0 ? Math.min(100, Math.round((completedCount / total) * 100)) : 0;
   existing.lastUpdated = Date.now();
   record[courseId] = existing;
   await writeProgressForUser(userId, record);

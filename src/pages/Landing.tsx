@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { useLocation } from "wouter";
 import { LogIn, Moon, Sun } from "lucide-react";
-import pawnPointIcon from "../assets/Pawn Point Icon.png";
+import pawnPointIcon from "../assets/App tab icon.png";
 
 export default function Landing() {
   const [, navigate] = useLocation();
   const [isLight, setIsLight] = useState(false);
 
   const toggleTheme = () => setIsLight((prev) => !prev);
+  const goToCourses = () => navigate("/courses");
+  const handleKeyActivate = (evt: KeyboardEvent) => {
+    if (evt.key === "Enter" || evt.key === " ") {
+      evt.preventDefault();
+      goToCourses();
+    }
+  };
 
   return (
     <div
@@ -37,7 +44,7 @@ export default function Landing() {
       >
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.25)] overflow-hidden">
+            <div className="h-12 w-12 overflow-hidden flex items-center justify-center">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
             </div>
             <span className="text-2xl font-extrabold tracking-tight">Pawn Point</span>
@@ -97,18 +104,27 @@ export default function Landing() {
       <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-10 sm:pt-12 min-h-[calc(100vh-64px)] flex items-center">
         <section className="w-full grid md:grid-cols-2 gap-10 sm:gap-12 items-center">
           <div className="space-y-6 relative flex flex-col items-center text-center md:items-start md:text-left">
-            <div className="absolute -left-10 -top-6 h-20 w-20 rounded-full bg-pink-500/20 blur-3xl" />
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight text-[#ff0fb3] drop-shadow-[0_10px_35px_rgba(255,15,179,0.35)]">
-              Become the Player You Were Meant to Be
-            </h1>
-            <p
-              className={`text-lg leading-relaxed ${
-                isLight ? "text-slate-700" : "text-white/80"
-              }`}
+            <div className="pointer-events-none absolute -left-10 -top-6 h-20 w-20 rounded-full bg-pink-500/20 blur-3xl" />
+            <div
+              className="space-y-4 w-full cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onClick={goToCourses}
+              onKeyDown={handleKeyActivate}
+              aria-label="Go to course menu"
             >
-              Pawn Point gives you the roadmap to real improvement. Learn smarter, train efficient,
-              and develop the skills that actually win games.
-            </p>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight text-[#ff0fb3] drop-shadow-[0_10px_35px_rgba(255,15,179,0.35)]">
+                Become the Player You Were Meant to Be
+              </h1>
+              <p
+                className={`text-lg leading-relaxed ${
+                  isLight ? "text-slate-700" : "text-white/80"
+                }`}
+              >
+                Pawn Point gives you the roadmap to real improvement. Learn smarter, train efficient,
+                and develop the skills that actually win games.
+              </p>
+            </div>
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={() => navigate("/signup")}
@@ -129,11 +145,16 @@ export default function Landing() {
             </div>
           </div>
           <div className="relative flex justify-center items-center">
-            <div className="absolute -inset-10 bg-gradient-to-br from-[#ff0fb3]/25 via-[#7c3aed]/20 to-[#0ea5e9]/25 blur-[140px]" />
+            <div className="pointer-events-none absolute -inset-10 bg-gradient-to-br from-[#ff0fb3]/25 via-[#7c3aed]/20 to-[#0ea5e9]/25 blur-[140px]" />
             <div
               className={`relative w-full max-w-[320px] sm:max-w-[360px] aspect-square overflow-hidden rounded-[28px] sm:rounded-[32px] border ${
                 isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"
-              } shadow-[0_20px_60px_rgba(0,0,0,0.45)]`}
+              } shadow-[0_20px_60px_rgba(0,0,0,0.45)] cursor-pointer`}
+              role="button"
+              tabIndex={0}
+              aria-label="Open course menu"
+              onClick={goToCourses}
+              onKeyDown={handleKeyActivate}
             >
               <img
                 src={pawnPointIcon}

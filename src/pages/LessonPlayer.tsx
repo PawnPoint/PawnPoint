@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+﻿import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import { parse as parsePgn } from "@mliebelt/pgn-parser";
+import { createPortal } from "react-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +17,7 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  SkipBack,
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
@@ -333,28 +337,31 @@ type MoveRecord = {
 };
 
 const piecePalette: { label: string; color: Color; type: PieceSymbol | "empty" }[] = [
-  { label: "⚪P", color: "w", type: "p" },
-  { label: "⚪N", color: "w", type: "n" },
-  { label: "⚪B", color: "w", type: "b" },
-  { label: "⚪R", color: "w", type: "r" },
-  { label: "⚪Q", color: "w", type: "q" },
-  { label: "⚪K", color: "w", type: "k" },
-  { label: "⚫P", color: "b", type: "p" },
-  { label: "⚫N", color: "b", type: "n" },
-  { label: "⚫B", color: "b", type: "b" },
-  { label: "⚫R", color: "b", type: "r" },
-  { label: "⚫Q", color: "b", type: "q" },
-  { label: "⚫K", color: "b", type: "k" },
-  { label: "🧽", color: "w", type: "empty" },
+  { label: "ÔÜ¬P", color: "w", type: "p" },
+  { label: "ÔÜ¬N", color: "w", type: "n" },
+  { label: "ÔÜ¬B", color: "w", type: "b" },
+  { label: "ÔÜ¬R", color: "w", type: "r" },
+  { label: "ÔÜ¬Q", color: "w", type: "q" },
+  { label: "ÔÜ¬K", color: "w", type: "k" },
+  { label: "ÔÜ½P", color: "b", type: "p" },
+  { label: "ÔÜ½N", color: "b", type: "n" },
+  { label: "ÔÜ½B", color: "b", type: "b" },
+  { label: "ÔÜ½R", color: "b", type: "r" },
+  { label: "ÔÜ½Q", color: "b", type: "q" },
+  { label: "ÔÜ½K", color: "b", type: "k" },
+  { label: "­ƒº¢", color: "w", type: "empty" },
 ];
 
 export default function LessonPlayer({ id }: { id?: string }) {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [location, navigate] = useLocation();
   const boardColors = resolveBoardTheme(user?.boardTheme).colors;
   const { key: pieceThemeKey, pieces: pieceSet } = useMemo(() => resolvePieceTheme(user?.pieceTheme), [user?.pieceTheme]);
   const isAdmin = !!user?.isAdmin;
   const gameRef = useRef(new Chess());
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const movesPanelRef = useRef<HTMLDivElement | null>(null);
   const [fen, setFen] = useState(gameRef.current.fen());
   const [history, setHistory] = useState<MoveRecord[]>([]);
   const [selected, setSelected] = useState<Square | null>(null);
@@ -362,6 +369,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [editMode] = useState(false);
   const [selectedEdit, setSelectedEdit] = useState(piecePalette[0]);
   const [navOpen, setNavOpen] = useState(false);
+  const [movesPanelHeight, setMovesPanelHeight] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState<Square | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [courseId, setCourseId] = useState(id || "");
@@ -419,6 +427,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [suppressContextToggle, setSuppressContextToggle] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState<Square[]>([]);
   const [completedSubsections, setCompletedSubsections] = useState<Set<string>>(new Set());
+  const [awardedMainlines, setAwardedMainlines] = useState<Set<string>>(new Set());
+  const [xpToasts, setXpToasts] = useState<{ id: string; amount: number }[]>([]);
   const transparentPixel =
     "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
   const setDragCursor = (active: boolean) => {
@@ -458,6 +468,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
     return orientation === "w" ? rows : rows.slice().reverse().map((row) => row.slice().reverse());
   }, [fen, orientation]);
   const isAtLatestMove = activeMoveIndex === -1 || activeMoveIndex === history.length - 1;
+  const isStudyLike = activeSubsection?.type === "study" || activeSubsection?.type === "pgn";
   const fileLabels = orientation === "w" ? "abcdefgh".split("") : "hgfedcba".split("");
   const rankLabels =
     orientation === "w"
@@ -525,7 +536,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   };
 
   const attemptMove = (from: Square, to: Square) => {
-    if (activeSubsection?.type === "quiz" || activeSubsection?.type === "study") {
+    if (activeSubsection?.type === "quiz" || isStudyLike) {
       setSelected(null);
       setDragFrom(null);
       setDragCursor(false);
@@ -855,14 +866,14 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const handleSelectSubsection = (sub: Subsection) => {
     setActiveSubsection(sub);
-    if (sub.type === "study") {
+    if (sub.type === "study" || sub.type === "pgn") {
       setQuizAnswers([]);
       setSelectedOption(null);
       setTrainerNote(null);
       setStudyError(null);
       const startingFen = resolveStudyStartFen(sub.fen);
       setFen(startingFen);
-      if (sub.pgn) {
+      if ("pgn" in sub && sub.pgn) {
         loadStudyPgn(sub.pgn, startingFen);
       } else {
         setHistory([]);
@@ -915,6 +926,19 @@ export default function LessonPlayer({ id }: { id?: string }) {
     }
   };
 
+  useEffect(() => {
+    const search = location.includes("?") ? location.split("?")[1] ?? "" : window.location.search.replace("?", "");
+    const subId = new URLSearchParams(search).get("sub");
+    if (!subId || !chapters.length) return;
+    if (activeSubsection?.id === subId) return;
+    const match = chapters
+      .flatMap((chapter) => Object.values(chapter.subsections || {}))
+      .find((item) => item.id === subId);
+    if (match) {
+      handleSelectSubsection(match);
+    }
+  }, [location, chapters, activeSubsection?.id]);
+
   // Keep quiz FEN in sync even after course reloads
   useEffect(() => {
     if (activeSubsection?.type !== "quiz") return;
@@ -926,7 +950,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   }, [activeSubsection]);
 
   useEffect(() => {
-    if (activeSubsection?.type !== "study") return;
+    if (!isStudyLike) return;
     const startFen = resolveStudyStartFen(activeSubsection.fen);
     if (!history.length) {
       setActiveMoveIndex(-1);
@@ -944,7 +968,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       setTrainerNote(null);
       return;
     }
-    if (activeSubsection.type === "study") {
+    if (isStudyLike) {
       if (activeMoveIndex >= 0 && history[activeMoveIndex]) {
         const note = history[activeMoveIndex].comment?.trim();
         setTrainerNote(note || null);
@@ -962,7 +986,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   }, [activeSubsection, activeMoveIndex, history]);
 
   useEffect(() => {
-    if (activeSubsection?.type !== "study") {
+    if (!isStudyLike) {
       setLastMoveSquares([]);
       return;
     }
@@ -989,10 +1013,19 @@ export default function LessonPlayer({ id }: { id?: string }) {
     setDragFrom(null);
   };
 
+  const goFirstMove = () => {
+    if (!history.length) return;
+    const baseFen = isStudyLike ? resolveStudyStartFen(activeSubsection?.fen) : new Chess().fen();
+    setActiveMoveIndex(-1);
+    setActiveMoveFen(null);
+    setFen(baseFen);
+    setSelected(null);
+    setDragFrom(null);
+  };
+
   const goNextMove = () => {
     if (!history.length) return;
-    const baseFen =
-      activeSubsection?.type === "study" ? resolveStudyStartFen(activeSubsection.fen) : new Chess().fen();
+    const baseFen = isStudyLike ? resolveStudyStartFen(activeSubsection?.fen) : new Chess().fen();
     const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     if (variationsByFen[currentFen]?.length) return;
     const target =
@@ -1004,6 +1037,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
     setDragFrom(null);
   };
 
+  const canStepBack = history.length > 0 && activeMoveIndex >= 0;
+  const canStepForward = history.length > 0 && activeMoveIndex < history.length - 1;
   const showBoardControls = activeSubsection?.type !== "video";
   const showMovesList = activeSubsection?.type !== "video";
   const videoSource = getVideoSource(activeSubsection?.videoUrl);
@@ -1041,6 +1076,35 @@ export default function LessonPlayer({ id }: { id?: string }) {
     : rawVideoUrl
     ? "We couldn't read this link. Use a direct MP4/WEBM/HLS URL or a YouTube link."
     : "No video URL yet. Add one from the section editor to start playback.";
+
+  useEffect(() => {
+    if (!showMovesList) {
+      setMovesPanelHeight(null);
+      return;
+    }
+    const panel = movesPanelRef.current;
+    if (!panel) return;
+    const update = () => {
+      const nextHeight = Math.round(panel.getBoundingClientRect().height);
+      setMovesPanelHeight((prev) => {
+        if (prev == null) return nextHeight;
+        if (prev === nextHeight) return prev;
+        return Math.max(prev, nextHeight);
+      });
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [showMovesList]);
+
+  const boardSize = 600;
+  const movesSubtitle =
+    (isStudyLike && studyError) ? studyError : activeSubsection?.type === "quiz" ? "Answer the questions below" : null;
 
   const openVideoInNewTab = () => {
     if (!videoSource) return;
@@ -1176,10 +1240,48 @@ export default function LessonPlayer({ id }: { id?: string }) {
     const s = total % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+  const xpForType = (type: Subsection["type"]) => {
+    if (type === "video") return 100;
+    if (type === "study") return 150;
+    return 200;
+  };
+  const showXpToast = (amount: number) => {
+    if (!amount) return;
+    const id = `xp-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+    setXpToasts((prev) => [...prev, { id, amount }]);
+    setTimeout(() => {
+      setXpToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  };
+  const xpToastPortal =
+    xpToasts.length > 0 && typeof document !== "undefined"
+      ? createPortal(
+          <div className="pointer-events-none fixed inset-x-0 top-4 z-[2000] flex flex-col items-end gap-2 px-4 sm:px-6">
+            {xpToasts.map((toast) => (
+              <div
+                key={toast.id}
+                className="pointer-events-auto flex items-start gap-3 rounded-xl bg-emerald-600 text-white px-4 py-3 shadow-lg border border-emerald-400/70"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="font-semibold text-base leading-tight">+{toast.amount} XP</div>
+                <button
+                  className="ml-auto text-white/80 hover:text-white"
+                  onClick={() => setXpToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                  aria-label="Dismiss notification"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )
+      : null;
 
   const currentVariations = useMemo(() => {
-    if (activeSubsection?.type !== "study") return [];
-    const baseFen = resolveStudyStartFen(activeSubsection.fen);
+    if (!isStudyLike) return [];
+    const baseFen = resolveStudyStartFen(activeSubsection?.fen);
     const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     return variationsByFen[currentFen] || [];
   }, [activeMoveIndex, activeSubsection, history, variationsByFen]);
@@ -1215,16 +1317,42 @@ export default function LessonPlayer({ id }: { id?: string }) {
     return null;
   }, [activeSubsection]);
   const currentMainlineMove = useMemo(() => {
-    if (activeSubsection?.type !== "study") return null;
-    const baseFen = resolveStudyStartFen(activeSubsection.fen);
+    if (!isStudyLike) return null;
+    const baseFen = resolveStudyStartFen(activeSubsection?.fen);
     const currentFen = activeMoveIndex >= 0 ? history[activeMoveIndex].fen : baseFen;
     return mainlineByFen[currentFen] || null;
   }, [activeMoveIndex, activeSubsection, history, mainlineByFen]);
-  const isBranchPoint = activeSubsection?.type === "study" && currentVariations.length > 0;
+  const isBranchPoint = isStudyLike && currentVariations.length > 0;
+
+  useEffect(() => {
+    if (!isStudyLike) return;
+    if (!activeSubsection?.id || !user || !courseId) return;
+    if (completedSubsections.has(activeSubsection.id)) return;
+    if (awardedMainlines.has(activeSubsection.id)) return;
+    if (!studyMainline.length) return;
+    const mainlineEndFen = studyMainline[studyMainline.length - 1]?.fen;
+    const isAtEnd = history.length > 0 && activeMoveIndex === history.length - 1 && history[history.length - 1]?.fen === mainlineEndFen;
+    if (!isAtEnd) return;
+    (async () => {
+      try {
+        await completeSubsection(user.id, courseId, activeSubsection.id, activeSubsection.type);
+        setAwardedMainlines((prev) => {
+          const next = new Set(prev);
+          next.add(activeSubsection.id);
+          return next;
+        });
+        setCompletedSubsections((prev) => new Set(prev).add(activeSubsection.id));
+        showXpToast(xpForType(activeSubsection.type));
+        queryClient.invalidateQueries({ queryKey: ["progress", courseId] });
+        queryClient.invalidateQueries({ queryKey: ["course", courseId] });
+      } catch (err) {
+        console.warn("Failed to award XP for mainline completion", err);
+      }
+    })();
+  }, [activeSubsection?.id, activeMoveIndex, awardedMainlines, courseId, history, isStudyLike, studyMainline, user, activeSubsection, activeSubsection?.type, completedSubsections]);
 
   const applyVariation = (branch: MoveRecord[] | null) => {
-    const baseFen =
-      activeSubsection?.type === "study" ? resolveStudyStartFen(activeSubsection.fen) : new Chess().fen();
+    const baseFen = isStudyLike ? resolveStudyStartFen(activeSubsection?.fen) : new Chess().fen();
     // If selecting a variation, push current state so we can restore mainline
     if (branch && branch.length) {
       const branchSourceIndex = activeMoveIndex + 1;
@@ -1256,7 +1384,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
   };
 
   const handleDownloadStudy = () => {
-    if (activeSubsection?.type !== "study" || !activeSubsection.pgn) return;
+    if (!activeSubsection || (activeSubsection.type !== "study" && activeSubsection.type !== "pgn")) return;
+    if (!("pgn" in activeSubsection) || !activeSubsection.pgn) return;
     const blob = new Blob([activeSubsection.pgn], { type: "application/x-chess-pgn" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1288,6 +1417,10 @@ export default function LessonPlayer({ id }: { id?: string }) {
       setQuizFeedback("Course not loaded yet. Try again.");
       return;
     }
+    if (completedSubsections.has(activeSubsection.id)) {
+      setQuizFeedback("XP already awarded for this quiz.");
+      return;
+    }
     if (quizAwarded) {
       setQuizFeedback("XP already awarded for this quiz.");
       return;
@@ -1295,8 +1428,12 @@ export default function LessonPlayer({ id }: { id?: string }) {
     try {
       setQuizSubmitting(true);
       await completeSubsection(user.id, courseId, activeSubsection.id, activeSubsection.type);
+      setCompletedSubsections((prev) => new Set(prev).add(activeSubsection.id));
       setQuizAwarded(true);
       setQuizFeedback("Correct! XP awarded.");
+      showXpToast(xpForType(activeSubsection.type));
+      queryClient.invalidateQueries({ queryKey: ["progress", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["course", courseId] });
     } catch (err) {
       console.warn("Failed to award XP for quiz", err);
       setQuizFeedback("Could not award XP right now. Please try again.");
@@ -1307,144 +1444,257 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
 
   return (
-    <AppShell>
-      <div className="flex flex-col xl:flex-row items-start gap-4 xl:gap-6">
-        {showMovesList && (
-          <div className="w-full xl:min-w-[240px] xl:max-w-[280px] rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl">
-            <div className="p-4">
-              <div className="font-semibold text-lg">{activeSubsection?.type === "quiz" ? "Options" : "Moves"}</div>
-              <div className="text-xs text-white/60 mb-2">
-                {activeSubsection?.type === "study" && studyError
-                  ? studyError
-                  : activeSubsection?.type === "quiz"
-                  ? "Answer the questions below"
-                  : "Played so far"}
-              </div>
-            </div>
-            <div className="max-h-[480px] overflow-auto px-4 pb-4">
-              {activeSubsection?.type === "quiz" ? (
-                <div className="space-y-3">
-                  {quizBlock ? (
-                    <div className="space-y-3">
-                      <div className="text-sm text-white/70 whitespace-pre-wrap">Select the correct option</div>
-                      {quizBlock.options?.map((opt: string, idx: number) => (
-                        <label
-                          key={`${quizBlock.id || "opt"}-${idx}`}
-                          className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 hover:border-pink-400"
-                        >
-                          <input
-                            type="radio"
-                            name="quiz-option"
-                            className="h-4 w-4 text-pink-500"
-                            checked={selectedOption === idx}
-                            onChange={() => {
-                              setSelectedOption(idx);
-                              setQuizAnswers((prev) => {
-                                const next = [...prev];
-                                next[0] = opt;
-                                return next;
-                              });
-                              setQuizFeedback(null);
-                            }}
-                          />
-                          <span>{opt || `Option ${idx + 1}`}</span>
-                        </label>
-                      ))}
-                      <div className="pt-1">
-                        <Button
-                          size="sm"
-                          className="w-full justify-center"
-                          disabled={selectedOption == null || quizSubmitting}
-                          onClick={submitQuizAnswer}
-                        >
-                          {quizSubmitting ? "Submitting..." : "Submit"}
-                        </Button>
-                        {quizFeedback && (
-                          <div className="mt-2 text-xs text-white/80" aria-live="polite">
-                            {quizFeedback}
+    <>
+      {xpToastPortal}
+      <AppShell>
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => {
+            const targetId = course?.id || courseId;
+            navigate(targetId ? `/courses/${targetId}` : "/courses");
+          }}
+          className="flex items-center gap-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 rounded-xl"
+        >
+          {course?.thumbnailUrl && (
+            <img
+              src={course.thumbnailUrl}
+              alt={course.title || "Course thumbnail"}
+              className="h-16 w-16 rounded-xl object-cover border border-white/10"
+            />
+          )}
+          <div className="text-3xl font-extrabold text-white leading-tight">{course?.title || "Course"}</div>
+        </button>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,420px)_1fr] items-start justify-items-center xl:justify-items-start gap-6 xl:gap-8">
+          {showMovesList && (
+            <div className="w-full max-w-[360px] sm:max-w-[420px] flex flex-col gap-3 mt-2 self-start relative z-10">
+              <div
+                ref={movesPanelRef}
+                className="rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl"
+                style={movesPanelHeight ? { minHeight: movesPanelHeight } : undefined}
+              >
+                <div className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="font-semibold text-lg">
+                      {activeSubsection?.type === "quiz" ? "Options" : "Moves"}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-white/5 hover:bg-white/10"
+                        onClick={() => {
+                          const targetId = course?.id || courseId;
+                          navigate(targetId ? `/courses/${targetId}` : "/courses");
+                        }}
+                      >
+                        <LayoutList className="h-4 w-4 mr-2" />
+                        Content
+                      </Button>
+                      {showBoardControls && (
+                        <>
+                          <div className="flex rounded-full bg-white/10 p-1">
+                            <button
+                              className={`px-3 py-1 rounded-full text-sm ${
+                                orientation === "w" ? "bg-white text-slate-900 font-semibold" : "text-white/80"
+                              }`}
+                              onClick={() => setOrientation("w")}
+                            >
+                              W
+                            </button>
+                            <button
+                              className={`px-3 py-1 rounded-full text-sm ${
+                                orientation === "b" ? "bg-white text-slate-900 font-semibold" : "text-white/80"
+                              }`}
+                              onClick={() => setOrientation("b")}
+                            >
+                              B
+                            </button>
                           </div>
-                        )}
-                      </div>
+                          {isStudyLike && activeSubsection && "pgn" in activeSubsection && activeSubsection.pgn && (
+                            <button
+                              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                              aria-label="Download PGN"
+                              onClick={handleDownloadStudy}
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {movesSubtitle && <div className="text-xs text-white/60 mb-2">{movesSubtitle}</div>}
+                </div>
+                <div className="max-h-[480px] overflow-auto px-4 pb-4">
+                  {activeSubsection?.type === "quiz" ? (
+                    <div className="space-y-3">
+                      {quizBlock ? (
+                        <div className="space-y-3">
+                          <div className="text-sm text-white/70 whitespace-pre-wrap">Select the correct option</div>
+                          {quizBlock.options?.map((opt: string, idx: number) => (
+                            <label
+                              key={`${quizBlock.id || "opt"}-${idx}`}
+                              className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 hover:border-pink-400"
+                            >
+                              <input
+                                type="radio"
+                                name="quiz-option"
+                                className="h-4 w-4 text-pink-500"
+                                checked={selectedOption === idx}
+                                onChange={() => {
+                                  setSelectedOption(idx);
+                                  setQuizAnswers((prev) => {
+                                    const next = [...prev];
+                                    next[0] = opt;
+                                    return next;
+                                  });
+                                  setQuizFeedback(null);
+                                }}
+                              />
+                              <span>{opt || `Option ${idx + 1}`}</span>
+                            </label>
+                          ))}
+                          <div className="pt-1">
+                            <Button
+                              size="sm"
+                              className="w-full justify-center"
+                              disabled={selectedOption == null || quizSubmitting}
+                              onClick={submitQuizAnswer}
+                            >
+                              {quizSubmitting ? "Submitting..." : "Submit"}
+                            </Button>
+                            {quizFeedback && (
+                              <div className="mt-2 text-xs text-white/80" aria-live="polite">
+                                {quizFeedback}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-white/60">No options available.</div>
+                      )}
+                    </div>
+                  ) : isStudyLike && isBranchPoint ? (
+                    <div className="space-y-2">
+                      {currentMainlineMove && (
+                        <button
+                          className="w-full text-left rounded-lg bg-white/10 hover:bg-white/20 text-white px-3 py-2 text-sm"
+                          onClick={() => applyVariation(null)}
+                        >
+                          Mainline: {currentMainlineMove.san}
+                        </button>
+                      )}
+                      {currentVariations.map((variation, idx) => (
+                        <button
+                          key={`variation-${idx}`}
+                          className="w-full text-left rounded-lg border border-white/10 hover:border-pink-400 text-white px-3 py-2 text-sm"
+                          onClick={() => applyVariation(variation)}
+                        >
+                          Variation {idx + 1}: {variation[0]?.san || "Line"}
+                        </button>
+                      ))}
                     </div>
                   ) : (
-                    <div className="text-xs text-white/60">No options available.</div>
+                    <>
+                      {movePairs.length === 0 && (
+                        <div className="text-white/50 text-sm">No moves yet. Start playing.</div>
+                      )}
+                      {movePairs.map((pair, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-[32px_1fr_1fr] items-center gap-2 sm:gap-3 text-xs sm:text-sm py-1"
+                        >
+                          <div className="text-white/50">{idx + 1}.</div>
+                          <button
+                            className={`text-left text-white rounded-md px-2 py-1 ${
+                              activeMoveFen === pair.white?.fen ? "bg-white/10" : ""
+                            } ${pair.white ? "hover:text-pink-300" : "text-white/50"}`}
+                            disabled={!pair.white}
+                            onClick={() => pair.white && jumpToMove(pair.white)}
+                          >
+                            {pair.white?.san || "-"}
+                          </button>
+                          <button
+                            className={`text-left text-white rounded-md px-2 py-1 ${
+                              activeMoveFen === pair.black?.fen ? "bg-white/10" : ""
+                            } ${pair.black ? "hover:text-pink-300" : "text-white/50"}`}
+                            disabled={!pair.black}
+                            onClick={() => pair.black && jumpToMove(pair.black)}
+                          >
+                            {pair.black?.san || ""}
+                          </button>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
-              ) : activeSubsection?.type === "study" && isBranchPoint ? (
-                <div className="space-y-2">
-                  {currentMainlineMove && (
-                    <button
-                      className="w-full text-left rounded-lg bg-white/10 hover:bg-white/20 text-white px-3 py-2 text-sm"
-                      onClick={() => applyVariation(null)}
-                    >
-                      Mainline: {currentMainlineMove.san}
-                    </button>
-                  )}
-                  {currentVariations.map((variation, idx) => (
-                    <button
-                      key={`variation-${idx}`}
-                      className="w-full text-left rounded-lg border border-white/10 hover:border-pink-400 text-white px-3 py-2 text-sm"
-                      onClick={() => applyVariation(variation)}
-                    >
-                      Variation {idx + 1}: {variation[0]?.san || "Line"}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  {movePairs.length === 0 && (
-                    <div className="text-white/50 text-sm">No moves yet. Start playing.</div>
-                  )}
-                  {movePairs.map((pair, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-[32px_1fr_1fr] items-center gap-2 sm:gap-3 text-xs sm:text-sm py-1"
-                    >
-                      <div className="text-white/50">{idx + 1}.</div>
+                {isStudyLike && (
+                  <div className="px-4 pb-4">
+                    <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
                       <button
-                        className={`text-left text-white rounded-md px-2 py-1 ${
-                          activeMoveFen === pair.white?.fen ? "bg-white/10" : ""
-                        } ${pair.white ? "hover:text-pink-300" : "text-white/50"}`}
-                        disabled={!pair.white}
-                        onClick={() => pair.white && jumpToMove(pair.white)}
+                        type="button"
+                        className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={goFirstMove}
+                        disabled={!canStepBack}
+                        aria-label="Back to start"
                       >
-                        {pair.white?.san || "-"}
+                        <SkipBack className="h-4 w-4" />
                       </button>
                       <button
-                        className={`text-left text-white rounded-md px-2 py-1 ${
-                          activeMoveFen === pair.black?.fen ? "bg-white/10" : ""
-                        } ${pair.black ? "hover:text-pink-300" : "text-white/50"}`}
-                        disabled={!pair.black}
-                        onClick={() => pair.black && jumpToMove(pair.black)}
+                        type="button"
+                        className="h-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={goPrevMove}
+                        disabled={!canStepBack}
+                        aria-label="Previous move"
                       >
-                        {pair.black?.san || ""}
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="h-10 rounded-lg bg-white text-slate-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={goNextMove}
+                        disabled={!canStepForward}
+                        aria-label="Next move"
+                      >
+                        <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
-                  ))}
-                </>
-              )}
+                  </div>
+                )}
+                {trainerNote && (
+                  <div className="px-4 pb-4 pt-3 border-t border-white/10">
+                    <div className="font-semibold mb-2">Trainer Note</div>
+                    <p className="text-sm text-white/80 whitespace-pre-wrap">{trainerNote}</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-            <div>
-              <div className="text-xl font-bold text-white">{course?.title || "Course"}</div>
-              <div className="text-sm text-white/60">{course?.description || "Live course layout"}</div>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button variant="ghost" className="bg-white/5 hover:bg-white/10 w-full sm:w-auto" onClick={() => setNavOpen(true)}>
-                <LayoutList className="h-5 w-5 mr-2" />
-                Chapters
-              </Button>
-            </div>
-          </div>
+          <div className="flex-1 flex flex-col items-center">
+            {!showMovesList && (
+              <div className="flex items-center justify-start gap-2 mb-3 w-full max-w-[1400px] px-2">
+                <Button
+                  variant="ghost"
+                  className="bg-white/5 hover:bg-white/10 w-full sm:w-auto"
+                  onClick={() => setNavOpen(true)}
+                >
+                  <LayoutList className="h-5 w-5 mr-2" />
+                  Content
+                </Button>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 2xl:grid-cols-[minmax(720px,1.4fr)_minmax(280px,0.6fr)] gap-4 2xl:gap-6 items-start">
-            <div className="relative">
-              <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[1200px] 2xl:max-w-[1400px] mx-auto">
-                {activeSubsection?.type === "video" ? (
+            <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-center 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-4 2xl:gap-6 items-start mx-auto">
+              <div className="relative">
+                <div
+                  className={`relative block px-4 sm:px-6 pb-6 sm:pb-8 w-full mx-auto ${
+                    isVideoSubsection ? "max-w-[360px]" : "max-w-none"
+                  }`}
+                >
+                  {activeSubsection?.type === "video" ? (
                   <div className="w-full rounded-[28px] overflow-hidden border border-white/10 bg-slate-900/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
                     <div className="flex flex-col gap-3 px-6 py-5 border-b border-white/10 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
@@ -1600,10 +1850,16 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 ) : (
                   <>
                     <div
-                      className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
-                      style={{ backgroundColor: boardColors.dark }}
+                      className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-auto mt-2 xl:translate-x-20 flex-shrink-0"
+                      style={{
+                        backgroundColor: boardColors.dark,
+                        width: `${boardSize}px`,
+                        height: `${boardSize}px`,
+                        maxWidth: `${boardSize}px`,
+                        maxHeight: `${boardSize}px`,
+                      }}
                     >
-                      <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[1200px] 2xl:max-w-[1400px] aspect-square mx-auto">
+                      <div className="relative grid grid-cols-8 grid-rows-8 w-full h-full mx-auto">
                         {board.map((row, rIdx) =>
                           row.map((piece, cIdx) => {
                             const sq = squareName(rIdx, cIdx);
@@ -1625,7 +1881,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                     e.preventDefault();
                                     return;
                                   }
-                                  if (activeSubsection?.type === "study") {
+                                  if (activeSubsection?.type === "study" || activeSubsection?.type === "pgn") {
                                     e.preventDefault();
                                     setDragCursor(false);
                                     return;
@@ -1653,7 +1909,12 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                   if (!editMode && dragFrom) e.preventDefault();
                                 }}
                                 onDrop={(e) => {
-                                  if (editMode || activeSubsection?.type === "quiz" || activeSubsection?.type === "study")
+                                  if (
+                                    editMode ||
+                                    activeSubsection?.type === "quiz" ||
+                                    activeSubsection?.type === "study" ||
+                                    activeSubsection?.type === "pgn"
+                                  )
                                     return;
                                   e.preventDefault();
                                   const from = dragFrom || (e.dataTransfer?.getData("text/plain") as Square | null);
@@ -1683,7 +1944,11 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                     e.preventDefault();
                                     startArrow(rIdx, cIdx);
                                   } else if (e.button === 0 && piece) {
-                                    if (activeSubsection?.type === "study" || !isAtLatestMove) {
+                                    if (
+                                      activeSubsection?.type === "study" ||
+                                      activeSubsection?.type === "pgn" ||
+                                      !isAtLatestMove
+                                    ) {
                                       setDragCursor(false);
                                     } else {
                                       setDragCursor(true);
@@ -1852,72 +2117,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
                       </div>
                     </div>
 
-                    <div className="pointer-events-none absolute left-0 top-0 bottom-6 grid grid-rows-8 text-xs font-semibold text-white/80">
-                      {rankLabels.map((label) => (
-                        <span key={`rank-${label}`} className="flex items-center justify-end pr-2">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="pointer-events-none absolute left-6 right-0 bottom-0 grid grid-cols-8 text-xs font-semibold text-white/80">
-                      {fileLabels.map((label) => (
-                        <span key={`file-${label}`} className="text-center pt-1">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
                   </>
                 )}
               </div>
-
-              {showBoardControls && (
-                <div className="mt-3 flex items-center gap-2 text-white">
-                  <div className="flex rounded-full bg-white/10 p-1">
-                    <button
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        orientation === "w" ? "bg-white text-slate-900 font-semibold" : "text-white/80"
-                      }`}
-                      onClick={() => setOrientation("w")}
-                    >
-                      W
-                    </button>
-                    <button
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        orientation === "b" ? "bg-white text-slate-900 font-semibold" : "text-white/80"
-                      }`}
-                      onClick={() => setOrientation("b")}
-                    >
-                      B
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                      aria-label="Prev move"
-                      onClick={goPrevMove}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                      aria-label="Next move"
-                      onClick={goNextMove}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                    {activeSubsection?.type === "study" && activeSubsection.pgn && (
-                      <button
-                        className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                        aria-label="Download PGN"
-                        onClick={handleDownloadStudy}
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {editMode && (
                 <div className="mt-3 flex flex-wrap gap-2 text-white">
@@ -1936,16 +2138,10 @@ export default function LessonPlayer({ id }: { id?: string }) {
               )}
             </div>
 
-            <div className="space-y-3">
-              {trainerNote && (
-                <div className="rounded-xl bg-slate-900 border border-white/10 text-white p-4 shadow-lg">
-                  <div className="font-semibold mb-2">Trainer Note</div>
-                  <p className="text-sm text-white/80 whitespace-pre-wrap">{trainerNote}</p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
+      </div>
+
       </div>
 
       {navOpen && (
@@ -2043,7 +2239,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                               <span>{item.title}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              {!isAdmin && (item.type === "video" || item.type === "study") && (
+                              {!isAdmin && (item.type === "video" || item.type === "study" || item.type === "pgn") && (
                                 completedSubsections.has(item.id) ? (
                                   <span className="text-emerald-300 text-xs font-semibold">Completed</span>
                                 ) : (
@@ -2516,6 +2712,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
           </div>
         </div>
       )}
-    </AppShell>
+      </AppShell>
+    </>
   );
 }
+

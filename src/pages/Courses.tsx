@@ -262,7 +262,7 @@ export default function Courses() {
               <CourseCard
                 key={course.id}
                 course={course}
-                onOpen={() => navigate(`/lesson/${course.id}`)}
+                onOpen={() => navigate(`/courses/${course.id}`)}
                 isAdmin={isAdmin}
                 onEdit={() => startEditingCourse(course)}
                 onDelete={handleDeleteCourse}
@@ -461,7 +461,10 @@ function CourseCard({
   const thumbnail = course.thumbnailUrl || DEFAULT_COURSE_THUMBNAIL;
 
   return (
-    <Card className="relative overflow-hidden hover:border-white/20 transition border border-white/10">
+    <Card
+      className="relative overflow-hidden transition flex flex-col card-solid border"
+      style={{ backgroundColor: "#111724", borderColor: "#111724" }}
+    >
       {isAdmin && (
         <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1">
           <button
@@ -481,14 +484,14 @@ function CourseCard({
         </div>
       )}
       <img src={thumbnail} alt={course.title} className="h-32 w-full object-cover" />
-      <CardContent className="space-y-3">
-        <div className="text-sm text-brand.pink uppercase tracking-wide">
+      <CardContent className="space-y-3 flex flex-col h-full">
+        <div className="text-sm text-brand.pink uppercase tracking-wide text-white/80">
           {course.category.replace("_", " ")}
         </div>
-        <div className="font-semibold">{course.title}</div>
-        <p className="text-sm text-white/70 line-clamp-3">{course.description}</p>
+        <div className="font-semibold text-white">{course.title}</div>
+        <p className="text-sm text-white/80 line-clamp-3 flex-1">{course.description}</p>
         <Progress value={0} />
-        <Button className="w-full" onClick={onOpen}>
+        <Button className="w-full mt-auto shadow-none bg-white/10 hover:bg-white/20 border border-white/20 text-white" onClick={onOpen}>
           Start Course
         </Button>
       </CardContent>

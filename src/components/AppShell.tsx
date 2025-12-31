@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Menu,
@@ -6,8 +6,7 @@ import {
   LogOut,
   Home,
   BookOpen,
-  Trophy,
-  Target,
+  Dumbbell,
   UserRound,
   Settings,
   MessageCircle,
@@ -17,22 +16,32 @@ import {
   Gift,
   ArrowLeft,
   Crown,
+  ChevronDown,
+  Clipboard,
+  Puzzle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
-import pawnPointIcon from "../assets/Pawn Point Icon.png";
-import { choosePersonalAccount, createGroupForUser, joinGroupWithCode, setAdminStatus } from "../lib/mockApi";
+import pawnPointIcon from "../assets/App tab icon.png";
+import {
+  choosePersonalAccount,
+  createGroupForUser,
+  joinGroupWithCode,
+  setAdminStatus,
+} from "../lib/mockApi";
+import { PodiumBarsIcon } from "./icons/PodiumBars";
 
 const links = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "All Courses", href: "/courses", icon: BookOpen },
-  { label: "Leaderboards", href: "/leaderboard", icon: Trophy },
+  { label: "Leaderboards", href: "/leaderboard", icon: PodiumBarsIcon },
   { label: "Ranks", href: "/ranks", icon: Crown },
-  { label: "Practice", href: "/practice", icon: Target },
+  { label: "Practice", href: "/practice", icon: Dumbbell },
 ];
 
 const mobileLinks = [
   ...links,
+  { label: "Puzzles", href: "/puzzles", icon: Puzzle },
   { label: "Profile", href: "/profile", icon: UserRound },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
@@ -42,7 +51,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isLight, setIsLight] = useState(false);
+  const [isLight, setIsLight] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("pawnpoint_theme") === "light";
+  });
+  const [practiceOpen, setPracticeOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackMood, setFeedbackMood] = useState("Meh");
   const [feedbackText, setFeedbackText] = useState("");
@@ -74,8 +87,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { label: "Excited", emoji: "🤩" },
   ];
 
-  const themeBg = isLight ? "bg-slate-50 text-slate-900" : "bg-slate-950 text-white";
-  const headerBg = isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-slate-950/80";
+  const themeBg = isLight ? "bg-slate-50 text-slate-900" : "bg-[#101319] text-white";
+  const headerBg = isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-[#111724]";
   const navText = isLight ? "text-slate-700" : "text-white/80";
   const isMehMood = feedbackMood === "Meh";
   const canSubmitFeedback = feedbackText.trim().length > 0;
@@ -89,6 +102,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setGroupCode("");
     }
   }, [forceGroupChoice, user?.groupName]);
+
+  useEffect(() => {
+    const themeName = isLight ? "light" : "dark";
+    document.body.classList.toggle("theme-light", isLight);
+    document.body.classList.toggle("theme-dark", !isLight);
+    document.documentElement.style.colorScheme = themeName;
+    localStorage.setItem("pawnpoint_theme", themeName);
+  }, [isLight]);
+
+  const practiceRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (practiceOpen && practiceRef.current && !practiceRef.current.contains(e.target as Node)) {
+        setPracticeOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleOutside);
+    return () => window.removeEventListener("mousedown", handleOutside);
+  }, [practiceOpen]);
 
   const closeFeedback = () => {
     setFeedbackOpen(false);
@@ -156,15 +188,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleCreateGroup = async () => {
-    if (!groupName.trim()) {
-      setGroupError("Name your group to continue.");
-      return;
-    }
+  const executeCreateGroup = async (name: string) => {
     setGroupBusy(true);
     setGroupError("");
     try {
-      const result = await createGroupForUser(groupName.trim());
+      const result = await createGroupForUser(name);
       if (result?.profile) {
         setUser(result.profile);
         setGroupModalOpen(false);
@@ -174,6 +202,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } finally {
       setGroupBusy(false);
     }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      setGroupError("Name your group to continue.");
+      return;
+    }
+    await executeCreateGroup(groupName.trim());
   };
 
   const handleJoinGroup = async () => {
@@ -201,23 +237,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className={`sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.25)] overflow-hidden">
+            <div className="h-12 w-12 overflow-hidden">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
             </div>
             <span className="text-2xl font-extrabold tracking-tight">Pawn Point</span>
           </div>
 
-          <nav className={`hidden md:flex items-center gap-6 text-sm ${navText}`}>
-            {links.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2 hover:text-white ${isLight ? "hover:text-slate-900" : ""}`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
-            ))}
+          <nav className={`hidden md:flex items-center gap-4 text-base font-semibold ${navText}`}>
+            {links.map(({ href, label, icon: Icon }) => {
+              const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
+              if (label === "Practice") {
+                return (
+                  <div key={href} className="relative" ref={practiceRef}>
+                    <button
+                      onClick={() => {
+                        setPracticeOpen((v) => !v);
+                        setProfileOpen(false);
+                      }}
+                      className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
+                        isLight ? "hover:text-slate-900 hover:bg-slate-200/70" : "hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <Icon className={iconSize} />
+                      {label}
+                      <ChevronDown className={`h-4 w-4 transition ${practiceOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {practiceOpen && (
+                      <div className="absolute left-1/2 -translate-x-1/2 top-12 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3 transform">
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
+                          onClick={() => {
+                            navigate("/practice");
+                            setPracticeOpen(false);
+                          }}
+                        >
+                          <Dumbbell className="h-4 w-4" />
+                          Play AI
+                        </button>
+                    <button
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
+                      onClick={() => {
+                        navigate("/puzzles");
+                        setPracticeOpen(false);
+                      }}
+                    >
+                      <Puzzle className="h-4 w-4" />
+                      Puzzles
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+              }
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
+                    isLight ? "hover:text-slate-900 hover:bg-slate-200/70" : "hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <Icon className={iconSize} />
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="hidden md:flex items-center gap-3 relative">
@@ -230,11 +314,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-expanded={profileOpen}
             >
               {user?.avatarUrl ? (
-                <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 shadow-glow">
+                <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20">
                   <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
                 </div>
               ) : (
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-glow">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
                   {initials}
                 </div>
               )}
@@ -244,11 +328,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </button>
             {profileOpen && (
-              <div className="absolute right-0 top-14 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3">
+              <div className="absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3 transform">
                 <div className="px-4 pb-3">
                   <div className="flex items-center gap-3">
                     {user?.avatarUrl ? (
-                      <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20 shadow-glow">
+                      <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20">
                         <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
                       </div>
                     ) : (
@@ -336,11 +420,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {user && (
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                   {user?.avatarUrl ? (
-                    <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15 shadow-glow">
+                    <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15">
                       <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
                     </div>
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-glow">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
                       {initials}
                     </div>
                   )}
@@ -352,18 +436,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                {mobileLinks.map(({ href, label, icon: Icon }) => (
+              <div className="grid grid-cols-2 gap-2 text-base font-semibold">
+                {mobileLinks.map(({ href, label, icon: Icon }) => {
+                  const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
+                  return (
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white transition"
                     onClick={() => setOpen(false)}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className={iconSize} />
                     {label}
                   </Link>
-                ))}
+                );
+                })}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button

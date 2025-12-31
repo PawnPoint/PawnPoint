@@ -13,6 +13,8 @@ import {
   Users,
   AlertTriangle,
   X,
+  CreditCard,
+  LifeBuoy,
 } from "lucide-react";
 import { updateEmail as updateAuthEmail } from "firebase/auth";
 import { AppShell } from "../components/AppShell";
@@ -103,6 +105,8 @@ export default function Settings() {
   const [groupActionLoading, setGroupActionLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
+  const [supportMessage, setSupportMessage] = useState("");
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
   const sampleSquares = useMemo(() => buildBoard(sampleFen), []);
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
@@ -269,7 +273,7 @@ export default function Settings() {
     }
   };
 
-  const handleCreateGroup = async () => {
+  const executeCreateGroup = async () => {
     if (!groupNameInput.trim()) {
       setGroupActionError("Name your group first.");
       return;
@@ -287,6 +291,10 @@ export default function Settings() {
     } finally {
       setGroupActionLoading(false);
     }
+  };
+
+  const handleCreateGroup = async () => {
+    await executeCreateGroup();
   };
 
   const handleRenameGroup = async () => {
@@ -360,7 +368,10 @@ export default function Settings() {
         type: "button",
         label: inGroup ? "Leave or change" : "Create or Join",
         variant: "outline",
-        onClick: openSwitchModal,
+        onClick: () => {
+          setGroupActionError("");
+          openSwitchModal();
+        },
       },
     },
     ...(isGroupAdmin
@@ -387,6 +398,22 @@ export default function Settings() {
           } as SettingItem,
         ]
       : []),
+    {
+      key: "support",
+      title: "Support",
+      description: "Need help? Send a message to our support team.",
+      accent: "bg-blue-700",
+      icon: LifeBuoy,
+      action: {
+        type: "button",
+        label: "Email Support",
+        variant: "outline",
+        onClick: () => {
+          setSupportMessage("");
+          setSupportModalOpen(true);
+        },
+      },
+    },
     {
       key: "logout",
       title: "Log Out",
@@ -1013,6 +1040,54 @@ export default function Settings() {
                   Save
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Email support</div>
+                <div className="text-xs text-white/60">We’ll send your message to officialpawnpoint@gmail.com</div>
+              </div>
+              <button
+                className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                onClick={() => setSupportModalOpen(false)}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.08em] text-white/50">Your message</label>
+              <textarea
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                rows={4}
+                placeholder="Describe the issue you're facing..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setSupportModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const subject = encodeURIComponent("Pawn Point Support Request");
+                  const body = encodeURIComponent(supportMessage || "Hi team,");
+                  window.location.href = `mailto:officialpawnpoint@gmail.com?subject=${subject}&body=${body}`;
+                  setSupportModalOpen(false);
+                }}
+                disabled={!supportMessage.trim()}
+              >
+                Email Support
+              </Button>
             </div>
           </div>
         </div>

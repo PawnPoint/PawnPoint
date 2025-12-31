@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
-import { Rocket, Swords, X, Download } from "lucide-react";
+import { Swords, X, Download } from "lucide-react";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
@@ -1112,21 +1112,19 @@ export default function Practice() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <div className="text-xl font-bold flex items-center gap-2">
-              <Rocket className="h-5 w-5 text-emerald-300" />
-              Practice vs Bot
+              <span className="sr-only">Practice</span>
             </div>
-            <div className="text-sm text-white/60">Choose your color, then play on a live board.</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,1fr)_320px] gap-4 items-start">
           <div className="relative">
-            <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[840px] mx-auto">
+            <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[720px] mx-auto">
               <div
                 className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
                 style={{ backgroundColor: boardColors.dark }}
               >
-                <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[840px] aspect-square mx-auto">
+                <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[720px] aspect-square mx-auto">
                   {board.map((row, rIdx) =>
                     row.map((piece, cIdx) => {
                       const sq = squareName(rIdx, cIdx);
@@ -1332,7 +1330,7 @@ export default function Practice() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="rounded-2xl bg-slate-900 border border-white/10 text-white p-4 shadow-xl space-y-3">
+            <div className="rounded-2xl bg-black border border-white/10 text-white p-4 shadow-xl space-y-3">
               <div className="w-full flex flex-col items-center gap-3">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden border border-white/10 bg-white/5 shadow-lg">
                   <img
@@ -1377,7 +1375,7 @@ export default function Practice() {
               </div>
             </div>
 
-            <div className="rounded-2xl bg-slate-900 border border-white/10 p-4 shadow-xl space-y-3">
+            <div className="rounded-2xl bg-black border border-white/10 p-4 shadow-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="font-semibold">Moves</div>
                 <Button variant="ghost" size="sm" onClick={handleDownloadPgn} className="gap-2">
@@ -1385,7 +1383,7 @@ export default function Practice() {
                   PGN
                 </Button>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3 max-h-60 overflow-y-auto text-sm text-white/80">
+              <div className="rounded-xl border border-white/10 bg-black p-3 max-h-60 overflow-y-auto text-sm text-white/80">
                 {moveRows.length === 0 ? (
                   <div className="text-white/60 text-sm">No moves yet.</div>
                 ) : (

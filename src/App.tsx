@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import AdventCalendar from "./pages/AdventCalendar";
 import Profile from "./pages/Profile";
 import Ranks from "./pages/Ranks";
+import Analysis from "./pages/Analysis";
+import Puzzles from "./pages/Puzzles";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -101,6 +103,20 @@ function Router() {
         )}
       </Route>
       <Route path="/practice" component={Practice} />
+      <Route path="/puzzles">
+        {() => (
+          <Protected>
+            <Puzzles />
+          </Protected>
+        )}
+      </Route>
+      <Route path="/analysis">
+        {() => (
+          <Protected>
+            <Analysis />
+          </Protected>
+        )}
+      </Route>
       <Route path="/ranks">
         {() => (
           <Protected>

@@ -8,6 +8,11 @@ import { useAuth } from "../hooks/useAuth";
 import { getDashboard, updateTaglineSettings } from "../lib/mockApi";
 import southKnight from "../assets/The South Knight.png";
 import background from "../assets/Snowflake Background.png";
+import avatar1 from "../assets/Avatar 1.png";
+import avatar2 from "../assets/Avatar 2.png";
+import avatar3 from "../assets/Avatar 3.png";
+import avatar4 from "../assets/Avatar 4.png";
+import avatar5 from "../assets/Avatar 5.png";
 import { Pencil, X } from "lucide-react";
 import { db } from "../lib/firebase";
 import { ref, update } from "firebase/database";
@@ -56,7 +61,14 @@ export default function Profile() {
 
   // XP distribution removed per request
 
-  const avatars = [{ id: "south", label: "South Knight", url: southKnight }];
+  const avatars = [
+    { id: "south", label: "South Knight", url: southKnight },
+    { id: "avatar1", label: "Avatar 1", url: avatar1 },
+    { id: "avatar2", label: "Avatar 2", url: avatar2 },
+    { id: "avatar3", label: "Avatar 3", url: avatar3 },
+    { id: "avatar4", label: "Avatar 4", url: avatar4 },
+    { id: "avatar5", label: "Avatar 5", url: avatar5 },
+  ];
 
   const handleAvatarSelect = (url: string) => {
     setAvatarUrl(url);
@@ -152,9 +164,6 @@ export default function Profile() {
               </div>
             </div>
             <div className="flex-1 flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-              <div className="rounded-full bg-cyan-500/20 text-cyan-100 border border-cyan-400/40 px-3 py-1 text-sm">
-                Current Streak: {streak} days
-              </div>
               <Button variant="outline" onClick={() => navigate("/settings")}>
                 Settings
               </Button>
