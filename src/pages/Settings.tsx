@@ -565,26 +565,28 @@ export default function Settings() {
         },
       },
     },
-    ...(user?.premiumAccess && user?.paypalSubscriptionId
-      ? [
-          {
-            key: "subscription",
-            title: "Subscription",
-            description: "Manage your Pawn Point Pro billing.",
-            accent: "bg-emerald-700",
-            icon: CreditCard,
-            action: {
-              type: "button",
-              label: "Cancel Subscription",
-              variant: "outline",
-              onClick: () => {
-                setCancelError(null);
-                setCancelModalOpen(true);
-              },
-            },
-          } as SettingItem,
-        ]
-      : []),
+    {
+      key: "subscription",
+      title: "Subscription",
+      description: "Manage your Pawn Point Pro billing.",
+      accent: "bg-emerald-700",
+      icon: CreditCard,
+      action: {
+        type: "button",
+        label: isPro ? "Manage" : user?.paypalSubscriptionId ? "Resubscribe" : "Subscribe",
+        variant: "outline",
+        onClick: () => {
+          setCancelError(null);
+          if (isPro) {
+            setCancelModalOpen(true);
+          } else {
+            pendingActionRef.current = null;
+            setPaypalError(null);
+            setPaywallOpen(true);
+          }
+        },
+      },
+    } as SettingItem,
     ...(isGroupAdmin
       ? [
           {
