@@ -9,6 +9,12 @@ import admin from "firebase-admin";
 const PAYPAL_ENV = (process.env.PAYPAL_ENV || "sandbox").toLowerCase() === "live" ? "live" : "sandbox";
 const PAYPAL_BASE = PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 
+const hasAllPaypalEnv = () =>
+  !!process.env.PAYPAL_CLIENT_ID &&
+  !!process.env.PAYPAL_CLIENT_SECRET &&
+  !!process.env.PAYPAL_WEBHOOK_ID &&
+  !!process.env.PAYPAL_ENV;
+
 function getAdmin() {
   if (admin.apps.length) return admin.app();
   const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -50,6 +56,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
   try {
+    console.log("[ENV CHECK]", {
+      clientId: !!process.env.PAYPAL_CLIENT_ID,
+      secret: !!process.env.PAYPAL_CLIENT_SECRET,
+      webhookId: !!process.env.PAYPAL_WEBHOOK_ID,
+      env: process.env.PAYPAL_ENV,
+    });
+    if (!hasAllPaypalEnv()) {
+      return res.status(500).json({ error: "PayPal env vars missing" });
+    }
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
     if (!token) {

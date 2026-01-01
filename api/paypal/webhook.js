@@ -10,6 +10,12 @@ import admin from "firebase-admin";
 const PAYPAL_ENV = (process.env.PAYPAL_ENV || "sandbox").toLowerCase() === "live" ? "live" : "sandbox";
 const PAYPAL_BASE = PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 
+const hasAllPaypalEnv = () =>
+  !!process.env.PAYPAL_CLIENT_ID &&
+  !!process.env.PAYPAL_CLIENT_SECRET &&
+  !!process.env.PAYPAL_WEBHOOK_ID &&
+  !!process.env.PAYPAL_ENV;
+
 let adminApp;
 function getAdminApp() {
   if (adminApp) return adminApp;
@@ -139,6 +145,15 @@ async function updateUserBySubscription(subscriptionId, status, updatedAt) {
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+  console.log("[ENV CHECK]", {
+    clientId: !!process.env.PAYPAL_CLIENT_ID,
+    secret: !!process.env.PAYPAL_CLIENT_SECRET,
+    webhookId: !!process.env.PAYPAL_WEBHOOK_ID,
+    env: process.env.PAYPAL_ENV,
+  });
+  if (!hasAllPaypalEnv()) {
+    return res.status(500).json({ error: "PayPal env vars missing" });
   }
   console.info("[PayPal Webhook] env:", PAYPAL_ENV);
   let rawBody;
