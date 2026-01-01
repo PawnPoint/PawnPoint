@@ -85,11 +85,11 @@ const APP_ENV =
       : import.meta.env.MODE === "production"
         ? "live"
         : "sandbox";
-const PAYPAL_CLIENT_ID =
-  APP_ENV === "sandbox"
-    ? ((import.meta.env.VITE_PAYPAL_SANDBOX_CLIENT_ID as string | undefined) || undefined)
-    : ((import.meta.env.VITE_PAYPAL_LIVE_CLIENT_ID as string | undefined) || undefined);
-console.info(`[PawnPoint] PayPal env: ${APP_ENV}, client: ${PAYPAL_CLIENT_ID ? "set" : "missing"}`);
+const PAYPAL_CLIENT_ID = (import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined) || undefined;
+console.log("PayPal ENV CHECK", {
+  viteClientId: PAYPAL_CLIENT_ID,
+  appEnv: APP_ENV,
+});
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
@@ -173,10 +173,15 @@ export default function Settings() {
     }
   }, [manageGroupOpen, inGroup, user?.groupId]);
 
-  // Preload PayPal SDK so buttons render on first open.
+  // Preload PayPal SDK so buttons render on first open (only if client and env are set).
   useEffect(() => {
-    if (!PAYPAL_CLIENT_ID) return;
-    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV).catch(() => undefined);
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_ID.trim()) {
+      console.error("PayPal client ID missing; cannot preload SDK.");
+      return;
+    }
+    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV).catch((err) => {
+      console.error("Failed to preload PayPal SDK", err);
+    });
   }, []);
 
   const fetchTopOpenings = async (username: string): Promise<string[]> => {
@@ -399,8 +404,16 @@ export default function Settings() {
       if (container) container.innerHTML = "";
       return;
     }
-    if (!PAYPAL_CLIENT_ID) {
-      setPaypalError(`PayPal client ID is not configured for ${APP_ENV} mode.`);
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_ID.trim()) {
+      const msg = `PayPal client ID is not configured for ${APP_ENV} mode.`;
+      setPaypalError(msg);
+      console.error(msg);
+      return;
+    }
+    if (APP_ENV !== "live" && APP_ENV !== "sandbox") {
+      const msg = `Unsupported PayPal environment: ${APP_ENV || "unknown"}`;
+      setPaypalError(msg);
+      console.error(msg);
       return;
     }
     setPaypalError(null);

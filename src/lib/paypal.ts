@@ -14,44 +14,41 @@ let activeEnv: "sandbox" | "live" | null = null;
 let activeClient: string | null = null;
 
 export function loadPaypalSdk(clientId: string, mode: "sandbox" | "live"): Promise<any> {
+  if (!clientId || !clientId.trim()) {
+    return Promise.reject(new Error("PayPal client ID is missing."));
+  }
   if (typeof window === "undefined") {
     return Promise.reject(new Error("PayPal SDK can only load in the browser."));
   }
-  if (window.paypal) {
-    if (activeEnv === mode && activeClient === clientId) {
-      return Promise.resolve(window.paypal);
+
+  const expectedHost = mode === "sandbox" ? "sandbox.paypal.com" : "www.paypal.com";
+  const existing = document.querySelector<HTMLScriptElement>('script[src*="paypal.com/sdk/js"]');
+  if (existing) {
+    const src = existing.getAttribute("src") || "";
+    const hasClient = src.includes(encodeURIComponent(clientId)) || src.includes(clientId);
+    const hasHost = src.includes(expectedHost);
+    if (hasClient && hasHost) {
+      if (window.paypal) {
+        return Promise.resolve(window.paypal);
+      }
+      return new Promise((resolve, reject) => {
+        existing.addEventListener("load", () => resolve(window.paypal));
+        existing.addEventListener("error", () => reject(new Error("Failed to load PayPal SDK")));
+      });
     }
-    // env/client mismatch; clear and reload
-    const scripts = Array.from(
-      document.querySelectorAll<HTMLScriptElement>('script[data-pawnpoint-paypal-sdk="true"]'),
-    );
-    scripts.forEach((s) => s.remove());
+    // Mismatched script: remove and reload with correct host/client
+    existing.remove();
     (window as any).paypal = undefined;
     activeEnv = null;
     activeClient = null;
     paypalLoaderPromise = null;
   }
+
   if (paypalLoaderPromise) {
     return paypalLoaderPromise;
   }
+
   paypalLoaderPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[data-pawnpoint-paypal-sdk="true"][data-paypal-env]',
-    );
-    if (existing) {
-      const existingEnv = existing.dataset.paypalEnv;
-      const existingClient = existing.dataset.paypalClientId;
-      if (existingEnv === mode && existingClient === clientId) {
-        existing.addEventListener("load", () => resolve(window.paypal));
-        existing.addEventListener("error", () => {
-          paypalLoaderPromise = null;
-          reject(new Error("Failed to load PayPal SDK"));
-        });
-        return;
-      }
-      // if mismatched env or client, remove and reload
-      existing.remove();
-    }
     const script = document.createElement("script");
     script.src = buildSdkUrl(clientId, mode);
     script.async = true;
