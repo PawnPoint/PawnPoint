@@ -76,7 +76,20 @@ type Option = { label: string; value: string };
 
 const PAYPAL_PLAN_ID = "P-6WB96776R94410050NB7H7VA";
 const PAYPAL_BUTTON_CONTAINER_ID = "paypal-button-container";
-const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined;
+const resolvedEnv = ((import.meta.env.VITE_APP_ENV as string | undefined) || "").trim().toLowerCase();
+const APP_ENV =
+  resolvedEnv === "sandbox"
+    ? "sandbox"
+    : resolvedEnv === "live"
+      ? "live"
+      : import.meta.env.MODE === "production"
+        ? "live"
+        : "sandbox";
+const PAYPAL_CLIENT_ID =
+  APP_ENV === "sandbox"
+    ? ((import.meta.env.VITE_PAYPAL_SANDBOX_CLIENT_ID as string | undefined) || undefined)
+    : ((import.meta.env.VITE_PAYPAL_LIVE_CLIENT_ID as string | undefined) || undefined);
+console.info(`[PawnPoint] PayPal env: ${APP_ENV}, client: ${PAYPAL_CLIENT_ID ? "set" : "missing"}`);
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
@@ -158,6 +171,12 @@ export default function Settings() {
         .catch(() => setGroupMembers([]));
     }
   }, [manageGroupOpen, inGroup, user?.groupId]);
+
+  // Preload PayPal SDK so buttons render on first open.
+  useEffect(() => {
+    if (!PAYPAL_CLIENT_ID) return;
+    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV).catch(() => undefined);
+  }, []);
 
   const fetchTopOpenings = async (username: string): Promise<string[]> => {
     // chess.com archives list
@@ -379,13 +398,13 @@ export default function Settings() {
       return;
     }
     if (!PAYPAL_CLIENT_ID) {
-      setPaypalError("PayPal client ID is not configured.");
+      setPaypalError(`PayPal client ID is not configured for ${APP_ENV} mode.`);
       return;
     }
     setPaypalError(null);
     setPaypalLoading(true);
     let cancelled = false;
-    loadPaypalSdk(PAYPAL_CLIENT_ID)
+    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV)
       .then((paypal) => {
         if (cancelled) return;
         if (!paypal || !paypal.Buttons) {
@@ -864,7 +883,12 @@ export default function Settings() {
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
                     placeholder="#1234"
                   />
-                  <Button className="w-full justify-center" onClick={handleJoinGroup} disabled={groupActionLoading}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
+                    onClick={handleJoinGroup}
+                    disabled={groupActionLoading}
+                  >
                     {groupActionLoading ? "Joining..." : "Join Group"}
                   </Button>
                 </div>
@@ -876,7 +900,12 @@ export default function Settings() {
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
                     placeholder="Team Knights"
                   />
-                  <Button className="w-full justify-center" onClick={handleCreateGroup} disabled={groupActionLoading}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
+                    onClick={handleCreateGroup}
+                    disabled={groupActionLoading}
+                  >
                     {groupActionLoading ? "Creating..." : "Create Group"}
                   </Button>
                 </div>

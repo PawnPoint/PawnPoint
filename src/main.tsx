@@ -7,6 +7,11 @@ import { queryClient } from "./lib/queryClient";
 import { installApiMocks } from "./lib/apiMocks";
 
 installApiMocks();
+const resolvedAppEnv =
+  (import.meta.env.VITE_APP_ENV as string | undefined)?.toLowerCase() ||
+  (import.meta.env.MODE === "production" ? "live" : "sandbox");
+const appEnv = resolvedAppEnv === "sandbox" ? "sandbox" : "live";
+console.info(`[PawnPoint] PayPal mode: ${appEnv}`);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

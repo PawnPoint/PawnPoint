@@ -128,6 +128,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  console.info("[PayPal Webhook] env:", PAYPAL_ENV);
   let rawBody;
   try {
     rawBody = await readRawBody(req);
