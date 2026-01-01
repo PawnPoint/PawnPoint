@@ -214,5 +214,5 @@ export default async function handler(req, res) {
     // still 200 to avoid retries; log for investigation
   }
 
-  return res.status(200).json({ success: true });
+  return res.status(200).json({ ok: true });
 }
