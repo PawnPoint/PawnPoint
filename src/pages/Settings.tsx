@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type ElementType } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback, type ElementType } from "react";
 import {
   LogOut,
   UserRound,
@@ -38,10 +38,12 @@ import {
   updateUserEmail,
   type GroupMember,
   type Course,
+  type UserProfile,
 } from "../lib/mockApi";
 import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
 import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceThemes";
 import { auth } from "../lib/firebase";
+import { loadPaypalSdk } from "../lib/paypal";
 
 type SettingAction =
   | { type: "button"; label: string; onClick: () => void; variant?: "primary" | "ghost" | "outline" }
@@ -71,6 +73,10 @@ type ChessProfile = {
 };
 
 type Option = { label: string; value: string };
+
+const PAYPAL_PLAN_ID = "P-6WB96776R94410050NB7H7VA";
+const PAYPAL_BUTTON_CONTAINER_ID = "paypal-button-container";
+const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined;
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
@@ -107,6 +113,14 @@ export default function Settings() {
   const [groupSearch, setGroupSearch] = useState("");
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [supportMessage, setSupportMessage] = useState("");
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paypalError, setPaypalError] = useState<string | null>(null);
+  const [paypalLoading, setPaypalLoading] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const pendingActionRef = useRef<"create-group" | null>(null);
+  const paypalButtonsRef = useRef<any>(null);
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
   const sampleSquares = useMemo(() => buildBoard(sampleFen), []);
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
@@ -127,6 +141,7 @@ export default function Settings() {
 
   const inGroup = !!user?.groupId && user?.accountType === "group";
   const isGroupAdmin = inGroup && user?.groupRole === "admin";
+  const isPro = !!user?.premiumAccess;
 
   useEffect(() => {
     setGroupNameInput(user?.groupName || "");
@@ -293,9 +308,147 @@ export default function Settings() {
     }
   };
 
+  const handleSubscriptionSuccess = useCallback(
+    async (subscriptionId: string) => {
+      try {
+        const resp = await fetch("/api/paypal/attach-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscriptionId }),
+        });
+        const payload = (await resp.json().catch(() => ({}))) as { success?: boolean; profile?: UserProfile; message?: string };
+        if (!resp.ok || !payload?.success) {
+          throw new Error(payload?.message || "Could not attach subscription.");
+        }
+        const nextProfile = payload.profile || (user ? { ...user, premiumAccess: true, paypalSubscriptionId: subscriptionId } : null);
+        if (nextProfile) setUser(nextProfile);
+        setPaypalError(null);
+        setPaywallOpen(false);
+        const pendingAction = pendingActionRef.current;
+        pendingActionRef.current = null;
+        if (pendingAction === "create-group") {
+          await executeCreateGroup();
+        }
+      } catch (err: any) {
+        setPaypalError(err?.message || "Could not attach subscription.");
+      }
+    },
+    [executeCreateGroup, setUser, user],
+  );
+
   const handleCreateGroup = async () => {
-    await executeCreateGroup();
+    if (isPro) {
+      await executeCreateGroup();
+      return;
+    }
+    pendingActionRef.current = "create-group";
+    setPaypalError(null);
+    setPaywallOpen(true);
   };
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    setCancelError(null);
+    try {
+      const resp = await fetch("/api/paypal/cancel-subscription", { method: "POST" });
+      const payload = (await resp.json().catch(() => ({}))) as { success?: boolean; message?: string; profile?: UserProfile };
+      if (!resp.ok || !payload?.success) {
+        throw new Error(payload?.message || "Could not cancel subscription.");
+      }
+      if (payload.profile) setUser(payload.profile);
+      setCancelModalOpen(false);
+    } catch (err: any) {
+      setCancelError(err?.message || "Could not cancel subscription.");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!paywallOpen) {
+      if (paypalButtonsRef.current?.close) {
+        try {
+          paypalButtonsRef.current.close();
+        } catch (_) {
+          // ignore close errors
+        }
+      }
+      paypalButtonsRef.current = null;
+      const container = document.getElementById(PAYPAL_BUTTON_CONTAINER_ID);
+      if (container) container.innerHTML = "";
+      return;
+    }
+    if (!PAYPAL_CLIENT_ID) {
+      setPaypalError("PayPal client ID is not configured.");
+      return;
+    }
+    setPaypalError(null);
+    setPaypalLoading(true);
+    let cancelled = false;
+    loadPaypalSdk(PAYPAL_CLIENT_ID)
+      .then((paypal) => {
+        if (cancelled) return;
+        if (!paypal || !paypal.Buttons) {
+          throw new Error("PayPal SDK unavailable.");
+        }
+        const container = document.getElementById(PAYPAL_BUTTON_CONTAINER_ID);
+        if (!container) {
+          throw new Error("PayPal button container not found.");
+        }
+        if (paypalButtonsRef.current?.close) {
+          try {
+            paypalButtonsRef.current.close();
+          } catch (_) {
+            // ignore close errors
+          }
+        }
+        paypalButtonsRef.current = null;
+        container.innerHTML = "";
+        const buttons = paypal.Buttons({
+          style: { shape: "pill", color: "gold", layout: "vertical", label: "subscribe" },
+          createSubscription: (_data: any, actions: any) =>
+            actions.subscription.create({ plan_id: PAYPAL_PLAN_ID }),
+          onApprove: (data: any) => {
+            if (cancelled) return;
+            if (!data?.subscriptionID) {
+              setPaypalError("Missing subscription ID from PayPal.");
+              return;
+            }
+            void handleSubscriptionSuccess(data.subscriptionID);
+          },
+          onError: (err: any) => {
+            if (cancelled) return;
+            setPaypalError(err?.message || "PayPal checkout failed. Please try again.");
+          },
+          onCancel: () => {
+            if (cancelled) return;
+            setPaypalError("Checkout was canceled.");
+          },
+        });
+        paypalButtonsRef.current = buttons;
+        buttons.render(`#${PAYPAL_BUTTON_CONTAINER_ID}`).catch((err: any) => {
+          setPaypalError(err?.message || "Could not render PayPal buttons.");
+        });
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setPaypalError(err?.message || "Could not load PayPal. Please try again.");
+      })
+      .finally(() => {
+        if (!cancelled) setPaypalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (paypalButtonsRef.current?.close) {
+        try {
+          paypalButtonsRef.current.close();
+        } catch (_) {
+          // ignore close errors
+        }
+      }
+      paypalButtonsRef.current = null;
+    };
+  }, [handleSubscriptionSuccess, paywallOpen]);
 
   const handleRenameGroup = async () => {
     if (!groupNameInput.trim()) {
@@ -362,7 +515,7 @@ export default function Settings() {
       description: inGroup
         ? `Currently in ${user?.groupName || "a group"} (${user?.groupCode || "no code yet"})`
         : "Personal account active. Join or create a group to collaborate.",
-      accent: "bg-indigo-700",
+      accent: "bg-emerald-700",
       icon: ArrowLeftRight,
       action: {
         type: "button",
@@ -374,6 +527,26 @@ export default function Settings() {
         },
       },
     },
+    ...(user?.premiumAccess && user?.paypalSubscriptionId
+      ? [
+          {
+            key: "subscription",
+            title: "Subscription",
+            description: "Manage your Pawn Point Pro billing.",
+            accent: "bg-emerald-700",
+            icon: CreditCard,
+            action: {
+              type: "button",
+              label: "Cancel Subscription",
+              variant: "outline",
+              onClick: () => {
+                setCancelError(null);
+                setCancelModalOpen(true);
+              },
+            },
+          } as SettingItem,
+        ]
+      : []),
     ...(isGroupAdmin
       ? [
           {
@@ -402,7 +575,7 @@ export default function Settings() {
       key: "support",
       title: "Support",
       description: "Need help? Send a message to our support team.",
-      accent: "bg-blue-700",
+      accent: "bg-emerald-700",
       icon: LifeBuoy,
       action: {
         type: "button",
@@ -418,7 +591,7 @@ export default function Settings() {
       key: "logout",
       title: "Log Out",
       description: "Sign out from PawnPoint on this device.",
-      accent: "bg-emerald-600",
+      accent: "bg-emerald-700",
       icon: LogOut,
       action: {
         type: "button",
@@ -1040,6 +1213,74 @@ export default function Settings() {
                   Save
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paywallOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4">
+          <div className="relative z-[121] w-full max-w-md min-h-[360px] bg-black text-white border border-white/15 shadow-2xl p-8 space-y-4 rounded-3xl pointer-events-auto">
+            <button
+              className="absolute right-4 top-4 h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+              onClick={() => {
+                setPaywallOpen(false);
+                pendingActionRef.current = null;
+                setPaypalError(null);
+              }}
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Pawn Point Pro</div>
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold">$25 / month</div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+              <div className="text-sm text-white/70">
+                Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account.
+              </div>
+              <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
+              {paypalLoading && <div className="text-xs text-white/70">Loading PayPal...</div>}
+              {paypalError && <div className="text-xs text-rose-200">{paypalError}</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 px-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/15 shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Cancel Subscription</div>
+                <div className="text-sm text-white/70">Are you sure you want to cancel Pawn Point Pro?</div>
+              </div>
+              <button
+                className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                onClick={() => setCancelModalOpen(false)}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {cancelError && <div className="text-xs text-rose-200">{cancelError}</div>}
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setCancelModalOpen(false)} disabled={cancelLoading}>
+                Keep Pro
+              </Button>
+              <Button
+                variant="outline"
+                className="border-rose-300 text-rose-100 hover:bg-rose-500/20"
+                onClick={handleCancelSubscription}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? "Cancelling..." : "Confirm Cancel"}
+              </Button>
             </div>
           </div>
         </div>

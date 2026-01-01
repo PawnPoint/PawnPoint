@@ -19,6 +19,7 @@
     "chessboardjs": "^0.0.1",
     "clsx": "^2.1.1",
     "firebase": "^12.6.0",
+    "firebase-admin": "^12.7.0",
     "lucide-react": "^0.453.0",
     "playwright-chromium": "^1.57.0",
     "react": "^18.3.1",

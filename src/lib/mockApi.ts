@@ -32,6 +32,10 @@ export type UserProfile = {
   xpReachedAt?: number;
   boardTheme?: string;
   pieceTheme?: string;
+  premiumAccess?: boolean;
+  paypalSubscriptionId?: string | null;
+  subscriptionStatus?: "active" | "cancelled" | "unknown";
+  subscriptionUpdatedAt?: number | null;
 };
 
 export type Group = {
@@ -337,6 +341,22 @@ function readUser(): UserProfile | null {
     }
     if (parsed.accountType === undefined) {
       parsed.accountType = parsed.groupId ? "group" : undefined;
+      writeUser(parsed);
+    }
+    if (parsed.premiumAccess === undefined) {
+      parsed.premiumAccess = false;
+      writeUser(parsed);
+    }
+    if (parsed.paypalSubscriptionId === undefined) {
+      parsed.paypalSubscriptionId = null;
+      writeUser(parsed);
+    }
+    if (parsed.subscriptionStatus === undefined) {
+      parsed.subscriptionStatus = parsed.premiumAccess ? "active" : undefined;
+      writeUser(parsed);
+    }
+    if (parsed.subscriptionUpdatedAt === undefined) {
+      parsed.subscriptionUpdatedAt = null;
       writeUser(parsed);
     }
     parsed.groupId = parsed.groupId ?? null;
@@ -1082,6 +1102,10 @@ export async function ensureProfile(
           unlockedSets: localUser.unlockedSets || [],
           selectedTagline: localUser.selectedTagline ?? "",
           taglinesEnabled: localUser.taglinesEnabled ?? true,
+          premiumAccess: localUser.premiumAccess ?? false,
+          paypalSubscriptionId: localUser.paypalSubscriptionId ?? null,
+          subscriptionStatus: localUser.subscriptionStatus ?? (localUser.premiumAccess ? "active" : undefined),
+          subscriptionUpdatedAt: localUser.subscriptionUpdatedAt ?? null,
           onlineRating: typeof localUser.onlineRating === "number" ? localUser.onlineRating : 1000,
           boardTheme: resolveBoardTheme(localUser.boardTheme).key,
           pieceTheme: resolvePieceTheme(localUser.pieceTheme).key,
@@ -1111,6 +1135,10 @@ export async function ensureProfile(
           unlockedSets: [],
           selectedTagline: "",
           taglinesEnabled: true,
+          premiumAccess: false,
+          paypalSubscriptionId: null,
+          subscriptionStatus: undefined,
+          subscriptionUpdatedAt: null,
           lastStreakAt: startOfDayMs(new Date()),
           boardTheme: DEFAULT_BOARD_THEME,
           pieceTheme: DEFAULT_PIECE_THEME,
@@ -1152,6 +1180,10 @@ export async function ensureProfile(
       lastStreakAt: remote?.lastStreakAt ?? baseProfile.lastStreakAt ?? startOfDayMs(new Date()),
       boardTheme: resolveBoardTheme(remote?.boardTheme || baseProfile.boardTheme).key,
       pieceTheme: resolvePieceTheme(remote?.pieceTheme || baseProfile.pieceTheme).key,
+      premiumAccess: remote?.premiumAccess ?? baseProfile.premiumAccess ?? false,
+      paypalSubscriptionId: remote?.paypalSubscriptionId ?? baseProfile.paypalSubscriptionId ?? null,
+      subscriptionStatus: remote?.subscriptionStatus ?? baseProfile.subscriptionStatus ?? (remote?.premiumAccess ? "active" : undefined),
+      subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
     };
     writeUser(merged);
     const safePayload = stripUndefinedShallow(merged);
@@ -1493,6 +1525,87 @@ export async function updateBoardTheme(theme: string, pieceTheme?: string): Prom
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {
   return readUser();
+}
+
+export async function attachPaypalSubscription(subscriptionId: string): Promise<{ success: boolean; profile: UserProfile | null }> {
+  const user = readUser();
+  if (!user) return { success: false, profile: null };
+  const updated: UserProfile = {
+    ...user,
+    premiumAccess: true,
+    paypalSubscriptionId: subscriptionId,
+    subscriptionStatus: "active",
+    subscriptionUpdatedAt: Date.now(),
+  };
+  writeUser(updated);
+  try {
+    await update(
+      ref(db, `users/${user.id}`),
+      stripUndefinedShallow({
+        premiumAccess: true,
+        paypalSubscriptionId: subscriptionId,
+        subscriptionStatus: "active",
+        subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+      }),
+    );
+  } catch (err) {
+    console.warn("Failed to sync PayPal subscription to Firebase", err);
+  }
+  return { success: true, profile: updated };
+}
+
+export async function cancelPaypalSubscriptionLocally(): Promise<{ success: boolean; profile: UserProfile | null }> {
+  const user = readUser();
+  if (!user || !user.paypalSubscriptionId) return { success: false, profile: null };
+  const updated: UserProfile = {
+    ...user,
+    premiumAccess: false,
+    subscriptionStatus: "cancelled",
+    subscriptionUpdatedAt: Date.now(),
+  };
+  writeUser(updated);
+  try {
+    await update(
+      ref(db, `users/${user.id}`),
+      stripUndefinedShallow({
+        premiumAccess: false,
+        subscriptionStatus: "cancelled",
+        subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+      }),
+    );
+  } catch (err) {
+    console.warn("Failed to sync cancellation to Firebase", err);
+  }
+  return { success: true, profile: updated };
+}
+
+export async function updateSubscriptionStatusFromWebhook(
+  subscriptionId: string,
+  status: "active" | "cancelled" | "suspended" | "expired" | "unknown",
+): Promise<UserProfile | null> {
+  const user = readUser();
+  if (!user || user.paypalSubscriptionId !== subscriptionId) return null;
+  const premiumAccess = status === "active";
+  const updated: UserProfile = {
+    ...user,
+    premiumAccess,
+    subscriptionStatus: status,
+    subscriptionUpdatedAt: Date.now(),
+  };
+  writeUser(updated);
+  try {
+    await update(
+      ref(db, `users/${user.id}`),
+      stripUndefinedShallow({
+        premiumAccess,
+        subscriptionStatus: status,
+        subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+      }),
+    );
+  } catch (err) {
+    console.warn("Failed to sync webhook update to Firebase", err);
+  }
+  return updated;
 }
 
 export async function logout(): Promise<void> {
@@ -2125,6 +2238,10 @@ function normalizeUser(u: UserProfile): UserProfile {
     selectedTagline: u.selectedTagline ?? "",
     taglinesEnabled: u.taglinesEnabled ?? true,
     onlineRating: typeof u.onlineRating === "number" ? u.onlineRating : 1000,
+    premiumAccess: u.premiumAccess ?? false,
+    paypalSubscriptionId: u.paypalSubscriptionId ?? null,
+    subscriptionStatus: u.subscriptionStatus ?? (u.premiumAccess ? "active" : undefined),
+    subscriptionUpdatedAt: u.subscriptionUpdatedAt ?? null,
     pieceTheme: resolvePieceTheme(u.pieceTheme).key,
     boardTheme: resolveBoardTheme(u.boardTheme).key,
   };
