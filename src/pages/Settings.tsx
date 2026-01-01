@@ -1289,8 +1289,8 @@ export default function Settings() {
               </div>
             </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-                <div className="text-sm text-white/70">
-                  Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account.
+                <div className="text-sm text-white/70 text-center">
+                  Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account or through Account Settings.
                 </div>
               <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
               {paypalLoading && !paypalReady && <div className="text-xs text-white/70">Loading PayPal...</div>}

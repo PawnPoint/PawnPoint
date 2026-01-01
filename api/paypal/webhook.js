@@ -116,11 +116,23 @@ async function updateUserBySubscription(subscriptionId, status, updatedAt) {
   const val = snapshot.val() || {};
   const userId = Object.keys(val)[0];
   const premiumAccess = status === "active";
-  await db.ref(`users/${userId}`).update({
-    subscriptionStatus: status,
-    premiumAccess,
-    subscriptionUpdatedAt: updatedAt,
-  });
+  const user = val[userId] || {};
+  const updates = {
+    [`users/${userId}/subscriptionStatus`]: status,
+    [`users/${userId}/premiumAccess`]: premiumAccess,
+    [`users/${userId}/subscriptionUpdatedAt`]: updatedAt,
+    [`users/${userId}/groupLocked`]: !premiumAccess && !!user.groupId,
+  };
+  const groupId = user.groupId;
+  if (groupId) {
+    updates[`groups/${groupId}/locked`] = !premiumAccess;
+    const membersSnap = await db.ref(`groups/${groupId}/members`).get();
+    const members = membersSnap.val() || {};
+    Object.keys(members).forEach((memberId) => {
+      updates[`users/${memberId}/groupLocked`] = !premiumAccess;
+    });
+  }
+  await db.ref().update(updates);
   return userId;
 }
 

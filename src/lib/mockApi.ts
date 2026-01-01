@@ -36,6 +36,7 @@ export type UserProfile = {
   paypalSubscriptionId?: string | null;
   subscriptionStatus?: "active" | "cancelled" | "unknown";
   subscriptionUpdatedAt?: number | null;
+  groupLocked?: boolean;
 };
 
 export type Group = {
@@ -44,6 +45,7 @@ export type Group = {
   code: string;
   createdBy: string;
   createdAt: number;
+  locked?: boolean;
 };
 
 export type GroupMember = {
@@ -357,6 +359,10 @@ function readUser(): UserProfile | null {
     }
     if (parsed.subscriptionUpdatedAt === undefined) {
       parsed.subscriptionUpdatedAt = null;
+      writeUser(parsed);
+    }
+    if (parsed.groupLocked === undefined) {
+      parsed.groupLocked = false;
       writeUser(parsed);
     }
     parsed.groupId = parsed.groupId ?? null;
@@ -1106,6 +1112,7 @@ export async function ensureProfile(
           paypalSubscriptionId: localUser.paypalSubscriptionId ?? null,
           subscriptionStatus: localUser.subscriptionStatus ?? (localUser.premiumAccess ? "active" : undefined),
           subscriptionUpdatedAt: localUser.subscriptionUpdatedAt ?? null,
+          groupLocked: localUser.groupLocked ?? false,
           onlineRating: typeof localUser.onlineRating === "number" ? localUser.onlineRating : 1000,
           boardTheme: resolveBoardTheme(localUser.boardTheme).key,
           pieceTheme: resolvePieceTheme(localUser.pieceTheme).key,
@@ -1139,6 +1146,7 @@ export async function ensureProfile(
           paypalSubscriptionId: null,
           subscriptionStatus: undefined,
           subscriptionUpdatedAt: null,
+          groupLocked: false,
           lastStreakAt: startOfDayMs(new Date()),
           boardTheme: DEFAULT_BOARD_THEME,
           pieceTheme: DEFAULT_PIECE_THEME,
@@ -1184,6 +1192,7 @@ export async function ensureProfile(
       paypalSubscriptionId: remote?.paypalSubscriptionId ?? baseProfile.paypalSubscriptionId ?? null,
       subscriptionStatus: remote?.subscriptionStatus ?? baseProfile.subscriptionStatus ?? (remote?.premiumAccess ? "active" : undefined),
       subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
+      groupLocked: remote?.groupLocked ?? baseProfile.groupLocked ?? false,
     };
     writeUser(merged);
     const safePayload = stripUndefinedShallow(merged);
@@ -1536,6 +1545,7 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
     paypalSubscriptionId: subscriptionId,
     subscriptionStatus: "active",
     subscriptionUpdatedAt: Date.now(),
+    groupLocked: false,
   };
   writeUser(updated);
   try {
@@ -1546,6 +1556,7 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
         paypalSubscriptionId: subscriptionId,
         subscriptionStatus: "active",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+        groupLocked: false,
       }),
     );
   } catch (err) {
@@ -1562,6 +1573,7 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
     premiumAccess: false,
     subscriptionStatus: "cancelled",
     subscriptionUpdatedAt: Date.now(),
+    groupLocked: true,
   };
   writeUser(updated);
   try {
@@ -1571,6 +1583,7 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
         premiumAccess: false,
         subscriptionStatus: "cancelled",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+        groupLocked: true,
       }),
     );
   } catch (err) {
@@ -1591,6 +1604,7 @@ export async function updateSubscriptionStatusFromWebhook(
     premiumAccess,
     subscriptionStatus: status,
     subscriptionUpdatedAt: Date.now(),
+    groupLocked: !premiumAccess,
   };
   writeUser(updated);
   try {
@@ -1600,6 +1614,7 @@ export async function updateSubscriptionStatusFromWebhook(
         premiumAccess,
         subscriptionStatus: status,
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
+        groupLocked: updated.groupLocked,
       }),
     );
   } catch (err) {
@@ -1647,6 +1662,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
     groupCode: null,
     groupName: null,
     groupRole: null,
+    groupLocked: false,
     isAdmin: nextIsAdmin,
   };
   writeUser(updated);
@@ -1657,6 +1673,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
       groupCode: null,
       groupName: null,
       groupRole: null,
+      groupLocked: false,
       isAdmin: updated.isAdmin,
     });
   } catch (err) {
@@ -1680,6 +1697,7 @@ export async function createGroupForUser(
     code,
     createdBy: user.id,
     createdAt: Date.now(),
+    locked: false,
   };
   const member: GroupMember = {
     id: user.id,
@@ -1702,6 +1720,7 @@ export async function createGroupForUser(
     groupName: group.name,
     groupRole: "admin",
     isAdmin: true,
+    groupLocked: false,
   };
   writeUser(updated);
   try {
@@ -1743,6 +1762,7 @@ export async function joinGroupWithCode(
           code: formatGroupCode(digits),
           createdBy: "system",
           createdAt: Date.now(),
+          locked: false,
           members: {},
         };
       await set(groupRef, baseGroup);
@@ -1754,6 +1774,7 @@ export async function joinGroupWithCode(
         code: formatGroupCode(digits),
         createdBy: "system",
         createdAt: Date.now(),
+        locked: false,
         members: {},
       };
     }
@@ -1786,6 +1807,7 @@ export async function joinGroupWithCode(
     code: groupData.code || formatGroupCode(digits),
     createdBy: groupData.createdBy,
     createdAt: groupData.createdAt || Date.now(),
+    locked: !!groupData.locked,
   };
   const member: GroupMember = {
     id: user.id,
@@ -1806,6 +1828,7 @@ export async function joinGroupWithCode(
     groupCode: group.code,
     groupName: group.name,
     groupRole: "member",
+    groupLocked: !!group.locked,
   };
   writeUser(updated);
   try {
@@ -1815,6 +1838,7 @@ export async function joinGroupWithCode(
       groupCode: group.code,
       groupName: group.name,
       groupRole: "member",
+      groupLocked: !!group.locked,
     });
   } catch (err) {
     console.warn("Failed to sync group join to user profile", err);
@@ -1839,6 +1863,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
     groupCode: null,
     groupName: null,
     groupRole: null,
+    groupLocked: false,
     isAdmin: nextIsAdmin,
   };
   writeUser(updated);
@@ -2242,6 +2267,7 @@ function normalizeUser(u: UserProfile): UserProfile {
     paypalSubscriptionId: u.paypalSubscriptionId ?? null,
     subscriptionStatus: u.subscriptionStatus ?? (u.premiumAccess ? "active" : undefined),
     subscriptionUpdatedAt: u.subscriptionUpdatedAt ?? null,
+    groupLocked: u.groupLocked ?? false,
     pieceTheme: resolvePieceTheme(u.pieceTheme).key,
     boardTheme: resolveBoardTheme(u.boardTheme).key,
   };
