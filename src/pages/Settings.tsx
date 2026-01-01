@@ -129,6 +129,7 @@ export default function Settings() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paypalError, setPaypalError] = useState<string | null>(null);
   const [paypalLoading, setPaypalLoading] = useState(false);
+  const [paypalReady, setPaypalReady] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -393,6 +394,7 @@ export default function Settings() {
         }
       }
       paypalButtonsRef.current = null;
+      setPaypalLoading(false);
       const container = document.getElementById(PAYPAL_BUTTON_CONTAINER_ID);
       if (container) container.innerHTML = "";
       return;
@@ -402,7 +404,7 @@ export default function Settings() {
       return;
     }
     setPaypalError(null);
-    setPaypalLoading(true);
+    setPaypalLoading(!paypalReady);
     let cancelled = false;
     loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV)
       .then((paypal) => {
@@ -447,7 +449,10 @@ export default function Settings() {
         paypalButtonsRef.current = buttons;
         buttons.render(`#${PAYPAL_BUTTON_CONTAINER_ID}`).catch((err: any) => {
           setPaypalError(err?.message || "Could not render PayPal buttons.");
+          setPaypalLoading(false);
         });
+        setPaypalReady(true);
+        setPaypalLoading(false);
       })
       .catch((err: any) => {
         if (cancelled) return;
@@ -466,8 +471,9 @@ export default function Settings() {
         }
       }
       paypalButtonsRef.current = null;
+      setPaypalLoading(false);
     };
-  }, [handleSubscriptionSuccess, paywallOpen]);
+  }, [handleSubscriptionSuccess, paywallOpen, paypalReady]);
 
   const handleRenameGroup = async () => {
     if (!groupNameInput.trim()) {
@@ -1269,12 +1275,12 @@ export default function Settings() {
                 <div className="text-3xl font-bold">$25 / month</div>
               </div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-              <div className="text-sm text-white/70">
-                Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account.
-              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+                <div className="text-sm text-white/70">
+                  Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account.
+                </div>
               <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
-              {paypalLoading && <div className="text-xs text-white/70">Loading PayPal...</div>}
+              {paypalLoading && !paypalReady && <div className="text-xs text-white/70">Loading PayPal...</div>}
               {paypalError && <div className="text-xs text-rose-200">{paypalError}</div>}
             </div>
           </div>

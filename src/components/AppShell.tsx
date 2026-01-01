@@ -23,6 +23,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
 import pawnPointIcon from "../assets/App tab icon.png";
+import avatarFallback from "../assets/Avatar 1.png";
 import {
   choosePersonalAccount,
   createGroupForUser,
@@ -77,6 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() || "PP";
   const level = user?.level ?? 1;
   const xp = user?.totalXp ?? 0;
+  const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
 
   const emotions = [
@@ -313,15 +315,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-haspopup="menu"
               aria-expanded={profileOpen}
             >
-              {user?.avatarUrl ? (
-                <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20">
-                  <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
-                </div>
-              ) : (
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
-                  {initials}
-                </div>
-              )}
+              <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 bg-white/5">
+                <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+              </div>
               <div className="text-left">
                 <div className="text-xs text-white/60">Level {level}</div>
                 <div className="text-sm font-semibold text-white/90">{xp} XP</div>
@@ -331,15 +327,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3 transform">
                 <div className="px-4 pb-3">
                   <div className="flex items-center gap-3">
-                    {user?.avatarUrl ? (
-                      <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20">
-                        <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
-                        {initials}
-                      </div>
-                    )}
+                    <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20 bg-white/5">
+                      <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                    </div>
                     <div>
                       <div className="text-sm font-semibold text-white">{nameLabel}</div>
                       <div className="text-xs text-emerald-300 font-semibold">
@@ -419,15 +409,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="px-4 py-4 space-y-4">
               {user && (
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                  {user?.avatarUrl ? (
-                    <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15">
-                      <img src={user.avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
-                      {initials}
-                    </div>
-                  )}
+                  <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15 bg-white/5">
+                    <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                  </div>
                   <div>
                     <div className="text-sm font-semibold">{nameLabel}</div>
                     <div className="text-xs text-white/60">
