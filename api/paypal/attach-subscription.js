@@ -41,12 +41,20 @@ export default async function handler(req, res) {
     const userSnap = await db.ref(`users/${uid}`).get();
     const user = userSnap.val() || {};
     const now = Date.now();
+    const nextProfile = {
+      ...user,
+      paypalSubscriptionId: subscriptionId,
+      premiumAccess: true,
+      subscriptionStatus: "active",
+      subscriptionUpdatedAt: now,
+      groupLocked: false,
+    };
     const updates = {
-      [`users/${uid}/paypalSubscriptionId`]: subscriptionId,
-      [`users/${uid}/premiumAccess`]: true,
-      [`users/${uid}/subscriptionStatus`]: "active",
-      [`users/${uid}/subscriptionUpdatedAt`]: now,
-      [`users/${uid}/groupLocked`]: false,
+      [`users/${uid}/paypalSubscriptionId`]: nextProfile.paypalSubscriptionId,
+      [`users/${uid}/premiumAccess`]: nextProfile.premiumAccess,
+      [`users/${uid}/subscriptionStatus`]: nextProfile.subscriptionStatus,
+      [`users/${uid}/subscriptionUpdatedAt`]: nextProfile.subscriptionUpdatedAt,
+      [`users/${uid}/groupLocked`]: nextProfile.groupLocked,
     };
     const groupId = user.groupId;
     if (groupId) {
@@ -58,7 +66,7 @@ export default async function handler(req, res) {
       });
     }
     await db.ref().update(updates);
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ success: true, profile: { ...nextProfile, id: uid } });
   } catch (err) {
     console.error("[attach-subscription]", err);
     return res.status(500).json({ error: "Failed to attach subscription" });

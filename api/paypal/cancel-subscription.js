@@ -112,7 +112,7 @@ export default async function handler(req, res) {
       });
     }
     await db.ref().update(updates);
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ success: true });
   } catch (err) {
     console.error("[cancel-subscription]", err);
     return res.status(500).json({ error: "Failed to cancel subscription" });

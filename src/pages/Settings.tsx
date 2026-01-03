@@ -336,18 +336,38 @@ export default function Settings() {
   const handleSubscriptionSuccess = useCallback(
     async (subscriptionId: string) => {
       try {
+        setPaypalError(null);
+        const firebaseUser = auth.currentUser;
+        const idToken = firebaseUser ? await firebaseUser.getIdToken() : null;
+        if (!idToken) {
+          throw new Error("You need to be signed in to activate your subscription.");
+        }
         const resp = await fetch("/api/paypal/attach-subscription", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
           body: JSON.stringify({ subscriptionId }),
         });
         const payload = (await resp.json().catch(() => ({}))) as { success?: boolean; profile?: UserProfile; message?: string };
         if (!resp.ok || !payload?.success) {
           throw new Error(payload?.message || "Could not attach subscription.");
         }
-        const nextProfile = payload.profile || (user ? { ...user, premiumAccess: true, paypalSubscriptionId: subscriptionId } : null);
+        const now = Date.now();
+        const nextProfile =
+          payload.profile ||
+          (user
+            ? {
+                ...user,
+                premiumAccess: true,
+                paypalSubscriptionId: subscriptionId,
+                subscriptionStatus: "active",
+                subscriptionUpdatedAt: now,
+                groupLocked: false,
+              }
+            : null);
         if (nextProfile) setUser(nextProfile);
-        setPaypalError(null);
         setPaywallOpen(false);
         const pendingAction = pendingActionRef.current;
         pendingActionRef.current = null;
@@ -356,6 +376,7 @@ export default function Settings() {
         }
       } catch (err: any) {
         setPaypalError(err?.message || "Could not attach subscription.");
+        throw err;
       }
     },
     [executeCreateGroup, setUser, user],
@@ -448,7 +469,7 @@ export default function Settings() {
               setPaypalError("Missing subscription ID from PayPal.");
               return;
             }
-            void handleSubscriptionSuccess(data.subscriptionID);
+            return handleSubscriptionSuccess(data.subscriptionID).catch(() => undefined);
           },
           onError: (err: any) => {
             if (cancelled) return;
