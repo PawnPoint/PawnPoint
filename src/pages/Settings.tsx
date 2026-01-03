@@ -393,37 +393,8 @@ export default function Settings() {
     setPaywallOpen(true);
   };
 
-  const handleCancelSubscription = async () => {
-    setCancelLoading(true);
-    setCancelError(null);
-    setCancelStatus("");
-    try {
-      await fetch("/api/ping?src=cancel-STEP-1", { method: "GET" });
-      const token = await auth.currentUser.getIdToken(true);
-      await fetch(`/api/ping?src=cancel-STEP-2-hasToken-${Boolean(token)}`, { method: "GET" });
-      const resp = await fetch("/api/paypal/cancel-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: "{}",
-      });
-      await fetch(`/api/ping?src=cancel-STEP-3-status-${resp.status}`, { method: "GET" });
-      const data = await resp.json().catch(() => ({}));
-      const serialized = Object.keys(data || {}).length ? ` ${JSON.stringify(data)}` : "";
-      setCancelStatus(`Server responded: ${resp.status}${serialized}`);
-      if (!resp.ok) {
-        const message = (data && data.message) || "Could not cancel subscription.";
-        throw new Error(message);
-      }
-    } catch (err: any) {
-      const message = err?.message || "Could not cancel subscription.";
-      setCancelError(message);
-      setCancelStatus(`Server responded: ${message}`);
-    } finally {
-      setCancelLoading(false);
-    }
+  const handleCancelSubscription = () => {
+    window.location.href = `/api/ping?src=cancel-nav-${Date.now()}`;
   };
 
   useEffect(() => {
