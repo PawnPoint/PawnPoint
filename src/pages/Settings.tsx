@@ -396,10 +396,24 @@ export default function Settings() {
     setCancelLoading(true);
     setCancelError(null);
     try {
-      const resp = await fetch("/api/paypal/cancel-subscription", { method: "POST" });
-      const payload = (await resp.json().catch(() => ({}))) as { success?: boolean; message?: string; profile?: UserProfile };
+      const firebaseUser = auth.currentUser;
+      const token = firebaseUser ? await firebaseUser.getIdToken(true) : null;
+      if (!token) {
+        throw new Error("You need to be signed in to cancel your subscription.");
+      }
+      const resp = await fetch("/api/paypal/cancel-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await resp.text();
+      const payload = (text ? JSON.parse(text) : {}) as { success?: boolean; message?: string; profile?: UserProfile };
       if (!resp.ok || !payload?.success) {
-        throw new Error(payload?.message || "Could not cancel subscription.");
+        const serverMsg = payload?.message || text || "Could not cancel subscription.";
+        throw new Error(serverMsg);
       }
       if (payload.profile) setUser(payload.profile);
       setCancelModalOpen(false);
