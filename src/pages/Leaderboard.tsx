@@ -84,7 +84,7 @@ export default function Leaderboard() {
     setClubError("");
     getClubLeaderboard(user)
       .then((list) => setClubEntries(list))
-      .catch(() => setClubError("Could not load club leaderboard."))
+      .catch(() => setClubError("Could not load group leaderboard."))
       .finally(() => setClubLoading(false));
 
     const clubRef = ref(db, clubPath);
@@ -276,14 +276,14 @@ export default function Leaderboard() {
                 aria-haspopup="menu"
                 aria-expanded={viewMenuOpen}
               >
-                <span className="text-white/80">{mode === "xp" ? "XP Leaderboard" : "Club Leaderboard"}</span>
+                <span className="text-white/80">{mode === "xp" ? "XP Leaderboard" : "Group Leaderboard"}</span>
                 <ChevronDown className={`h-4 w-4 transition ${viewMenuOpen ? "rotate-180" : ""}`} />
               </button>
               {viewMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-sm py-2 text-sm text-white">
                   {[
                     { key: "xp", label: "XP Leaderboard" },
-                    { key: "club", label: "Club Leaderboard" },
+                    { key: "club", label: "Group Leaderboard" },
                   ].map((opt) => (
                     <button
                       key={opt.key}
@@ -322,7 +322,7 @@ export default function Leaderboard() {
                 <input
                   value={clubSearch}
                   onChange={(e) => setClubSearch(e.target.value)}
-                  placeholder="Search club players"
+                  placeholder="Search group players"
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-pink-400"
                 />
               </div>
@@ -355,7 +355,7 @@ export default function Leaderboard() {
               <>
                 {user?.isAdmin && (
                   <form onSubmit={handleAddParticipant} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                    <div className="text-sm font-semibold text-white">Club Leaderboard Controls (Admin)</div>
+                <div className="text-sm font-semibold text-white">Group Leaderboard Controls (Admin)</div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <input
                         value={addName}
@@ -389,7 +389,7 @@ export default function Leaderboard() {
                 )}
 
                 {clubLoading ? (
-                  <div className="text-white/70 text-sm">Loading club leaderboard...</div>
+                <div className="text-white/70 text-sm">Loading group leaderboard...</div>
                 ) : sortedClubEntries.length === 0 ? (
                   <div className="text-white/60 text-sm">No club entries yet.</div>
                 ) : (

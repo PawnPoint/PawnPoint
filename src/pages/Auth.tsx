@@ -104,7 +104,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           </div>
           <h1 className="text-3xl font-semibold">{isLogin ? "Log In" : "Create Account"}</h1>
           <p className="text-white/70 text-sm">
-            Train, track XP, and climb the club leaderboard.
+            Train, track XP, and climb the group leaderboard.
           </p>
         </div>
 

@@ -16,6 +16,7 @@ import Profile from "./pages/Profile";
 import Ranks from "./pages/Ranks";
 import Analysis from "./pages/Analysis";
 import Puzzles from "./pages/Puzzles";
+import Checkout from "./pages/Checkout";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -135,6 +136,13 @@ function Router() {
         {() => (
           <Protected>
             <Settings />
+          </Protected>
+        )}
+      </Route>
+      <Route path="/checkout">
+        {() => (
+          <Protected>
+            <Checkout />
           </Protected>
         )}
       </Route>

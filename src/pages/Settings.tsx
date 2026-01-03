@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback, type ElementType } from "react";
+import { useMemo, useState, useEffect, type ElementType } from "react";
 import {
   LogOut,
   UserRound,
@@ -20,6 +20,7 @@ import { updateEmail as updateAuthEmail } from "firebase/auth";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
+import { useLocation } from "wouter";
 import {
   getCourses,
   getProgress,
@@ -44,7 +45,6 @@ import {
 import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
 import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceThemes";
 import { auth } from "../lib/firebase";
-import { loadPaypalSdk } from "../lib/paypal";
 import { cancelPaypalSubscription } from "../lib/cancelPaypalSubscription";
 
 type SettingAction =
@@ -76,22 +76,6 @@ type ChessProfile = {
 
 type Option = { label: string; value: string };
 
-const PAYPAL_PLAN_ID = "P-6WB96776R94410050NB7H7VA";
-const PAYPAL_BUTTON_CONTAINER_ID = "paypal-button-container";
-const resolvedEnv = ((import.meta.env.VITE_APP_ENV as string | undefined) || "").trim().toLowerCase();
-const APP_ENV =
-  resolvedEnv === "sandbox"
-    ? "sandbox"
-    : resolvedEnv === "live"
-      ? "live"
-      : import.meta.env.MODE === "production"
-        ? "live"
-        : "sandbox";
-const PAYPAL_CLIENT_ID = (import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined) || undefined;
-console.log("PayPal ENV CHECK", {
-  viteClientId: PAYPAL_CLIENT_ID,
-  appEnv: APP_ENV,
-});
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
@@ -128,16 +112,11 @@ export default function Settings() {
   const [groupSearch, setGroupSearch] = useState("");
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [supportMessage, setSupportMessage] = useState("");
-  const [paywallOpen, setPaywallOpen] = useState(false);
-  const [paypalError, setPaypalError] = useState<string | null>(null);
-  const [paypalLoading, setPaypalLoading] = useState(false);
-  const [paypalReady, setPaypalReady] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelStatus, setCancelStatus] = useState<string>("");
-  const pendingActionRef = useRef<"create-group" | null>(null);
-  const paypalButtonsRef = useRef<any>(null);
+  const [, navigate] = useLocation();
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
   const sampleSquares = useMemo(() => buildBoard(sampleFen), []);
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
@@ -175,17 +154,6 @@ export default function Settings() {
         .catch(() => setGroupMembers([]));
     }
   }, [manageGroupOpen, inGroup, user?.groupId]);
-
-  // Preload PayPal SDK so buttons render on first open (only if client and env are set).
-  useEffect(() => {
-    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_ID.trim()) {
-      console.error("PayPal client ID missing; cannot preload SDK.");
-      return;
-    }
-    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV).catch((err) => {
-      console.error("Failed to preload PayPal SDK", err);
-    });
-  }, []);
 
   const fetchTopOpenings = async (username: string): Promise<string[]> => {
     // chess.com archives list
@@ -336,63 +304,12 @@ export default function Settings() {
     }
   };
 
-  const handleSubscriptionSuccess = useCallback(
-    async (subscriptionId: string) => {
-      try {
-        setPaypalError(null);
-        const firebaseUser = auth.currentUser;
-        const idToken = firebaseUser ? await firebaseUser.getIdToken() : null;
-        if (!idToken) {
-          throw new Error("You need to be signed in to activate your subscription.");
-        }
-        const resp = await fetch("/api/paypal/attach-subscription", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({ subscriptionId }),
-        });
-        const payload = (await resp.json().catch(() => ({}))) as { success?: boolean; profile?: UserProfile; message?: string };
-        if (!resp.ok || !payload?.success) {
-          throw new Error(payload?.message || "Could not attach subscription.");
-        }
-        const now = Date.now();
-        const nextProfile =
-          payload.profile ||
-          (user
-            ? {
-                ...user,
-                premiumAccess: true,
-                paypalSubscriptionId: subscriptionId,
-                subscriptionStatus: "active",
-                subscriptionUpdatedAt: now,
-                groupLocked: false,
-              }
-            : null);
-        if (nextProfile) setUser(nextProfile);
-        setPaywallOpen(false);
-        const pendingAction = pendingActionRef.current;
-        pendingActionRef.current = null;
-        if (pendingAction === "create-group") {
-          await executeCreateGroup();
-        }
-      } catch (err: any) {
-        setPaypalError(err?.message || "Could not attach subscription.");
-        throw err;
-      }
-    },
-    [executeCreateGroup, setUser, user],
-  );
-
   const handleCreateGroup = async () => {
     if (isPro) {
       await executeCreateGroup();
       return;
     }
-    pendingActionRef.current = "create-group";
-    setPaypalError(null);
-    setPaywallOpen(true);
+    navigate("/checkout");
   };
 
   const handleCancelSubscription = () => {
@@ -427,105 +344,6 @@ export default function Settings() {
       })
       .finally(() => setCancelLoading(false));
   };
-
-  useEffect(() => {
-    if (!paywallOpen) {
-      if (paypalButtonsRef.current?.close) {
-        try {
-          paypalButtonsRef.current.close();
-        } catch (_) {
-          // ignore close errors
-        }
-      }
-      paypalButtonsRef.current = null;
-      setPaypalLoading(false);
-      const container = document.getElementById(PAYPAL_BUTTON_CONTAINER_ID);
-      if (container) container.innerHTML = "";
-      return;
-    }
-    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_ID.trim()) {
-      const msg = `PayPal client ID is not configured for ${APP_ENV} mode.`;
-      setPaypalError(msg);
-      console.error(msg);
-      return;
-    }
-    if (APP_ENV !== "live" && APP_ENV !== "sandbox") {
-      const msg = `Unsupported PayPal environment: ${APP_ENV || "unknown"}`;
-      setPaypalError(msg);
-      console.error(msg);
-      return;
-    }
-    setPaypalError(null);
-    setPaypalLoading(!paypalReady);
-    let cancelled = false;
-    loadPaypalSdk(PAYPAL_CLIENT_ID, APP_ENV)
-      .then((paypal) => {
-        if (cancelled) return;
-        if (!paypal || !paypal.Buttons) {
-          throw new Error("PayPal SDK unavailable.");
-        }
-        const container = document.getElementById(PAYPAL_BUTTON_CONTAINER_ID);
-        if (!container) {
-          throw new Error("PayPal button container not found.");
-        }
-        if (paypalButtonsRef.current?.close) {
-          try {
-            paypalButtonsRef.current.close();
-          } catch (_) {
-            // ignore close errors
-          }
-        }
-        paypalButtonsRef.current = null;
-        container.innerHTML = "";
-        const buttons = paypal.Buttons({
-          style: { shape: "pill", color: "gold", layout: "vertical", label: "subscribe" },
-          createSubscription: (_data: any, actions: any) =>
-            actions.subscription.create({ plan_id: PAYPAL_PLAN_ID }),
-          onApprove: (data: any) => {
-            if (cancelled) return;
-            if (!data?.subscriptionID) {
-              setPaypalError("Missing subscription ID from PayPal.");
-              return;
-            }
-            return handleSubscriptionSuccess(data.subscriptionID).catch(() => undefined);
-          },
-          onError: (err: any) => {
-            if (cancelled) return;
-            setPaypalError(err?.message || "PayPal checkout failed. Please try again.");
-          },
-          onCancel: () => {
-            if (cancelled) return;
-            setPaypalError("Checkout was canceled.");
-          },
-        });
-        paypalButtonsRef.current = buttons;
-        buttons.render(`#${PAYPAL_BUTTON_CONTAINER_ID}`).catch((err: any) => {
-          setPaypalError(err?.message || "Could not render PayPal buttons.");
-          setPaypalLoading(false);
-        });
-        setPaypalReady(true);
-        setPaypalLoading(false);
-      })
-      .catch((err: any) => {
-        if (cancelled) return;
-        setPaypalError(err?.message || "Could not load PayPal. Please try again.");
-      })
-      .finally(() => {
-        if (!cancelled) setPaypalLoading(false);
-      });
-    return () => {
-      cancelled = true;
-      if (paypalButtonsRef.current?.close) {
-        try {
-          paypalButtonsRef.current.close();
-        } catch (_) {
-          // ignore close errors
-        }
-      }
-      paypalButtonsRef.current = null;
-      setPaypalLoading(false);
-    };
-  }, [handleSubscriptionSuccess, paywallOpen, paypalReady]);
 
   const handleRenameGroup = async () => {
     if (!groupNameInput.trim()) {
@@ -620,9 +438,7 @@ export default function Settings() {
           if (isPro) {
             setCancelModalOpen(true);
           } else {
-            pendingActionRef.current = null;
-            setPaypalError(null);
-            setPaywallOpen(true);
+            navigate("/checkout");
           }
         },
       },
@@ -1308,39 +1124,6 @@ export default function Settings() {
         </div>
       )}
 
-      {paywallOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4">
-          <div className="relative z-[121] w-full max-w-md min-h-[360px] bg-black text-white border border-white/15 shadow-2xl p-8 space-y-4 rounded-3xl pointer-events-auto">
-            <button
-              className="absolute right-4 top-4 h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
-              onClick={() => {
-                setPaywallOpen(false);
-                pendingActionRef.current = null;
-                setPaypalError(null);
-              }}
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold">Pawn Point Pro</div>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold">$25 / month</div>
-              </div>
-            </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-                <div className="text-sm text-white/70 text-center">
-                  Checkout securely with PayPal Subscriptions. You can cancel anytime from your PayPal account or through Account Settings.
-                </div>
-              <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
-              {paypalLoading && !paypalReady && <div className="text-xs text-white/70">Loading PayPal...</div>}
-              {paypalError && <div className="text-xs text-rose-200">{paypalError}</div>}
-            </div>
-          </div>
-        </div>
-      )}
 
       {cancelModalOpen && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 px-4">

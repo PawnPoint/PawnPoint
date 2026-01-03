@@ -2477,7 +2477,7 @@ export async function getClubLeaderboard(user?: UserProfile | null): Promise<Clu
     }
     return fallback();
   } catch (err) {
-    console.warn("Failed to load club leaderboard from Firebase", err);
+    console.warn("Failed to load group leaderboard from Firebase", err);
     return fallback();
   }
 }
