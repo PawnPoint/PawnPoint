@@ -38,6 +38,15 @@ export default function CancelTest() {
         <p className="text-white/70 text-sm">
           This page calls the server cancel endpoint directly for testing. No local profile updates are performed.
         </p>
+        <div style={{ padding: 12, background: "#111", color: "#0f0", fontSize: 14 }}>
+          <div>
+            <b>window.location.origin:</b> {typeof window !== "undefined" ? window.location.origin : "N/A"}
+          </div>
+          <div>
+            <b>Cancel URL:</b>{" "}
+            {typeof window !== "undefined" ? `${window.location.origin}/api/paypal/cancel-subscription` : "N/A"}
+          </div>
+        </div>
         <Button onClick={handleCancel} disabled={loading} className="w-full">
           {loading ? "Sending..." : "Cancel subscription (server)"}
         </Button>
