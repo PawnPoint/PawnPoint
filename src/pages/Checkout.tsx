@@ -107,7 +107,7 @@ export default function Checkout() {
             handleSubscriptionSuccess(data.subscriptionID).catch((err) => setPaypalError(err?.message || "Attach failed"));
           },
           onError: (err: any) => setPaypalError(err?.message || "PayPal checkout failed."),
-          onCancel: () => setPaypalError("Checkout was canceled."),
+          onCancel: () => setPaypalError(null),
         });
         paypalButtonsRef.current = buttons;
         buttons
@@ -145,7 +145,7 @@ export default function Checkout() {
       <div className="relative z-10 w-full max-w-5xl space-y-8">
         <div
           className="flex items-center justify-center gap-3 absolute left-1/2 -translate-x-1/2 z-20"
-          style={{ top: "-250px" }}
+          style={{ top: "-200px" }}
         >
           <img src={pawnPointIcon} alt="Pawn Point logo" className="h-16 w-16 object-contain" />
           <div className="text-3xl font-semibold">Pawn Point</div>
@@ -184,7 +184,7 @@ export default function Checkout() {
                   <div className="flex items-start justify-between w-full">
                     <div className="text-2xl font-bold">Monthly Plan</div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-brand.pink">$9.99</div>
+                      <div className="text-3xl font-bold text-brand.pink">$15.00</div>
                       <div className="text-sm text-white/70">/ Month</div>
                     </div>
                   </div>
@@ -214,14 +214,14 @@ export default function Checkout() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/70">Price:</span>
-                  <span className="font-semibold">USD 9.99</span>
+                  <span className="font-semibold">USD 15.00</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/70">Next billing date:</span>
                   <span className="font-semibold">{nextBilling}</span>
                 </div>
               </div>
-              <div className="text-center text-xl font-semibold">Total: USD 9.99</div>
+              <div className="text-center text-xl font-semibold">Total: USD 15.00</div>
               <div className="text-center text-sm text-white/70">Pay with:</div>
               <div className="space-y-3">
                 <div className="w-full rounded-xl bg-white/5 border border-white/15 p-2">
