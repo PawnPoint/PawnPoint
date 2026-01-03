@@ -133,6 +133,7 @@ export default function Settings() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelStatus, setCancelStatus] = useState<string>("");
   const pendingActionRef = useRef<"create-group" | null>(null);
   const paypalButtonsRef = useRef<any>(null);
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
@@ -395,12 +396,22 @@ export default function Settings() {
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
     setCancelError(null);
+    setCancelStatus("Clicked cancel");
     try {
+      try {
+        const pingResp = await fetch(`/api/ping?src=cancelClick&ts=${Date.now()}`);
+        setCancelStatus(`Ping sent (${pingResp.status})`);
+      } catch (err: any) {
+        setCancelStatus(`Ping failed: ${err?.message || "unknown error"}`);
+      }
+
       const firebaseUser = auth.currentUser;
       const token = firebaseUser ? await firebaseUser.getIdToken(true) : null;
       if (!token) {
+        setCancelStatus("Cancel response: missing auth token");
         throw new Error("You need to be signed in to cancel your subscription.");
       }
+      setCancelStatus("Calling cancel endpoint");
       const resp = await fetch("/api/paypal/cancel-subscription", {
         method: "POST",
         headers: {
@@ -410,7 +421,13 @@ export default function Settings() {
         body: JSON.stringify({}),
       });
       const text = await resp.text();
-      const payload = (text ? JSON.parse(text) : {}) as { success?: boolean; message?: string; profile?: UserProfile };
+      setCancelStatus(`Cancel response: ${resp.status} ${text || resp.statusText || ""}`.trim());
+      let payload: { success?: boolean; message?: string; profile?: UserProfile } = {};
+      try {
+        payload = text ? (JSON.parse(text) as any) : {};
+      } catch {
+        // ignore parse errors; we still show raw text above
+      }
       if (!resp.ok || !payload?.success) {
         const serverMsg = payload?.message || text || "Could not cancel subscription.";
         throw new Error(serverMsg);
@@ -418,7 +435,9 @@ export default function Settings() {
       if (payload.profile) setUser(payload.profile);
       setCancelModalOpen(false);
     } catch (err: any) {
-      setCancelError(err?.message || "Could not cancel subscription.");
+      const message = err?.message || "Could not cancel subscription.";
+      setCancelError(message);
+      setCancelStatus(`Cancel response: ${message}`);
     } finally {
       setCancelLoading(false);
     }
@@ -612,6 +631,7 @@ export default function Settings() {
         variant: "outline",
         onClick: () => {
           setCancelError(null);
+          setCancelStatus("");
           if (isPro) {
             setCancelModalOpen(true);
           } else {
@@ -1347,15 +1367,26 @@ export default function Settings() {
               </div>
               <button
                 className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
-                onClick={() => setCancelModalOpen(false)}
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancelStatus("");
+                }}
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+            {cancelStatus && <div className="text-xs text-amber-200">{cancelStatus}</div>}
             {cancelError && <div className="text-xs text-rose-200">{cancelError}</div>}
             <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setCancelModalOpen(false)} disabled={cancelLoading}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancelStatus("");
+                }}
+                disabled={cancelLoading}
+              >
                 Keep Pro
               </Button>
               <Button

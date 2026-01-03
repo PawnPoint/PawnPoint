@@ -25,6 +25,13 @@ export function installApiMocks() {
         return {};
       }
     };
+    if (url.startsWith("/api/ping")) {
+      console.log("[PING]", url);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     if (url === "/api/paypal/attach-subscription") {
       if (init?.method && init.method.toUpperCase() !== "POST") {
         return new Response(JSON.stringify({ success: false, message: "Method Not Allowed" }), {
