@@ -16,7 +16,6 @@ import Profile from "./pages/Profile";
 import Ranks from "./pages/Ranks";
 import Analysis from "./pages/Analysis";
 import Puzzles from "./pages/Puzzles";
-import CancelTest from "./pages/CancelTest";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -136,13 +135,6 @@ function Router() {
         {() => (
           <Protected>
             <Settings />
-          </Protected>
-        )}
-      </Route>
-      <Route path="/cancel-test">
-        {() => (
-          <Protected>
-            <CancelTest />
           </Protected>
         )}
       </Route>

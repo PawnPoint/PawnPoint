@@ -1193,6 +1193,7 @@ export async function ensureProfile(
       subscriptionStatus: remote?.subscriptionStatus ?? baseProfile.subscriptionStatus ?? (remote?.premiumAccess ? "active" : undefined),
       subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
       groupLocked: remote?.groupLocked ?? baseProfile.groupLocked ?? false,
+      avatarUrl: remote?.avatarUrl ?? baseProfile.avatarUrl,
     };
     writeUser(merged);
     const safePayload = stripUndefinedShallow(merged);
