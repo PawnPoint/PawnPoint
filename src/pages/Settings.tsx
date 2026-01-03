@@ -396,21 +396,11 @@ export default function Settings() {
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
     setCancelError(null);
-    setCancelStatus("Cancel clicked");
-    console.log("CANCEL CLICKED");
+    setCancelStatus("");
     try {
-      try {
-        await fetch("/api/ping?src=cancelClick", { method: "GET" });
-      } catch (err: any) {
-        console.warn("Ping failed", err);
-      }
-      setCancelStatus("Calling server");
-      const firebaseUser = auth.currentUser;
-      const token = firebaseUser ? await firebaseUser.getIdToken(true) : null;
-      if (!token) {
-        setCancelStatus("Server responded: missing auth token");
-        throw new Error("You need to be signed in to cancel your subscription.");
-      }
+      await fetch("/api/ping?src=cancel-STEP-1", { method: "GET" });
+      const token = await auth.currentUser.getIdToken(true);
+      await fetch(`/api/ping?src=cancel-STEP-2-hasToken-${Boolean(token)}`, { method: "GET" });
       const resp = await fetch("/api/paypal/cancel-subscription", {
         method: "POST",
         headers: {
@@ -419,10 +409,13 @@ export default function Settings() {
         },
         body: "{}",
       });
-      const text = await resp.text();
-      setCancelStatus(`Server responded: ${resp.status}${text ? ` ${text}` : ""}`.trim());
+      await fetch(`/api/ping?src=cancel-STEP-3-status-${resp.status}`, { method: "GET" });
+      const data = await resp.json().catch(() => ({}));
+      const serialized = Object.keys(data || {}).length ? ` ${JSON.stringify(data)}` : "";
+      setCancelStatus(`Server responded: ${resp.status}${serialized}`);
       if (!resp.ok) {
-        throw new Error(text || resp.statusText || "Could not cancel subscription.");
+        const message = (data && data.message) || "Could not cancel subscription.";
+        throw new Error(message);
       }
     } catch (err: any) {
       const message = err?.message || "Could not cancel subscription.";
