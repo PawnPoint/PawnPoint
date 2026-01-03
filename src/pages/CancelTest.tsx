@@ -3,18 +3,23 @@ import { Button } from "../components/ui/Button";
 import { auth } from "../lib/firebase";
 
 export default function CancelTest() {
-  const [status, setStatus] = useState<string>("Idle");
   const [loading, setLoading] = useState(false);
+  const [debug, setDebug] = useState<any>(null);
 
   const handleCancel = async () => {
     setLoading(true);
-    setStatus("Requesting cancel...");
+    const url = `${window.location.origin}/api/paypal/cancel-subscription`;
+    setDebug({ step: "starting", url });
     try {
       const token = await auth.currentUser?.getIdToken(true);
       if (!token) {
-        throw new Error("Not signed in; no token available.");
+        setDebug({ step: "no_token", url });
+        return;
       }
-      const resp = await fetch("/api/paypal/cancel-subscription", {
+
+      setDebug({ step: "fetching", url, hasToken: true });
+
+      const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -22,10 +27,18 @@ export default function CancelTest() {
         },
         body: "{}",
       });
-      const data = await resp.json().catch(() => ({}));
-      setStatus(`Response ${resp.status}: ${JSON.stringify(data)}`);
+
+      const text = await resp.text();
+
+      setDebug({
+        step: "done",
+        status: resp.status,
+        respUrl: resp.url,
+        vercelId: resp.headers.get("x-vercel-id"),
+        text: text.slice(0, 300),
+      });
     } catch (err: any) {
-      setStatus(`Error: ${err?.message || "Unknown error"}`);
+      setDebug({ step: "error", message: err?.message || "Unknown error" });
     } finally {
       setLoading(false);
     }
@@ -50,9 +63,9 @@ export default function CancelTest() {
         <Button onClick={handleCancel} disabled={loading} className="w-full">
           {loading ? "Sending..." : "Cancel subscription (server)"}
         </Button>
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-left text-xs break-words">
-          {status}
-        </div>
+        <pre style={{ whiteSpace: "pre-wrap" }}>
+          {JSON.stringify(debug, null, 2)}
+        </pre>
       </div>
     </div>
   );
