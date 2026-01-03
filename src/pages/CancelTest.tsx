@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "../components/ui/Button";
-import { auth } from "../lib/firebase";
+import { cancelPaypalSubscription } from "../lib/cancelPaypalSubscription";
 
 export default function CancelTest() {
   const [loading, setLoading] = useState(false);
@@ -8,35 +8,10 @@ export default function CancelTest() {
 
   const handleCancel = async () => {
     setLoading(true);
-    const url = `${window.location.origin}/api/paypal/cancel-subscription`;
-    setDebug({ step: "starting", url });
+    setDebug({ step: "starting" });
     try {
-      const token = await auth.currentUser?.getIdToken(true);
-      if (!token) {
-        setDebug({ step: "no_token", url });
-        return;
-      }
-
-      setDebug({ step: "fetching", url, hasToken: true });
-
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: "{}",
-      });
-
-      const text = await resp.text();
-
-      setDebug({
-        step: "done",
-        status: resp.status,
-        respUrl: resp.url,
-        vercelId: resp.headers.get("x-vercel-id"),
-        text: text.slice(0, 300),
-      });
+      const result = await cancelPaypalSubscription();
+      setDebug({ step: "done", ...result });
     } catch (err: any) {
       setDebug({ step: "error", message: err?.message || "Unknown error" });
     } finally {

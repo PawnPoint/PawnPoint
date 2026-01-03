@@ -36,6 +36,7 @@ import {
   deleteGroup,
   removeGroupMember,
   updateUserEmail,
+  ensureProfile,
   type GroupMember,
   type Course,
   type UserProfile,
@@ -44,6 +45,7 @@ import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
 import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceThemes";
 import { auth } from "../lib/firebase";
 import { loadPaypalSdk } from "../lib/paypal";
+import { cancelPaypalSubscription } from "../lib/cancelPaypalSubscription";
 
 type SettingAction =
   | { type: "button"; label: string; onClick: () => void; variant?: "primary" | "ghost" | "outline" }
@@ -394,7 +396,36 @@ export default function Settings() {
   };
 
   const handleCancelSubscription = () => {
-    window.location.href = `/api/ping?src=cancel-nav-${Date.now()}`;
+    setCancelLoading(true);
+    setCancelError(null);
+    setCancelStatus("");
+    cancelPaypalSubscription()
+      .then(async (result) => {
+        setCancelStatus(`Server responded: ${result.status} ${result.text}`.trim());
+        if (!result.ok) {
+          throw new Error(result.text || "Could not cancel subscription.");
+        }
+        const fbUser = auth.currentUser;
+        if (fbUser?.email) {
+          try {
+            const refreshed = await ensureProfile(
+              fbUser.email,
+              fbUser.displayName || fbUser.email.split("@")[0],
+              fbUser.uid,
+            );
+            if (refreshed) setUser(refreshed);
+          } catch {
+            // ignore refresh errors; status already shown
+          }
+        }
+        setCancelModalOpen(false);
+      })
+      .catch((err: any) => {
+        const message = err?.message || "Could not cancel subscription.";
+        setCancelError(message);
+        setCancelStatus(`Server responded: ${message}`);
+      })
+      .finally(() => setCancelLoading(false));
   };
 
   useEffect(() => {
@@ -1346,6 +1377,7 @@ export default function Settings() {
               <Button
                 variant="outline"
                 className="border-rose-300 text-rose-100 hover:bg-rose-500/20"
+                type="button"
                 onClick={handleCancelSubscription}
                 disabled={cancelLoading}
               >
