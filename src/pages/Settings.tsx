@@ -396,48 +396,38 @@ export default function Settings() {
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
     setCancelError(null);
-    setCancelStatus("Clicked cancel");
+    setCancelStatus("Cancel clicked");
+    console.log("CANCEL CLICKED");
     try {
       try {
-        const pingResp = await fetch(`/api/ping?src=cancelClick&ts=${Date.now()}`);
-        setCancelStatus(`Ping sent (${pingResp.status})`);
+        await fetch("/api/ping?src=cancelClick", { method: "GET" });
       } catch (err: any) {
-        setCancelStatus(`Ping failed: ${err?.message || "unknown error"}`);
+        console.warn("Ping failed", err);
       }
-
+      setCancelStatus("Calling server");
       const firebaseUser = auth.currentUser;
       const token = firebaseUser ? await firebaseUser.getIdToken(true) : null;
       if (!token) {
-        setCancelStatus("Cancel response: missing auth token");
+        setCancelStatus("Server responded: missing auth token");
         throw new Error("You need to be signed in to cancel your subscription.");
       }
-      setCancelStatus("Calling cancel endpoint");
       const resp = await fetch("/api/paypal/cancel-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({}),
+        body: "{}",
       });
       const text = await resp.text();
-      setCancelStatus(`Cancel response: ${resp.status} ${text || resp.statusText || ""}`.trim());
-      let payload: { success?: boolean; message?: string; profile?: UserProfile } = {};
-      try {
-        payload = text ? (JSON.parse(text) as any) : {};
-      } catch {
-        // ignore parse errors; we still show raw text above
+      setCancelStatus(`Server responded: ${resp.status}${text ? ` ${text}` : ""}`.trim());
+      if (!resp.ok) {
+        throw new Error(text || resp.statusText || "Could not cancel subscription.");
       }
-      if (!resp.ok || !payload?.success) {
-        const serverMsg = payload?.message || text || "Could not cancel subscription.";
-        throw new Error(serverMsg);
-      }
-      if (payload.profile) setUser(payload.profile);
-      setCancelModalOpen(false);
     } catch (err: any) {
       const message = err?.message || "Could not cancel subscription.";
       setCancelError(message);
-      setCancelStatus(`Cancel response: ${message}`);
+      setCancelStatus(`Server responded: ${message}`);
     } finally {
       setCancelLoading(false);
     }
