@@ -101,7 +101,7 @@ async function verifyWebhookSignature(event, headers) {
     body: JSON.stringify(payload),
   });
   const data = await resp.json();
-  const status = data?.verification_status || "UNKNOWN";
+  const status = (data?.verification_status || "UNKNOWN").toUpperCase();
   return { status, response: data };
 }
 
@@ -146,73 +146,71 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-  console.log("[ENV CHECK]", {
-    clientId: !!process.env.PAYPAL_CLIENT_ID,
-    secret: !!process.env.PAYPAL_CLIENT_SECRET,
-    webhookId: !!process.env.PAYPAL_WEBHOOK_ID,
-    env: process.env.PAYPAL_ENV,
-  });
-  if (!hasAllPaypalEnv()) {
-    return res.status(500).json({ error: "PayPal env vars missing" });
-  }
-  console.info("[PayPal Webhook] env:", PAYPAL_ENV);
-  let rawBody;
+  let verified = false;
   try {
-    rawBody = await readRawBody(req);
-  } catch (err) {
-    return res.status(400).json({ error: "Failed to read body" });
-  }
-  let event;
-  try {
-    event = JSON.parse(rawBody.toString("utf8") || "{}");
-  } catch (err) {
-    return res.status(400).json({ error: "Invalid JSON" });
-  }
+    console.log("[ENV CHECK]", {
+      clientId: !!process.env.PAYPAL_CLIENT_ID,
+      secret: !!process.env.PAYPAL_CLIENT_SECRET,
+      webhookId: !!process.env.PAYPAL_WEBHOOK_ID,
+      env: process.env.PAYPAL_ENV,
+    });
+    if (!hasAllPaypalEnv()) {
+      throw new Error("PayPal env vars missing");
+    }
+    console.info("[PayPal Webhook] env:", PAYPAL_ENV);
 
-  const eventType = event?.event_type;
-  const subscriptionId = event?.resource?.id;
-  const eventId = event?.id;
+    const rawBody = await readRawBody(req);
+    let event = {};
+    try {
+      event = JSON.parse(rawBody.toString("utf8") || "{}");
+    } catch (err) {
+      console.error("[PayPal Webhook] Invalid JSON body", err);
+    }
 
-  try {
+    const eventType = event?.event_type;
+    const subscriptionId = event?.resource?.id;
+    const eventId = event?.id;
+
     const headers = Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k.toLowerCase(), v]));
     const verification = await verifyWebhookSignature(event, headers);
+    verified = verification.status === "SUCCESS";
     console.log("[PayPal Webhook] verify", {
       eventId,
       eventType,
       subscriptionId,
       status: verification.status,
     });
-    if (verification.status !== "VERIFIED") {
+    if (!verified) {
       return res.status(400).json({ error: "Invalid webhook signature" });
     }
+
+    const now = Date.now();
+    let nextStatus;
+    if (eventType === "BILLING.SUBSCRIPTION.CANCELLED") nextStatus = "cancelled";
+    else if (eventType === "BILLING.SUBSCRIPTION.SUSPENDED") nextStatus = "suspended";
+    else if (eventType === "BILLING.SUBSCRIPTION.EXPIRED") nextStatus = "expired";
+    else if (eventType === "BILLING.SUBSCRIPTION.ACTIVATED") nextStatus = "active";
+
+    if (!subscriptionId) {
+      console.warn("[PayPal Webhook] Missing subscription id in event", { eventId, eventType });
+    } else if (!nextStatus) {
+      console.info("[PayPal Webhook] Event ignored", { eventId, eventType, subscriptionId });
+    } else {
+      try {
+        await updateUserBySubscription(subscriptionId, nextStatus, now);
+      } catch (err) {
+        console.error("[PayPal Webhook] Failed to update user", err);
+      }
+    }
+
+    return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("[PayPal Webhook] verification failed", err);
-    return res.status(400).json({ error: "Webhook verification failed" });
+    console.error("[PayPal Webhook] Handler error", err);
+    if (!res.headersSent) {
+      if (verified) {
+        return res.status(200).json({ ok: true });
+      }
+      return res.status(400).json({ error: "Webhook verification failed" });
+    }
   }
-
-  if (!subscriptionId) {
-    console.warn("[PayPal Webhook] Missing subscription id in event", { eventId, eventType });
-    return res.status(200).json({ success: true });
-  }
-
-  const now = Date.now();
-  let nextStatus;
-  if (eventType === "BILLING.SUBSCRIPTION.CANCELLED") nextStatus = "cancelled";
-  else if (eventType === "BILLING.SUBSCRIPTION.SUSPENDED") nextStatus = "suspended";
-  else if (eventType === "BILLING.SUBSCRIPTION.EXPIRED") nextStatus = "expired";
-  else if (eventType === "BILLING.SUBSCRIPTION.ACTIVATED") nextStatus = "active";
-
-  if (!nextStatus) {
-    // Ignore unsupported events but still acknowledge to PayPal
-    return res.status(200).json({ success: true, message: "Event ignored" });
-  }
-
-  try {
-    await updateUserBySubscription(subscriptionId, nextStatus, now);
-  } catch (err) {
-    console.error("[PayPal Webhook] Failed to update user", err);
-    // still 200 to avoid retries; log for investigation
-  }
-
-  return res.status(200).json({ ok: true });
 }
