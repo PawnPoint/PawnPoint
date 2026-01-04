@@ -17,6 +17,15 @@ import { PodiumBarsIcon } from "../components/icons/PodiumBars";
 import { db } from "../lib/firebase";
 import { onValue, ref } from "firebase/database";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 export default function Leaderboard() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<UserProfile[]>([]);
@@ -229,8 +238,12 @@ export default function Leaderboard() {
   }
 
   return (
-    <AppShell>
-      <div className="grid lg:grid-cols-3 gap-6">
+    <AppShell backgroundStyle={pageBackground}>
+      <div className="space-y-6">
+        <div className="text-center space-y-1" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white">Compete. Climb. Dominate your group.</h1>
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
         <Card className="w-full max-w-xs self-start justify-self-center">
           <CardHeader className="flex flex-col items-center gap-4">
             <CardTitle className="text-3xl font-extrabold text-white text-center">
@@ -461,6 +474,7 @@ export default function Leaderboard() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </AppShell>
   );

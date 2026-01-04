@@ -10,6 +10,15 @@ import { resolvePieceTheme } from "../lib/pieceThemes";
 import { useAuth } from "../hooks/useAuth";
 import puzzlesData from "../lib/puzzles_sample.json";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 type PuzzleCategory = "endgame" | "middlegame" | "opening";
 type Puzzle = { id: string; fen: string; moves: string[]; rating: number | null; themes?: string; gameUrl?: string; openingTags?: string };
 
@@ -275,7 +284,7 @@ export default function Puzzles() {
   };
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <div className="flex flex-col gap-4 text-white">
         {!category && (
           <div className="flex min-h-[60vh] items-center justify-center">

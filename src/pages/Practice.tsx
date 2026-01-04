@@ -13,6 +13,15 @@ import { useAuth } from "../hooks/useAuth";
 import { resolveBoardTheme } from "../lib/boardThemes";
 import { resolvePieceTheme } from "../lib/pieceThemes";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 const knightLines = {
   opening: [
   "Welcome to the board. Don't blink-you'll miss your chance.",
@@ -1123,7 +1132,7 @@ export default function Practice() {
   }, [fen, playerColor]);
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <div className="flex flex-col gap-4 text-white">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>

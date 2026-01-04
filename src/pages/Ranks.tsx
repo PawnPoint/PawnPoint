@@ -9,6 +9,15 @@ import ascendantIcon from "../assets/Ascendant.png";
 import immortalIcon from "../assets/Immortal.png";
 import radiantIcon from "../assets/Radiant.png";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 type RankKey = "gold" | "diamond" | "ascendant" | "immortal" | "radiant";
 
 const rankBands: {
@@ -179,7 +188,7 @@ export default function Ranks() {
   };
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <style>
         {`
           @keyframes ranksGradientMove {
@@ -190,15 +199,6 @@ export default function Ranks() {
         `}
       </style>
       <div className="relative min-h-screen text-white">
-        <div
-          className="pointer-events-none fixed inset-0 z-0"
-          style={{
-            background: "linear-gradient(135deg, #05000f, #0d0620, #140429)",
-            backgroundSize: "200% 200%",
-            animation: "ranksGradientMove 20s ease-in-out infinite",
-          }}
-          aria-hidden="true"
-        />
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 space-y-6">
           <div className="flex flex-col items-center gap-6 min-h-[70vh] justify-center">
             <div className="flex items-center justify-center gap-4">

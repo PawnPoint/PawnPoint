@@ -17,6 +17,15 @@ import { Search, Filter, Trash2, Plus, X, Pencil } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { nanoid } from "../lib/nanoid";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 const categories = [
   { key: "all", label: "All" },
   { key: "white_opening", label: "White Openings" },
@@ -189,7 +198,7 @@ export default function Courses() {
   const deleting = deleteCourseMutation.isPending;
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -233,7 +242,8 @@ export default function Courses() {
             {categories.map((cat) => (
               <Button
                 key={cat.key}
-                variant={category === cat.key ? "primary" : "outline"}
+                variant={category === cat.key ? "ghost" : "outline"}
+                className={category === cat.key ? "border-white/30 bg-white/10 text-white" : ""}
                 onClick={() => setCategory(cat.key)}
               >
                 {cat.label}

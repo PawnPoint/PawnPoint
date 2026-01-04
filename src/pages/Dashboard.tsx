@@ -606,19 +606,22 @@ export default function Dashboard() {
                         const len = data.suggested.length;
                         const idx = ((courseIndex + offset) % len + len) % len;
                         const course = data.suggested[idx];
-                        const isCenter = offset === 0;
                         const translateX = offset * 240;
+                        const isCenter = offset === 0;
+                        const cardWidth = isCenter ? 320 : 220;
                         return (
                           <div
                             key={`${course.id}-${offset}`}
                             className={`rounded-2xl border overflow-hidden flex flex-col h-full transition-all duration-500 ease-out cursor-pointer ${
                               isCenter
-                                ? "max-w-xl w-full opacity-100 scale-100 z-10 curated-card main-course-lift"
-                                : "max-w-[200px] opacity-60 scale-95 z-0"
+                                ? "opacity-100 scale-100 z-10 curated-card main-course-lift"
+                                : "opacity-50 scale-90 blur-[0.1px]"
                             }`}
                             style={{
                               backgroundColor: "#111724",
                               borderColor: "#111724",
+                              width: `${cardWidth}px`,
+                              maxWidth: `${cardWidth}px`,
                               transform: `translateX(${translateX}px) translateY(var(--lift, 0px))`,
                             }}
                             onClick={() => navigate(`/courses/${course.id}`)}
@@ -626,15 +629,17 @@ export default function Dashboard() {
                             <img
                               src={course.thumbnailUrl}
                               alt={course.title}
-                              className={`${isCenter ? "h-48" : "h-24"} w-full object-cover`}
+                              className={`${isCenter ? "h-44" : "h-32"} w-full object-cover`}
                             />
                             <div className={`${isCenter ? "p-5 gap-3" : "p-3 gap-2"} flex flex-col flex-1`}>
                               <div className="text-sm text-brand.pink uppercase tracking-wide line-clamp-1">Suggested</div>
-                              <div className={`${isCenter ? "text-2xl" : "text-base"} font-semibold text-white line-clamp-2`}>
+                              <div className={`${isCenter ? "text-xl" : "text-base"} font-semibold text-white line-clamp-2`}>
                                 {course.title}
                               </div>
-                              {isCenter && (
-                                <p className="text-base text-white/80 line-clamp-4 flex-1">{course.description}</p>
+                              {isCenter ? (
+                                <p className="text-sm text-white/80 line-clamp-4 flex-1">{course.description}</p>
+                              ) : (
+                                <p className="text-xs text-white/70 line-clamp-3 flex-1">{course.description}</p>
                               )}
                             </div>
                           </div>
