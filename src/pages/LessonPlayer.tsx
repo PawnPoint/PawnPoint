@@ -42,6 +42,15 @@ import {
   type Subsection,
 } from "../lib/mockApi";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 type VideoSource =
   | { type: "youtube"; src: string }
   | { type: "html5"; src: string }
@@ -1456,7 +1465,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   return (
     <>
       {xpToastPortal}
-      <AppShell>
+      <AppShell backgroundStyle={pageBackground}>
       <div className="space-y-4">
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)] items-start justify-items-center xl:justify-items-start gap-3 xl:gap-4">
           {showMovesList && (

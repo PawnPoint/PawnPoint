@@ -47,6 +47,15 @@ import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceTh
 import { auth } from "../lib/firebase";
 import { cancelPaypalSubscription } from "../lib/cancelPaypalSubscription";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 type SettingAction =
   | { type: "button"; label: string; onClick: () => void; variant?: "primary" | "ghost" | "outline" }
   | { type: "toggle"; value: boolean; onToggle: (next: boolean) => void; disabled?: boolean }
@@ -633,7 +642,7 @@ export default function Settings() {
   };
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 pb-16">
         <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
         <div className="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl overflow-hidden">

@@ -30,6 +30,15 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
+const pageBackground = {
+  backgroundImage: `
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
+    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
+  `,
+  minHeight: "100vh",
+  color: "#ffffff",
+} as const;
+
 type OrderedChapter = Chapter & { subsections: Record<string, Subsection> };
 
 export default function CourseDetail({ id }: { id: string }) {
@@ -255,14 +264,14 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
 
   if (!course) {
     return (
-      <AppShell>
+      <AppShell backgroundStyle={pageBackground}>
         <div className="text-white/70 text-sm">Loading course...</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell>
+    <AppShell backgroundStyle={pageBackground}>
       <button
         onClick={() => navigate("/courses")}
         className="text-white/70 hover:text-white flex items-center gap-2 mb-4 text-sm"
