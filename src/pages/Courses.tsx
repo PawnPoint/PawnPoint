@@ -193,7 +193,7 @@ export default function Courses() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">All Courses</h1>
+            <h1 className="text-2xl font-semibold">Courses</h1>
             <p className="text-white/70 text-sm">Search, filter, and pick up where you left off.</p>
           </div>
           <div className="flex items-center gap-2 text-white/70 text-sm">

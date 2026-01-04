@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
-import { Swords, X, Download } from "lucide-react";
+import { Swords, X, Download, Play } from "lucide-react";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
@@ -465,7 +465,23 @@ export default function Practice() {
 
   const handleRightUp = () => {
     if (arrowStart && arrowMoved && arrowTarget) {
-      setArrows((prev) => [...prev, { start: arrowStart, end: arrowTarget }]);
+      setArrows((prev) => {
+        const exists = prev.find(
+          (a) =>
+            a.start.square === arrowStart.square &&
+            a.end.square === arrowTarget.square,
+        );
+        if (exists) {
+          return prev.filter(
+            (a) =>
+              !(
+                a.start.square === arrowStart.square &&
+                a.end.square === arrowTarget.square
+              ),
+          );
+        }
+        return [...prev, { start: arrowStart, end: arrowTarget }];
+      });
       setSuppressContextToggle(true);
     } else if (arrowStart && !arrowMoved) {
       toggleRedSquare(arrowStart.row, arrowStart.col);
@@ -1119,12 +1135,12 @@ export default function Practice() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,1fr)_320px] gap-4 items-start">
           <div className="relative">
-            <div className="relative block pl-6 sm:pl-8 pb-6 sm:pb-8 w-full max-w-[720px] mx-auto">
+            <div className="relative block w-[780px] max-w-[780px] mx-auto">
               <div
                 className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
                 style={{ backgroundColor: boardColors.dark }}
               >
-                <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[720px] aspect-square mx-auto">
+                <div className="relative grid grid-cols-8 grid-rows-8 w-full aspect-square mx-auto">
                   {board.map((row, rIdx) =>
                     row.map((piece, cIdx) => {
                       const sq = squareName(rIdx, cIdx);
@@ -1307,25 +1323,6 @@ export default function Practice() {
                   ))}
                 </div>
               </div>
-
-              <div className="pointer-events-none absolute left-0 top-0 bottom-6 grid grid-rows-8 text-xs font-semibold text-white/80">
-                {(orientation === "w"
-                  ? Array.from({ length: 8 }, (_v, idx) => 8 - idx)
-                  : Array.from({ length: 8 }, (_v, idx) => idx + 1)
-                ).map((label) => (
-                  <span key={`rank-${label}`} className="flex items-center justify-end pr-2">
-                    {label}
-                  </span>
-                ))}
-              </div>
-
-              <div className="pointer-events-none absolute left-6 right-0 bottom-0 grid grid-cols-8 text-xs font-semibold text-white/80">
-                {(orientation === "w" ? "abcdefgh".split("") : "hgfedcba".split("")).map((label) => (
-                  <span key={`file-${label}`} className="text-center pt-1">
-                    {label}
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -1366,7 +1363,8 @@ export default function Practice() {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button variant="ghost" className="w-full" onClick={() => setBotModalOpen(true)}>
+                <Button variant="outline" className="w-full gap-2" onClick={() => setBotModalOpen(true)}>
+                  <Play className="h-4 w-4 text-white" />
                   Choose Bot
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => setShowSetup(true)}>

@@ -25,6 +25,31 @@ export default function Checkout() {
     ],
     [],
   );
+  const gradientShiftKeyframes = `
+    @keyframes checkoutGradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  `;
+  const typewriterKeyframes = `
+    @keyframes checkoutType {
+      from { max-width: 0ch; }
+      to { max-width: 32ch; }
+    }
+  `;
+  const gradientTextStyle = {
+    backgroundImage: "linear-gradient(90deg, #60a5fa, #8b5cf6, #60a5fa)",
+    backgroundSize: "200% 200%",
+    WebkitBackgroundClip: "text",
+    color: "transparent",
+    display: "inline-block",
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    fontFamily: "cursive",
+    maxWidth: "0ch",
+    animation: "checkoutType 2.4s steps(32, end) forwards, checkoutGradientShift 6s linear infinite",
+  } as const;
 
   const nextBilling = useMemo(() => {
     const date = new Date();
@@ -96,7 +121,7 @@ export default function Checkout() {
         }
         container.innerHTML = "";
         const buttons = paypal.Buttons({
-          style: { shape: "pill", color: "gold", layout: "vertical", label: "subscribe" },
+          style: { shape: "pill", color: "gold", layout: "vertical", label: "subscribe", tagline: false },
           createSubscription: (_data: any, actions: any) =>
             actions.subscription.create({ plan_id: PAYPAL_PLAN_ID }),
           onApprove: (data: any) => {
@@ -136,7 +161,9 @@ export default function Checkout() {
   }, [APP_ENV, PAYPAL_CLIENT_ID, PAYPAL_BUTTON_CONTAINER_ID, PAYPAL_PLAN_ID, handleSubscriptionSuccess, showSummary]);
 
   return (
-    <div className="min-h-screen relative bg-slate-950 text-white flex flex-col items-center justify-center px-4 py-10">
+    <>
+      <style>{`${gradientShiftKeyframes}\n${typewriterKeyframes}`}</style>
+      <div className="min-h-screen relative bg-slate-950 text-white flex flex-col items-center justify-center px-4 py-10">
       <div
         className="absolute inset-0 bg-cover bg-center opacity-40"
         style={{ backgroundImage: `url(${loginBg})` }}
@@ -168,10 +195,19 @@ export default function Checkout() {
                 <div className="space-y-4 text-white">
                   <div className="flex items-center gap-3 text-2xl font-bold">
                     <Key className="h-7 w-7 text-amber-300" />
-                    <span>Unlock access to:</span>
+                    <span style={gradientTextStyle} className="bg-clip-text text-transparent">
+                      Unlock your competitive edge
+                    </span>
                   </div>
                   <ul className="space-y-3 text-xl text-white">
-                    {features.map((item) => (
+                    {[
+                      "Elite Opening & Middlegame Library",
+                      "Adaptive AI Sparring Partners",
+                      "Progressive XP & Skill Tracking",
+                      "Global Rankings & Standings",
+                      "SquareBase™",
+                      "Training Groups",
+                    ].map((item) => (
                       <li key={item} className="flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5 text-brand.pink" />
                         <span>{item}</span>
@@ -224,7 +260,7 @@ export default function Checkout() {
               <div className="text-center text-xl font-semibold">Total: USD 15.00</div>
               <div className="text-center text-sm text-white/70">Pay with:</div>
               <div className="space-y-3">
-                <div className="w-full rounded-xl bg-white/5 border border-white/15 p-2">
+                <div className="w-full">
                   <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
                   {paypalLoading && <div className="text-xs text-white/70 text-center py-2">Loading PayPal...</div>}
                   {paypalError && <div className="text-xs text-rose-200 text-center py-2">{paypalError}</div>}
@@ -240,5 +276,6 @@ export default function Checkout() {
         </div>
       </div>
     </div>
+    </>
   );
 }

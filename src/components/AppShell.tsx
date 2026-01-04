@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Menu,
   X,
   LogOut,
   Home,
-  BookOpen,
   Dumbbell,
   UserRound,
   Settings,
@@ -19,6 +18,7 @@ import {
   ChevronDown,
   Clipboard,
   Puzzle,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
@@ -34,9 +34,9 @@ import { PodiumBarsIcon } from "./icons/PodiumBars";
 
 const links = [
   { label: "Home", href: "/dashboard", icon: Home },
-  { label: "All Courses", href: "/courses", icon: BookOpen },
-  { label: "Leaderboards", href: "/leaderboard", icon: PodiumBarsIcon },
-  { label: "Ranks", href: "/ranks", icon: Crown },
+  { label: "Courses", href: "/courses", icon: Archive },
+  { label: "Standings", href: "/leaderboard", icon: PodiumBarsIcon },
+  { label: "Global Ranks", href: "/ranks", icon: Crown },
   { label: "Practice", href: "/practice", icon: Dumbbell },
 ];
 
@@ -47,7 +47,7 @@ const mobileLinks = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, backgroundStyle }: { children: React.ReactNode; backgroundStyle?: CSSProperties }) {
   const { user, logout, setUser } = useAuth();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   const themeBg = isLight ? "bg-slate-50 text-slate-900" : "bg-[#101319] text-white";
-  const headerBg = isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-[#111724]";
+  const headerBg = isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-black";
   const navText = isLight ? "text-slate-700" : "text-white/80";
   const isMehMood = feedbackMood === "Meh";
   const canSubmitFeedback = feedbackText.trim().length > 0;
@@ -235,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className={`min-h-screen ${themeBg}`}>
+    <div className={`min-h-screen ${themeBg}`} style={backgroundStyle}>
       <header className={`sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -405,7 +405,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         {open && (
-          <div className="md:hidden border-t border-white/10 bg-slate-900/95 backdrop-blur">
+          <div className="md:hidden border-t border-white/10 bg-black backdrop-blur">
             <div className="px-4 py-4 space-y-4">
               {user && (
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">

@@ -279,12 +279,6 @@ export default function Ranks() {
             </div>
           )}
 
-          {loading && (
-            <div className="flex items-center gap-2 text-white/70 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading ranks...
-            </div>
-          )}
         </div>
       </div>
     </AppShell>

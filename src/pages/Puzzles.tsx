@@ -28,6 +28,12 @@ export default function Puzzles() {
   const [revealMode, setRevealMode] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState<Square[]>([]);
   const [dragFrom, setDragFrom] = useState<Square | null>(null);
+  const [arrowStart, setArrowStart] = useState<{ row: number; col: number; square: Square } | null>(null);
+  const [arrowTarget, setArrowTarget] = useState<{ row: number; col: number; square: Square } | null>(null);
+  const [arrowMoved, setArrowMoved] = useState(false);
+  const [arrows, setArrows] = useState<
+    { start: { row: number; col: number; square: Square }; end: { row: number; col: number; square: Square } }[]
+  >([]);
   const solutionIndexRef = useRef(0);
   const boardColors = resolveBoardTheme(user?.boardTheme).colors;
   const { key: pieceThemeKey, pieces: pieceSet } = useMemo(() => resolvePieceTheme(user?.pieceTheme), [user?.pieceTheme]);
@@ -65,6 +71,10 @@ export default function Puzzles() {
     setStatus(pick.themes || pick.openingTags || pick.id);
     setSolved(false);
     setRevealMode(false);
+    setArrows([]);
+    setArrowStart(null);
+    setArrowTarget(null);
+    setArrowMoved(false);
   };
 
   useEffect(() => {
@@ -72,6 +82,13 @@ export default function Puzzles() {
       loadPuzzle(category);
     }
   }, [category, difficulty]);
+
+  useEffect(() => {
+    setArrows([]);
+    setArrowStart(null);
+    setArrowTarget(null);
+    setArrowMoved(false);
+  }, [orientation]);
 
   const board = useMemo(() => {
     const g = fen ? new Chess(fen) : new Chess();
@@ -92,6 +109,44 @@ export default function Puzzles() {
     const file = "abcdefgh"[orientation === "w" ? colIdx : 7 - colIdx];
     const rank = orientation === "w" ? 8 - rowIdx : rowIdx + 1;
     return `${file}${rank}` as Square;
+  };
+
+  const startArrow = (rowIdx: number, colIdx: number) => {
+    const sq = squareName(rowIdx, colIdx);
+    setArrowStart({ row: rowIdx, col: colIdx, square: sq });
+    setArrowTarget(null);
+    setArrowMoved(false);
+  };
+
+  const handleRightDrag = (rowIdx: number, colIdx: number, buttons: number) => {
+    if (!arrowStart || buttons !== 2) return;
+    const sq = squareName(rowIdx, colIdx);
+    if (sq === arrowStart.square) {
+      setArrowMoved(false);
+      setArrowTarget(null);
+      return;
+    }
+    setArrowMoved(true);
+    setArrowTarget({ row: rowIdx, col: colIdx, square: sq });
+  };
+
+  const handleRightUp = () => {
+    if (arrowStart && arrowMoved && arrowTarget) {
+      setArrows((prev) => {
+        const exists = prev.find(
+          (a) => a.start.square === arrowStart.square && a.end.square === arrowTarget.square,
+        );
+        if (exists) {
+          return prev.filter(
+            (a) => !(a.start.square === arrowStart.square && a.end.square === arrowTarget.square),
+          );
+        }
+        return [...prev, { start: arrowStart, end: arrowTarget }];
+      });
+    }
+    setArrowMoved(false);
+    setArrowStart(null);
+    setArrowTarget(null);
   };
 
   const pieceSprite = (piece: { color: Color; type: PieceSymbol } | null) => {
@@ -297,6 +352,23 @@ export default function Puzzles() {
                           key={`${rIdx}-${cIdx}`}
                           onClick={() => handleSquareClick(rIdx, cIdx)}
                           draggable={!!piece && piece.color === currentTurn}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                          }}
+                          onMouseDown={(e) => {
+                            if (e.button === 2) {
+                              e.preventDefault();
+                              startArrow(rIdx, cIdx);
+                            }
+                          }}
+                          onMouseEnter={(e) => handleRightDrag(rIdx, cIdx, e.buttons)}
+                          onMouseMove={(e) => handleRightDrag(rIdx, cIdx, e.buttons)}
+                          onMouseUp={(e) => {
+                            if (e.button === 2) {
+                              e.preventDefault();
+                              handleRightUp();
+                            }
+                          }}
                           onDragStart={(e) => {
                             if (piece && piece.color === currentTurn) {
                               const sqName = squareName(rIdx, cIdx);
@@ -351,6 +423,76 @@ export default function Puzzles() {
                       );
                     }),
                   )}
+                  {arrowStart && arrowTarget && (
+                    <svg className="absolute inset-0 pointer-events-none" viewBox="0 0 100 100">
+                      <defs>
+                        <marker
+                          id="arrowhead-puzzle-current"
+                          markerWidth="4"
+                          markerHeight="4"
+                          refX="2"
+                          refY="2"
+                          orient="auto"
+                        >
+                          <path d="M0,0 L0,4 L4,2 z" fill="rgba(234,179,8,0.8)" />
+                        </marker>
+                      </defs>
+                      {(() => {
+                        const toPct = (row: number, col: number) => ({
+                          x: ((col + 0.5) / 8) * 100,
+                          y: ((row + 0.5) / 8) * 100,
+                        });
+                        const start = toPct(arrowStart.row, arrowStart.col);
+                        const end = toPct(arrowTarget.row, arrowTarget.col);
+                        return (
+                          <line
+                            x1={start.x}
+                            y1={start.y}
+                            x2={end.x}
+                            y2={end.y}
+                            stroke="rgba(234,179,8,0.8)"
+                            strokeWidth="1"
+                            markerEnd="url(#arrowhead-puzzle-current)"
+                          />
+                        );
+                      })()}
+                    </svg>
+                  )}
+                  {arrows.map((arrow, idx) => (
+                    <svg key={`arrow-${idx}`} className="absolute inset-0 pointer-events-none" viewBox="0 0 100 100">
+                      <defs>
+                        <marker
+                          id={`arrowhead-puzzle-${idx}`}
+                          markerWidth="4"
+                          markerHeight="4"
+                          refX="2"
+                          refY="2"
+                          orient="auto"
+                        >
+                          <path d="M0,0 L0,4 L4,2 z" fill="rgba(234,179,8,0.8)" />
+                        </marker>
+                      </defs>
+                      {(() => {
+                        const toPct = (row: number, col: number) => ({
+                          x: ((col + 0.5) / 8) * 100,
+                          y: ((row + 0.5) / 8) * 100,
+                        });
+                        const start = toPct(arrow.start.row, arrow.start.col);
+                        const end = toPct(arrow.end.row, arrow.end.col);
+                        return (
+                          <line
+                            x1={start.x}
+                            y1={start.y}
+                            x2={end.x}
+                            y2={end.y}
+                            stroke="rgba(234,179,8,0.8)"
+                            strokeWidth="1"
+                            markerEnd={`url(#arrowhead-puzzle-${idx})`}
+                          />
+                        );
+                      })()}
+                    </svg>
+                  ))}
                 </div>
               </div>
             </div>

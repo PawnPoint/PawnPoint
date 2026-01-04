@@ -1102,7 +1102,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
     return () => observer.disconnect();
   }, [showMovesList]);
 
-  const boardSize = 600;
+  const boardSize = 760;
   const movesSubtitle =
     (isStudyLike && studyError) ? studyError : activeSubsection?.type === "quiz" ? "Answer the questions below" : null;
 
@@ -1142,7 +1142,17 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   const handleRightUp = () => {
     if (arrowStart && arrowMoved && arrowTarget) {
-      setArrows((prev) => [...prev, { start: arrowStart, end: arrowTarget }]);
+      setArrows((prev) => {
+        const exists = prev.find(
+          (a) => a.start.square === arrowStart.square && a.end.square === arrowTarget.square,
+        );
+        if (exists) {
+          return prev.filter(
+            (a) => !(a.start.square === arrowStart.square && a.end.square === arrowTarget.square),
+          );
+        }
+        return [...prev, { start: arrowStart, end: arrowTarget }];
+      });
       setSuppressContextToggle(true);
     } else if (arrowStart && !arrowMoved) {
       toggleRedSquare(arrowStart.row, arrowStart.col);
@@ -1448,27 +1458,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
       {xpToastPortal}
       <AppShell>
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => {
-            const targetId = course?.id || courseId;
-            navigate(targetId ? `/courses/${targetId}` : "/courses");
-          }}
-          className="flex items-center gap-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 rounded-xl"
-        >
-          {course?.thumbnailUrl && (
-            <img
-              src={course.thumbnailUrl}
-              alt={course.title || "Course thumbnail"}
-              className="h-16 w-16 rounded-xl object-cover border border-white/10"
-            />
-          )}
-          <div className="text-3xl font-extrabold text-white leading-tight">{course?.title || "Course"}</div>
-        </button>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,420px)_1fr] items-start justify-items-center xl:justify-items-start gap-6 xl:gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)] items-start justify-items-center xl:justify-items-start gap-3 xl:gap-4">
           {showMovesList && (
-            <div className="w-full max-w-[360px] sm:max-w-[420px] flex flex-col gap-3 mt-2 self-start relative z-10">
+            <div className="w-full max-w-[360px] sm:max-w-[420px] flex flex-col gap-3 mt-2 self-start relative z-10 order-2 xl:-ml-4">
               <div
                 ref={movesPanelRef}
                 className="rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl"
@@ -1673,7 +1665,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
             </div>
           )}
 
-          <div className="flex-1 flex flex-col items-center">
+          <div className="flex-1 flex flex-col items-start order-1">
             {!showMovesList && (
               <div className="flex items-center justify-start gap-2 mb-3 w-full max-w-[1400px] px-2">
                 <Button
@@ -1687,10 +1679,10 @@ export default function LessonPlayer({ id }: { id?: string }) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-center 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-4 2xl:gap-6 items-start mx-auto">
+            <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-start 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-3 2xl:gap-4 items-start mx-0">
               <div className="relative">
                 <div
-                  className={`relative block px-4 sm:px-6 pb-6 sm:pb-8 w-full mx-auto ${
+                  className={`relative block px-2 sm:px-3 pb-6 sm:pb-8 w-full mx-0 ${
                     isVideoSubsection ? "max-w-[360px]" : "max-w-none"
                   }`}
                 >
@@ -1850,7 +1842,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 ) : (
                   <>
                     <div
-                      className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-auto mt-2 xl:translate-x-20 flex-shrink-0"
+                      className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
                       style={{
                         backgroundColor: boardColors.dark,
                         width: `${boardSize}px`,
@@ -1859,7 +1851,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         maxHeight: `${boardSize}px`,
                       }}
                     >
-                      <div className="relative grid grid-cols-8 grid-rows-8 w-full h-full mx-auto">
+                      <div className="relative grid grid-cols-8 grid-rows-8 w-full h-full aspect-square mx-auto">
                         {board.map((row, rIdx) =>
                           row.map((piece, cIdx) => {
                             const sq = squareName(rIdx, cIdx);

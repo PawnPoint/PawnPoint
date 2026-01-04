@@ -164,3 +164,23 @@ img {
   height: auto;
   display: block;
 }
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  will-change: opacity, transform;
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-in.delay-1 {
+  transition-delay: 0.12s;
+}
+
+.fade-in.delay-2 {
+  transition-delay: 0.22s;
+}

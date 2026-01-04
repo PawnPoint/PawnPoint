@@ -236,28 +236,30 @@ export default function Leaderboard() {
             <CardTitle className="text-3xl font-extrabold text-white text-center">
               {user.chessUsername || user.displayName}
             </CardTitle>
-            <div className="relative h-28 w-28">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-400 via-blue-400 to-purple-500 opacity-80" />
-              <div className="relative h-full w-full rounded-full bg-slate-900 p-1">
-                <div className="h-full w-full rounded-full overflow-hidden bg-slate-800 border border-white/10">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-white">
-                      {(user.chessUsername || user.displayName || "Player").slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
+            <div className="flex items-center justify-center gap-4">
+              <div className="relative h-28 w-28">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-400 via-blue-400 to-purple-500 opacity-80" />
+                <div className="relative h-full w-full rounded-full bg-slate-900 p-1">
+                  <div className="h-full w-full rounded-full overflow-hidden bg-slate-800 border border-white/10">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-white">
+                        {(user.chessUsername || user.displayName || "Player").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="relative h-32 w-32 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-purple-500/60 blur-sm" />
-              <div className="absolute inset-1 rounded-full border-2 border-purple-400/80 animate-pulse" />
-              <div className="absolute inset-0 rounded-full bg-purple-600/20 animate-[spin_6s_linear_infinite]" />
-              <div className="relative z-10 flex flex-col items-center justify-center rounded-full h-24 w-24 bg-slate-900 border border-purple-300/40 shadow-[0_0_20px_rgba(168,85,247,0.35)]">
-                <Zap className="h-6 w-6 text-purple-300" />
-                <div className="text-xl font-bold text-white">{user.totalXp}</div>
-                <div className="text-[11px] uppercase tracking-wide text-purple-200/80">XP</div>
+              <div className="relative h-32 w-32 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-4 border-purple-500/60 blur-sm" />
+                <div className="absolute inset-1 rounded-full border-2 border-purple-400/80 animate-pulse" />
+                <div className="absolute inset-0 rounded-full bg-purple-600/20 animate-[spin_6s_linear_infinite]" />
+                <div className="relative z-10 flex flex-col items-center justify-center rounded-full h-24 w-24 bg-slate-900 border border-purple-300/40 shadow-[0_0_20px_rgba(168,85,247,0.35)]">
+                  <Zap className="h-6 w-6 text-purple-300" />
+                  <div className="text-xl font-bold text-white">{user.totalXp}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-purple-200/80">XP</div>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -267,7 +269,7 @@ export default function Leaderboard() {
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-brand.pink" />
-              Leaderboard
+              Standings
             </CardTitle>
             <div className="relative">
               <button
@@ -276,14 +278,14 @@ export default function Leaderboard() {
                 aria-haspopup="menu"
                 aria-expanded={viewMenuOpen}
               >
-                <span className="text-white/80">{mode === "xp" ? "XP Leaderboard" : "Group Leaderboard"}</span>
+                <span className="text-white/80">{mode === "xp" ? "XP Standings" : "Group Standings"}</span>
                 <ChevronDown className={`h-4 w-4 transition ${viewMenuOpen ? "rotate-180" : ""}`} />
               </button>
               {viewMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-sm py-2 text-sm text-white">
                   {[
-                    { key: "xp", label: "XP Leaderboard" },
-                    { key: "club", label: "Group Leaderboard" },
+                    { key: "xp", label: "XP Standings" },
+                    { key: "club", label: "Group Standings" },
                   ].map((opt) => (
                     <button
                       key={opt.key}
@@ -355,7 +357,7 @@ export default function Leaderboard() {
               <>
                 {user?.isAdmin && (
                   <form onSubmit={handleAddParticipant} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                <div className="text-sm font-semibold text-white">Group Leaderboard Controls (Admin)</div>
+                <div className="text-sm font-semibold text-white">Group Standings Controls (Admin)</div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <input
                         value={addName}
