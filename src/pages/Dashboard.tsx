@@ -119,6 +119,10 @@ const pageStyles = `
     gap: 6px;
   }
 
+  .pp-dashboard-courses {
+    display: none;
+  }
+
   .pp-course-card {
     width: min(72vw, 260px) !important;
     max-width: min(72vw, 260px) !important;
@@ -599,7 +603,7 @@ export default function Dashboard() {
           </div>
           <div className="section-divider" style={{ margin: "8px auto 16px" }} />
           {data?.suggested && data.suggested.length > 0 && (
-              <div className="w-full flex flex-col items-center gap-3">
+              <div className="pp-dashboard-courses w-full flex flex-col items-center gap-3">
                 <div className="text-lg font-semibold text-white/80 tracking-wide uppercase">
                   Curated for you
                 </div>
