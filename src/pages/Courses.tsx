@@ -282,7 +282,7 @@ export default function Courses() {
 
         {editorOpen && (
           <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+            <div className="pp-modal w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                 <div>
                   <div className="text-lg font-semibold">

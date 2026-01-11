@@ -1860,7 +1860,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         maxHeight: `${boardSize}px`,
                       }}
                     >
-                      <div className="relative grid grid-cols-8 grid-rows-8 w-full h-full aspect-square mx-auto">
+                      <div className="pp-board relative grid grid-cols-8 grid-rows-8 w-full h-full aspect-square mx-auto">
                         {board.map((row, rIdx) =>
                           row.map((piece, cIdx) => {
                             const sq = squareName(rIdx, cIdx);
@@ -2147,7 +2147,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
       {navOpen && (
         <div className="fixed inset-0 z-30 flex">
           <div className="flex-1 bg-black/50" onClick={() => setNavOpen(false)} />
-          <div className="w-full max-w-md h-full bg-slate-900 text-white border-l border-white/10 shadow-2xl overflow-y-auto">
+          <div className="pp-modal w-full max-w-md h-full bg-slate-900 text-white border-l border-white/10 shadow-2xl overflow-y-auto">
             <div className="p-5 border-b border-white/10 flex items-center justify-between">
               <div>
                 <div className="text-xl font-bold">{course?.title || "Course"}</div>
@@ -2298,7 +2298,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
       {chapterModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div>
                 <div className="text-lg font-semibold">
@@ -2365,7 +2365,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
       {subsectionModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div>
                 <div className="text-lg font-semibold">Add subsection</div>

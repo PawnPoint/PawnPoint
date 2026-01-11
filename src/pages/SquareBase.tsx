@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Brain, ChevronLeft, ChevronRight, Compass, BookOpen, LineChart, Lock, LogOut, Puzzle } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, Compass, BookOpen, LineChart, Lock, LogOut, Menu, Puzzle } from "lucide-react";
 import { get, ref, remove, set } from "firebase/database";
 import squareBaseLogo from "../assets/SquareBase Logo.png";
 import southKnight from "../assets/The South Knight.png";
@@ -98,6 +98,7 @@ export default function SquareBase() {
   const [location, setLocation] = useLocation();
   const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"explore" | "analysis" | "ai" | "blackbook">("explore");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const initialOverlay = useMemo(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(window.location.search);
@@ -272,6 +273,12 @@ export default function SquareBase() {
     ],
     [],
   );
+  const toggleMobileNav = useCallback(() => {
+    setMobileNavOpen((open) => !open);
+  }, []);
+  const closeMobileNav = useCallback(() => {
+    setMobileNavOpen(false);
+  }, []);
 
   useEffect(() => {
     if (activeTab !== "explore" || typeof window === "undefined") return;
@@ -1186,68 +1193,98 @@ export default function SquareBase() {
 
   return (
     <div className="sb-root">
-      <aside className="sb-sidebar">
-        <div className="sb-brand">
-          <div className="sb-mark" aria-hidden="true">
-            <img src={squareBaseLogo} alt="SquareBase logo" className="sb-mark-img" />
+      <aside className={`sb-sidebar ${mobileNavOpen ? "sb-sidebar--open" : ""}`}>
+        <div className="sb-topbar">
+          <div className="sb-brand">
+            <div className="sb-mark" aria-hidden="true">
+              <img src={squareBaseLogo} alt="SquareBase logo" className="sb-mark-img" />
+            </div>
+            <div className="sb-title">
+              <div className="sb-name">SquareBase{"\u2122"}</div>
+              <div className="sb-sub">Chess Intelligence System</div>
+            </div>
           </div>
-          <div className="sb-title">
-            <div className="sb-name">SquareBase{"\u2122"}</div>
-            <div className="sb-sub">Chess Intelligence System</div>
-          </div>
+          <button
+            className="sb-menuToggle"
+            type="button"
+            onClick={toggleMobileNav}
+            aria-label="Toggle SquareBase menu"
+            aria-expanded={mobileNavOpen}
+            aria-controls="sb-mobile-menu"
+          >
+            <Menu className="sb-menuIcon" />
+          </button>
         </div>
 
-        <nav className="sb-nav">
+        <div className={`sb-mobileMenu ${mobileNavOpen ? "is-open" : ""}`} id="sb-mobile-menu">
+          <nav className="sb-nav">
+            <button
+              className={`sb-navItem ${activeTab === "explore" ? "sb-navItem--active" : ""}`}
+              onClick={() => {
+                setActiveTab("explore");
+                closeMobileNav();
+              }}
+            >
+              <Compass className="sb-navIcon" />
+              Explore
+            </button>
+            <button
+              className={`sb-navItem ${activeTab === "blackbook" ? "sb-navItem--active" : ""}`}
+              onClick={() => {
+                if (user && !canAccessPremium) {
+                  setLocation("/checkout");
+                  closeMobileNav();
+                  return;
+                }
+                setActiveTab("blackbook");
+                closeMobileNav();
+              }}
+            >
+              <BookOpen className="sb-navIcon" />
+              BlackBook
+            </button>
+            <button
+              className={`sb-navItem ${activeTab === "analysis" ? "sb-navItem--active" : ""}`}
+              onClick={() => {
+                setActiveTab("analysis");
+                closeMobileNav();
+              }}
+            >
+              <LineChart className="sb-navIcon" />
+              Analysis
+            </button>
+            <button
+              className={`sb-navItem ${activeTab === "ai" ? "sb-navItem--active" : ""}`}
+              onClick={() => {
+                if (user && !canAccessPremium) {
+                  setLocation("/checkout");
+                  closeMobileNav();
+                  return;
+                }
+                setActiveTab("ai");
+                closeMobileNav();
+              }}
+            >
+              <Brain className="sb-navIcon" />
+              AI Training Plan
+            </button>
+          </nav>
+
+          <div className="sb-divider" />
+
           <button
-            className={`sb-navItem ${activeTab === "explore" ? "sb-navItem--active" : ""}`}
-            onClick={() => setActiveTab("explore")}
-          >
-            <Compass className="sb-navIcon" />
-            Explore
-          </button>
-          <button
-            className={`sb-navItem ${activeTab === "blackbook" ? "sb-navItem--active" : ""}`}
+            className="sb-exit"
             onClick={() => {
-              if (user && !canAccessPremium) {
-                setLocation("/checkout");
-                return;
-              }
-              setActiveTab("blackbook");
+              setLocation("/dashboard");
+              closeMobileNav();
             }}
           >
-            <BookOpen className="sb-navIcon" />
-            BlackBook
+            <LogOut className="h-4 w-4" />
+            Return to PawnPoint
           </button>
-          <button
-            className={`sb-navItem ${activeTab === "analysis" ? "sb-navItem--active" : ""}`}
-            onClick={() => setActiveTab("analysis")}
-          >
-            <LineChart className="sb-navIcon" />
-            Analysis
-          </button>
-          <button
-            className={`sb-navItem ${activeTab === "ai" ? "sb-navItem--active" : ""}`}
-            onClick={() => {
-              if (user && !canAccessPremium) {
-                setLocation("/checkout");
-                return;
-              }
-              setActiveTab("ai");
-            }}
-          >
-            <Brain className="sb-navIcon" />
-            AI Training Plan
-          </button>
-        </nav>
 
-        <div className="sb-divider" />
-
-        <button className="sb-exit" onClick={() => setLocation("/dashboard")}>
-          <LogOut className="h-4 w-4" />
-          Return to PawnPoint
-        </button>
-
-        <div className="sb-footer">{"\u00a9"} {year} Pawn Point</div>
+          <div className="sb-footer">{"\u00a9"} {year} Pawn Point</div>
+        </div>
       </aside>
 
       <main className="sb-main">
@@ -1289,7 +1326,7 @@ export default function SquareBase() {
                         </div>
                         <div className="text-2xl font-semibold text-white text-center">{displayName}</div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {[
                           { label: "Rank", value: rankInfo.label },
                           { label: "Level", value: `Lv. ${level}` },

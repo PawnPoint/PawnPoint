@@ -1975,12 +1975,12 @@ export function PracticeBoard({
 
   
   const boardElement = (
-    <div className="relative block w-[780px] max-w-[780px] mx-auto">
+    <div className="pp-board-wrap relative block w-full max-w-[780px] mx-auto min-w-0">
       <div
         className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
         style={{ backgroundColor: boardColors.dark }}
       >
-        <div className="relative grid grid-cols-8 grid-rows-8 w-full aspect-square mx-auto">
+        <div className="pp-board relative grid grid-cols-8 grid-rows-8 w-full aspect-square mx-auto">
           {board.map((row, rIdx) =>
             row.map((piece, cIdx) => {
               const sq = squareName(rIdx, cIdx);
@@ -2199,10 +2199,19 @@ export function PracticeBoard({
 
         {isAnalysisMode ? (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(780px,1fr)_420px] justify-center gap-6 items-stretch">
-            <div className="flex justify-center w-full flex-shrink-0">{boardElement}</div>
+            <div className="flex justify-center w-full flex-shrink-0">
+              <div className="pp-analysis-row w-full">
+                {boardElement}
+                {evalBarOn && embedded && (
+                  <div className="pp-eval-mobile flex flex-col items-center flex-shrink-0">
+                    <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={520} />
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col lg:flex-row gap-4 items-center lg:items-start lg:self-center">
               {evalBarOn && (
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className="pp-eval-desktop flex flex-col items-center flex-shrink-0">
                   <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={520} />
                 </div>
               )}
@@ -2708,7 +2717,7 @@ export function PracticeBoard({
       </div>
       {!isAnalysisMode && botModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div>
                 <div className="text-lg font-semibold">Choose Bot</div>
@@ -2750,7 +2759,7 @@ export function PracticeBoard({
 
       {!isAnalysisMode && showSetup && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div>
                 <div className="text-lg font-semibold">Start Practice Game</div>
@@ -2807,7 +2816,7 @@ export function PracticeBoard({
 
       {promotionPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-sm rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div>
                 <div className="text-lg font-semibold">Choose promotion</div>
@@ -2821,7 +2830,7 @@ export function PracticeBoard({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-5 grid grid-cols-2 gap-3">
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(["q", "r", "b", "n"] as PieceSymbol[]).map((sym) => (
                 <Button
                   key={sym}

@@ -360,7 +360,7 @@ function RankInfoModal({
   const rankName = band.label;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+      <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
         <div className="px-5 py-4 border-b border-white/10 space-y-1">
           <div className="text-lg font-semibold">{rankName} Rank</div>
           <div className="text-xs text-white/60">{levelLabel}</div>

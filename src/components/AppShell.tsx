@@ -236,7 +236,7 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
 
   return (
     <div className={`min-h-screen ${themeBg}`} style={backgroundStyle}>
-      <header className={`sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
+      <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden">
@@ -391,12 +391,16 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
             )}
           </div>
 
-          <button className="md:hidden text-white/80" onClick={() => setOpen((v) => !v)} aria-label="Toggle navigation">
+          <button
+            className="md:hidden text-white/80 h-11 w-11 flex items-center justify-center"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle navigation"
+          >
             {open ? <X /> : <Menu />}
           </button>
         </div>
         {open && (
-          <div className="md:hidden border-t border-white/10 bg-black backdrop-blur">
+          <div className="pp-mobile-menu md:hidden border-t border-white/10 bg-black backdrop-blur">
             <div className="px-4 py-4 space-y-4">
               {user && (
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
@@ -411,7 +415,7 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2 text-base font-semibold">
+              <div className="pp-mobile-link-grid grid grid-cols-1 sm:grid-cols-2 gap-2 text-base font-semibold">
                 {mobileLinks.map(({ href, label, icon: Icon }) => {
                   const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
                   return (
@@ -452,13 +456,13 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
         )}
       </header>
 
-      <main className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="pp-shell-main w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {children}
       </main>
 
       {groupModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-xl font-semibold">
@@ -582,7 +586,7 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
 
       {feedbackOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-800 text-white shadow-2xl border border-white/10 p-6">
+          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-800 text-white shadow-2xl border border-white/10 p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Feedback</h2>
               <button onClick={closeFeedback} className="p-1 rounded-full hover:bg-white/10 text-white/70">

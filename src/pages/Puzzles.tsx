@@ -339,7 +339,7 @@ export default function Puzzles() {
                 className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
                 style={{ backgroundColor: boardColors.dark }}
               >
-                <div className="relative grid grid-cols-8 grid-rows-8 w-full max-w-[720px] aspect-square mx-auto">
+                <div className="pp-board relative grid grid-cols-8 grid-rows-8 w-full max-w-[720px] aspect-square mx-auto">
                   {board.map((row, rIdx) =>
                     row.map((piece, cIdx) => {
                       const sq = squareName(rIdx, cIdx);

@@ -147,6 +147,7 @@ export default function Settings() {
   const inGroup = !!user?.groupId && user?.accountType === "group";
   const isGroupAdmin = inGroup && user?.groupRole === "admin";
   const isPro = !!user?.premiumAccess;
+  const hasActiveSubscription = !!(user?.premiumAccess || user?.subscriptionStatus === "active");
 
   useEffect(() => {
     setGroupNameInput(user?.groupName || "");
@@ -593,17 +594,20 @@ export default function Settings() {
     {
       key: "delete",
       title: "Delete Account",
-      description:
-        "Important: Deleting your account will permanently remove all your progress and data.",
+      description: hasActiveSubscription
+        ? "Cancel your active subscription before deleting your account."
+        : "Important: Deleting your account will permanently remove all your progress and data.",
       accent: "bg-rose-700",
       icon: ShieldOff,
       danger: true,
-      action: {
-        type: "button",
-        label: "Delete Account",
-        variant: "outline",
-        onClick: () => {},
-      },
+      action: hasActiveSubscription
+        ? { type: "disabled", label: "Cancel subscription first" }
+        : {
+            type: "button",
+            label: "Delete Account",
+            variant: "outline",
+            onClick: () => {},
+          },
     },
   ];
 
@@ -713,7 +717,7 @@ export default function Settings() {
 
       {switchModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal w-full max-w-xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-semibold">Switch Account</div>
@@ -803,7 +807,7 @@ export default function Settings() {
 
       {manageGroupOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 py-10 overflow-y-auto">
-          <div className="w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-5">
+          <div className="pp-modal w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xl font-semibold">Manage Group</div>
@@ -912,7 +916,7 @@ export default function Settings() {
 
       {emailModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-semibold">Change email</div>
@@ -959,7 +963,7 @@ export default function Settings() {
 
       {accountModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl relative">
+          <div className="pp-modal w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl relative">
             <button
               className="absolute right-3 top-3 text-white/70 hover:text-white"
               onClick={() => setAccountModalOpen(false)}
@@ -1061,7 +1065,7 @@ export default function Settings() {
       )}
       {boardModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+          <div className="pp-modal w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div className="text-lg font-semibold">Board customization</div>
               <button className="text-white/70 hover:text-white" onClick={() => setBoardModalOpen(false)} aria-label="Close">
@@ -1136,7 +1140,7 @@ export default function Settings() {
 
       {cancelModalOpen && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 px-4">
-          <div className="relative w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/15 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal relative w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/15 shadow-2xl p-6 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-semibold">Cancel Subscription</div>
@@ -1183,7 +1187,7 @@ export default function Settings() {
 
       {supportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-semibold">Email support</div>
@@ -1231,7 +1235,7 @@ export default function Settings() {
 
       {resetModalOpen && (
         <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/60 px-4 py-10 overflow-y-auto">
-          <div className="w-full max-w-5xl rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+          <div className="pp-modal w-full max-w-5xl rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
             <button
               className="flex items-center gap-2 text-sm text-white/70"
               onClick={() => setResetModalOpen(false)}

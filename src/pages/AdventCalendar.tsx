@@ -340,7 +340,7 @@ export default function AdventCalendar() {
 
         {showCashIn && (
           <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-lg font-semibold">Cash in XP</div>
@@ -406,7 +406,7 @@ export default function AdventCalendar() {
 
         {editingDay !== null && isAdmin && (
           <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/60 px-4 py-10 overflow-y-auto">
-            <div className="w-full max-w-2xl rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="pp-modal w-full max-w-2xl rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-lg font-semibold">Edit Gift for Day {editingDay}</div>
@@ -559,7 +559,7 @@ export default function AdventCalendar() {
 
         {giftModal && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="pp-modal w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-lg font-semibold">You unlocked Day {giftModal.day}</div>

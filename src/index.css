@@ -221,3 +221,176 @@ img {
 .fade-in.delay-2 {
   transition-delay: 0.22s;
 }
+
+.pp-reviews {
+  width: 100%;
+  padding: 28px 0;
+}
+
+.pp-marquee {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 14px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pp-track {
+  display: flex;
+  gap: 14px;
+  will-change: transform;
+  padding: 0 14px;
+}
+
+.pp-card {
+  flex: 0 0 auto;
+  width: 320px;
+  border-radius: 16px;
+  padding: 14px 14px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.pp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pp-stars {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 14px;
+  line-height: 1;
+  color: #facc15;
+}
+
+.pp-star {
+  opacity: 0.25;
+}
+
+.pp-star.on {
+  opacity: 1;
+}
+
+.pp-card-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.35;
+  opacity: 0.92;
+}
+
+.pp-card-foot {
+  display: grid;
+  gap: 2px;
+}
+
+.pp-card-name {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+}
+
+.pp-card-role {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.pp-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 70px;
+  pointer-events: none;
+}
+
+.pp-fade.left {
+  left: 0;
+  background: linear-gradient(to right, rgba(11, 15, 28, 1), rgba(11, 15, 28, 0));
+}
+
+.pp-fade.right {
+  right: 0;
+  background: linear-gradient(to left, rgba(11, 15, 28, 1), rgba(11, 15, 28, 0));
+}
+
+@media (max-width: 520px) {
+  .pp-card {
+    width: 260px;
+  }
+}
+
+/* Mobile overrides */
+@media (max-width: 768px) {
+  .pp-shell-main {
+    padding: 20px 16px 24px;
+  }
+
+  .pp-mobile-menu {
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  .pp-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .pp-modal.h-full {
+    max-height: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .pp-shell-main button,
+  .pp-shell-main a,
+  .pp-landing button,
+  .pp-landing a,
+  .sb-root button,
+  .sb-root a {
+    min-height: 44px;
+  }
+
+  .pp-shell-main button,
+  .pp-landing button,
+  .sb-root button {
+    min-width: 44px;
+  }
+
+  .pp-board button {
+    min-height: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pp-landing h1 {
+    font-size: clamp(2.1rem, 6vw, 2.6rem);
+    line-height: 1.15;
+  }
+
+  .pp-landing p {
+    line-height: 1.5;
+  }
+
+  .pp-landing-icon-card {
+    width: 220px !important;
+    height: 220px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pp-landing-icon-card {
+    width: 200px !important;
+    height: 200px !important;
+  }
+}

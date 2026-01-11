@@ -500,7 +500,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
 
       {createModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-[#1b2230] text-white border border-white/10 shadow-2xl p-5 space-y-4">
+          <div className="pp-modal w-full max-w-lg rounded-2xl bg-[#1b2230] text-white border border-white/10 shadow-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-semibold">Add new content</div>
@@ -567,7 +567,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   className={`rounded-lg border px-3 py-2 text-sm ${
                     newType === "study" ? "border-emerald-400 text-white" : "border-white/10 text-white/70"

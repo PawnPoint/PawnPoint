@@ -113,6 +113,27 @@ const pageStyles = `
   border-color: rgba(255,255,255,0.3);
 }
 
+@media (max-width: 768px) {
+  .greeting h1 {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #squarebase .pp-squarebase-reveal,
+  #squarebase .cta-fade {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .pp-playerhub .fade-in,
+  .pp-playerhub .pp-playerhub-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 .arrow-pulse {
   animation: arrowFloat 1.6s ease-in-out infinite;
 }
@@ -663,7 +684,7 @@ export default function Dashboard() {
         >
           <div className="max-w-6xl w-full mx-auto flex flex-col items-center justify-center text-center space-y-12 relative z-10 py-12">
             <div
-              className="space-y-4"
+              className="space-y-4 pp-squarebase-reveal"
               style={{
                 opacity: squareBaseVisible ? 1 : 0,
                 transform: squareBaseVisible ? "translateY(0)" : "translateY(28px)",
@@ -677,7 +698,7 @@ export default function Dashboard() {
             </div>
 
             <div
-              className="max-w-5xl w-full text-center"
+              className="max-w-5xl w-full text-center pp-squarebase-reveal"
               style={{
                 opacity: squareBaseVisible ? 1 : 0,
                 transform: squareBaseVisible ? "translateY(0)" : "translateY(36px)",
@@ -700,7 +721,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 justify-items-center justify-center gap-4 sm:gap-5"
+                className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 justify-items-center justify-center gap-4 sm:gap-5 pp-squarebase-reveal"
                 style={{
                   opacity: gridVisible ? 1 : 0,
                   transform: gridVisible ? "translateY(0)" : "translateY(40px)",
@@ -742,7 +763,7 @@ export default function Dashboard() {
                   Explore
                 </button>
               </div>
-              <div className="max-w-6xl mx-auto px-4 md:px-0 mt-24 sm:mt-28 md:mt-48">
+              <div className="max-w-6xl mx-auto px-4 md:px-0 mt-24 sm:mt-28 md:mt-48 pp-playerhub">
                 <div className="text-left md:text-center mb-10" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
                   <div
                     className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white fade-in"
@@ -757,7 +778,7 @@ export default function Dashboard() {
                 </div>
                 <div
                   ref={profileRef}
-                  className="grid grid-cols-1 md:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-10 md:gap-12 items-start mt-10"
+                  className="grid grid-cols-1 md:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-10 md:gap-12 items-start mt-10 pp-playerhub-reveal"
                   style={{
                     opacity: profileVisible ? 1 : 0,
                     transform: profileVisible ? "translateY(0)" : "translateY(30px)",
@@ -779,7 +800,7 @@ export default function Dashboard() {
                         </div>
                         <div className="text-2xl font-semibold text-white text-center">{displayName}</div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {[
                           { label: "Rank", value: rankInfo.label },
                           { label: "Level", value: `Lv. ${level}` },
