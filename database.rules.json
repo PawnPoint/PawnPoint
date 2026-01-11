@@ -1,0 +1,601 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "public": {
+      ".read": true,
+      ".write": false
+    },
+    "users": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": ["paypalSubscriptionId"],
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.child('id').exists() && newData.child('email').exists() && newData.child('displayName').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('email').exists()?1:0) + (newData.child('displayName').exists()?1:0) + (newData.child('avatarUrl').exists()?1:0) + (newData.child('accountType').exists()?1:0) + (newData.child('groupId').exists()?1:0) + (newData.child('groupCode').exists()?1:0) + (newData.child('groupName').exists()?1:0) + (newData.child('groupRole').exists()?1:0) + (newData.child('unlockedPfps').exists()?1:0) + (newData.child('unlockedTaglines').exists()?1:0) + (newData.child('unlockedVideos').exists()?1:0) + (newData.child('unlockedSets').exists()?1:0) + (newData.child('selectedTagline').exists()?1:0) + (newData.child('taglinesEnabled').exists()?1:0) + (newData.child('streak').exists()?1:0) + (newData.child('bestStreak').exists()?1:0) + (newData.child('dailyXp').exists()?1:0) + (newData.child('dailyDate').exists()?1:0) + (newData.child('lastQualifiedDate').exists()?1:0) + (newData.child('lastStreakAt').exists()?1:0) + (newData.child('pawns').exists()?1:0) + (newData.child('chessUsername').exists()?1:0) + (newData.child('onlineRating').exists()?1:0) + (newData.child('totalXp').exists()?1:0) + (newData.child('level').exists()?1:0) + (newData.child('isAdmin').exists()?1:0) + (newData.child('createdAt').exists()?1:0) + (newData.child('xpReachedAt').exists()?1:0) + (newData.child('boardTheme').exists()?1:0) + (newData.child('pieceTheme').exists()?1:0) + (newData.child('premiumAccess').exists()?1:0) + (newData.child('paypalSubscriptionId').exists()?1:0) + (newData.child('subscriptionStatus').exists()?1:0) + (newData.child('subscriptionUpdatedAt').exists()?1:0) + (newData.child('groupLocked').exists()?1:0) + (newData.child('courses').exists()?1:0) + (newData.child('clubLeaderboard').exists()?1:0) + (newData.child('squareBaseBooks').exists()?1:0)",
+        "id": {
+          ".validate": "newData.isString() && newData.val() == $uid"
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val().length <= 254"
+        },
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "avatarUrl": {
+          ".validate": "newData.isString() && newData.val().length <= 2048"
+        },
+        "accountType": {
+          ".validate": "newData.val() == null || newData.val() == 'personal' || newData.val() == 'group'"
+        },
+        "groupId": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 60 && root.child('groups').child(newData.val()).child('members').child($uid).exists())"
+        },
+        "groupCode": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 10 && root.child('groups').child(newData.parent().child('groupId').val()).child('code').val() == newData.val())"
+        },
+        "groupName": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 80 && root.child('groups').child(newData.parent().child('groupId').val()).child('name').val() == newData.val())"
+        },
+        "groupRole": {
+          ".validate": "newData.val() == null || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('members').child($uid).child('role').val()"
+        },
+        "groupLocked": {
+          ".validate": "auth.token.admin == true || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
+        },
+        "isAdmin": {
+          ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == false) || (data.exists() && newData.val() == data.val())"
+        },
+        "premiumAccess": {
+          ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == false) || (data.exists() && newData.val() == data.val())"
+        },
+        "paypalSubscriptionId": {
+          ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == null) || (data.exists() && newData.val() == data.val())"
+        },
+        "subscriptionStatus": {
+          ".validate": "auth.token.admin == true || (!data.exists() && (newData.val() == null || newData.val() == 'unknown')) || (data.exists() && newData.val() == data.val())"
+        },
+        "subscriptionUpdatedAt": {
+          ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == null) || (data.exists() && newData.val() == data.val())"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+        },
+        "xpReachedAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+        },
+        "totalXp": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000000"
+        },
+        "level": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 10000"
+        },
+        "streak": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        },
+        "bestStreak": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        },
+        "dailyXp": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "dailyDate": {
+          ".validate": "newData.isString() && newData.val().length <= 16"
+        },
+        "lastQualifiedDate": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 16)"
+        },
+        "lastStreakAt": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= now + 600000"
+        },
+        "pawns": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+        },
+        "chessUsername": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "onlineRating": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4000"
+        },
+        "boardTheme": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "pieceTheme": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "selectedTagline": {
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "taglinesEnabled": {
+          ".validate": "newData.isBoolean()"
+        },
+        "unlockedPfps": {
+          ".validate": "newData.childrenCount() <= 200",
+          "$idx": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          }
+        },
+        "unlockedTaglines": {
+          ".validate": "newData.childrenCount() <= 200",
+          "$idx": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          }
+        },
+        "unlockedVideos": {
+          ".validate": "newData.childrenCount() <= 200",
+          "$idx": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          }
+        },
+        "unlockedSets": {
+          ".validate": "newData.childrenCount() <= 200",
+          "$idx": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          }
+        },
+        "courses": {
+          ".validate": "newData.childrenCount() <= 500",
+          "$courseId": {
+            ".validate": "newData.child('id').exists() && newData.child('title').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('title').exists()?1:0) + (newData.child('description').exists()?1:0) + (newData.child('category').exists()?1:0) + (newData.child('difficulty').exists()?1:0) + (newData.child('thumbnailUrl').exists()?1:0) + (newData.child('accentColor').exists()?1:0) + (newData.child('lessons').exists()?1:0) + (newData.child('chapters').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $courseId"
+            },
+            "title": {
+              ".validate": "newData.isString() && newData.val().length <= 120"
+            },
+            "description": {
+              ".validate": "newData.isString() && newData.val().length <= 600"
+            },
+            "category": {
+              ".validate": "newData.val() == 'white_opening' || newData.val() == 'black_opening' || newData.val() == 'middlegame' || newData.val() == 'endgame' || newData.val() == 'skills' || newData.val() == 'beginner'"
+            },
+            "difficulty": {
+              ".validate": "newData.val() == 'beginner' || newData.val() == 'intermediate' || newData.val() == 'advanced'"
+            },
+            "thumbnailUrl": {
+              ".validate": "newData.isString() && newData.val().length <= 2048"
+            },
+            "accentColor": {
+              ".validate": "newData.isString() && newData.val().length <= 16"
+            },
+            "lessons": {
+              ".validate": "newData.childrenCount() <= 400"
+            },
+            "chapters": {
+              ".validate": "newData.childrenCount() <= 200"
+            }
+          }
+        },
+        "clubLeaderboard": {
+          ".validate": "newData.childrenCount() <= 500",
+          "$entryId": {
+            ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('name').exists()?1:0) + (newData.child('rating').exists()?1:0) + (newData.child('performance').exists()?1:0) + (newData.child('addedBy').exists()?1:0) + (newData.child('createdAt').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $entryId"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "rating": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
+            },
+            "performance": {
+              ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000)"
+            },
+            "addedBy": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 60)"
+            },
+            "createdAt": {
+              ".validate": "newData.val() == null || (newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000)"
+            }
+          }
+        },
+        "squareBaseBooks": {
+          ".validate": "newData.childrenCount() <= 500",
+          "$bookId": {
+            ".validate": "newData.child('id').exists() && newData.child('title').exists() && newData.child('url').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('title').exists()?1:0) + (newData.child('url').exists()?1:0) + (newData.child('addedBy').exists()?1:0) + (newData.child('addedByName').exists()?1:0) + (newData.child('createdAt').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $bookId"
+            },
+            "title": {
+              ".validate": "newData.isString() && newData.val().length <= 120"
+            },
+            "url": {
+              ".validate": "newData.isString() && newData.val().length <= 2048"
+            },
+            "addedBy": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 60)"
+            },
+            "addedByName": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 80)"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+            }
+          }
+        }
+      }
+    },
+    "progress": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "$courseId": {
+          ".validate": "newData.child('completedSubsections').exists() && newData.child('percent').exists() && newData.childrenCount() == (newData.child('completedSubsections').exists()?1:0) + (newData.child('percent').exists()?1:0) + (newData.child('xpEarned').exists()?1:0) + (newData.child('lastUpdated').exists()?1:0)",
+          "completedSubsections": {
+            ".validate": "newData.childrenCount() <= 500",
+            "$subId": {
+              ".validate": "newData.isBoolean()"
+            }
+          },
+          "percent": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          },
+          "xpEarned": {
+            ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000)"
+          },
+          "lastUpdated": {
+            ".validate": "newData.val() == null || (newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000)"
+          }
+        }
+      }
+    },
+    "xpHistory": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "$eventId": {
+          ".validate": "newData.child('id').exists() && newData.child('ts').exists() && newData.child('amount').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('ts').exists()?1:0) + (newData.child('amount').exists()?1:0) + (newData.child('courseId').exists()?1:0) + (newData.child('subsectionId').exists()?1:0) + (newData.child('source').exists()?1:0) + (newData.child('type').exists()?1:0)",
+          "id": {
+            ".validate": "newData.isString() && newData.val() == $eventId"
+          },
+          "ts": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          },
+          "amount": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+          },
+          "courseId": {
+            ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 80)"
+          },
+          "subsectionId": {
+            ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 120)"
+          },
+          "source": {
+            ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 60)"
+          },
+          "type": {
+            ".validate": "newData.val() == null || newData.val() == 'video' || newData.val() == 'study' || newData.val() == 'pgn' || newData.val() == 'quiz'"
+          }
+        }
+      }
+    },
+    "streaks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.child('user_id').exists() && newData.child('current_streak').exists() && newData.child('daily_xp').exists() && newData.childrenCount() == (newData.child('user_id').exists()?1:0) + (newData.child('current_streak').exists()?1:0) + (newData.child('best_streak').exists()?1:0) + (newData.child('daily_xp').exists()?1:0) + (newData.child('daily_date').exists()?1:0) + (newData.child('last_qualified_date').exists()?1:0)",
+        "user_id": {
+          ".validate": "newData.isString() && newData.val() == $uid"
+        },
+        "current_streak": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        },
+        "best_streak": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+        },
+        "daily_xp": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "daily_date": {
+          ".validate": "newData.isString() && newData.val().length <= 16"
+        },
+        "last_qualified_date": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 16)"
+        }
+      }
+    },
+    "squarebaseTraining": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.child('planKey').exists() && newData.child('planDayIndex').exists() && newData.childrenCount() == (newData.child('planKey').exists()?1:0) + (newData.child('planDayIndex').exists()?1:0) + (newData.child('viewDayIndex').exists()?1:0) + (newData.child('dayChecks').exists()?1:0) + (newData.child('completedDays').exists()?1:0) + (newData.child('pendingDayIndex').exists()?1:0) + (newData.child('pendingUnlockDate').exists()?1:0) + (newData.child('nextUnlockAt').exists()?1:0) + (newData.child('updatedAt').exists()?1:0)",
+        "planKey": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "planDayIndex": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 365"
+        },
+        "viewDayIndex": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 365"
+        },
+        "dayChecks": {
+          ".validate": "newData.childrenCount() <= 400"
+        },
+        "completedDays": {
+          ".validate": "newData.childrenCount() <= 400"
+        },
+        "pendingDayIndex": {
+          ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 365)"
+        },
+        "pendingUnlockDate": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 16)"
+        },
+        "nextUnlockAt": {
+          ".validate": "newData.val() == null || (newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000)"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+        }
+      }
+    },
+    "adventGifts": {
+      ".read": true,
+      "$day": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('isAdmin').val() == true",
+        ".validate": "newData.child('type').exists() && newData.child('value').exists() && newData.childrenCount() == (newData.child('type').exists()?1:0) + (newData.child('value').exists()?1:0)",
+        "type": {
+          ".validate": "newData.val() == 'pfp' || newData.val() == 'tagline' || newData.val() == 'piece' || newData.val() == 'video' || newData.val() == 'pawns'"
+        },
+        "value": {
+          ".validate": "newData.isString() || newData.isNumber()"
+        }
+      }
+    },
+    "groupCodes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists()",
+        ".validate": "newData.isString() && newData.val().length <= 60"
+      }
+    },
+    "groups": {
+      "$groupId": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.child('createdBy').val() == auth.uid",
+        ".validate": "newData.child('id').exists() && newData.child('createdBy').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('name').exists()?1:0) + (newData.child('code').exists()?1:0) + (newData.child('createdBy').exists()?1:0) + (newData.child('createdAt').exists()?1:0) + (newData.child('locked').exists()?1:0) + (newData.child('members').exists()?1:0) + (newData.child('pausedMembers').exists()?1:0) + (newData.child('courses').exists()?1:0) + (newData.child('clubLeaderboard').exists()?1:0) + (newData.child('squareBaseBooks').exists()?1:0)",
+        "id": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isString() && newData.val() == $groupId"
+        },
+        "name": {
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "code": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isString() && newData.val().length <= 10"
+        },
+        "createdBy": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isString() && (data.exists() ? newData.val() == data.val() : newData.val() == auth.uid)"
+        },
+        "createdAt": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+        },
+        "locked": {
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+          ".validate": "newData.isBoolean()"
+        },
+        "members": {
+          "$memberId": {
+            ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+            ".write": "auth != null && (auth.uid == $memberId || root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin')",
+            ".validate": "newData.child('id').exists() && newData.child('displayName').exists() && newData.child('role').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('displayName').exists()?1:0) + (newData.child('email').exists()?1:0) + (newData.child('role').exists()?1:0) + (newData.child('joinedAt').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $memberId"
+            },
+            "displayName": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "email": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 254)"
+            },
+            "role": {
+              ".validate": "newData.val() == 'member' || (newData.val() == 'admin' && (root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin' || (!root.child('groups').child($groupId).exists() && newData.parent().parent().parent().child('createdBy').val() == auth.uid)))"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+            }
+          }
+        },
+        "pausedMembers": {
+          "$memberId": {
+            ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+            ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+            ".validate": "newData.child('id').exists() && newData.child('displayName').exists() && newData.child('role').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('displayName').exists()?1:0) + (newData.child('email').exists()?1:0) + (newData.child('role').exists()?1:0) + (newData.child('joinedAt').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $memberId"
+            },
+            "displayName": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "email": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 254)"
+            },
+            "role": {
+              ".validate": "newData.val() == 'member' || newData.val() == 'admin'"
+            },
+            "joinedAt": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+            }
+          }
+        },
+        "courses": {
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+          ".validate": "newData.childrenCount() <= 500"
+        },
+        "clubLeaderboard": {
+          ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+          "$entryId": {
+            ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('name').exists()?1:0) + (newData.child('rating').exists()?1:0) + (newData.child('performance').exists()?1:0) + (newData.child('addedBy').exists()?1:0) + (newData.child('createdAt').exists()?1:0)"
+          }
+        },
+        "squareBaseBooks": {
+          ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+          "$bookId": {
+            ".validate": "newData.child('id').exists() && newData.child('title').exists() && newData.child('url').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('title').exists()?1:0) + (newData.child('url').exists()?1:0) + (newData.child('addedBy').exists()?1:0) + (newData.child('addedByName').exists()?1:0) + (newData.child('createdAt').exists()?1:0)"
+          }
+        }
+      }
+    },
+    "matchmaking": {
+      "$tc": {
+        ".read": "auth != null",
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('name').exists()?1:0) + (newData.child('rating').exists()?1:0) + (newData.child('chessUsername').exists()?1:0) + (newData.child('createdAt').exists()?1:0)",
+          "id": {
+            ".validate": "newData.isString() && newData.val() == $uid"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 80"
+          },
+          "rating": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4000"
+          },
+          "chessUsername": {
+            ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 40)"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          }
+        }
+      }
+    },
+    "userMatches": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && newData.child('matchId').exists() && newData.child('timeControl').exists() && newData.childrenCount() == 2 && root.child('matches').child(newData.child('matchId').val()).child('players').child(auth.uid).exists() && root.child('matches').child(newData.child('matchId').val()).child('players').child($uid).exists()",
+        "matchId": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "timeControl": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        }
+      }
+    },
+    "matches": {
+      "$matchId": {
+        ".read": "auth != null && data.child('players').child(auth.uid).exists()",
+        ".write": "auth != null && (!data.exists() && newData.child('players').child(auth.uid).exists())",
+        ".validate": "newData.child('id').exists() && newData.child('timeControl').exists() && newData.child('players').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('timeControl').exists()?1:0) + (newData.child('status').exists()?1:0) + (newData.child('createdAt').exists()?1:0) + (newData.child('players').exists()?1:0) + (newData.child('moves').exists()?1:0) + (newData.child('signals').exists()?1:0)",
+        "id": {
+          ".validate": "newData.isString() && newData.val() == $matchId"
+        },
+        "timeControl": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "status": {
+          ".validate": "newData.val() == 'pending' || newData.val() == 'active'"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+        },
+        "players": {
+          "$playerId": {
+            ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('name').exists()?1:0) + (newData.child('rating').exists()?1:0) + (newData.child('color').exists()?1:0) + (newData.child('chessUsername').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $playerId"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "rating": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4000"
+            },
+            "color": {
+              ".validate": "newData.val() == 'w' || newData.val() == 'b'"
+            },
+            "chessUsername": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 40)"
+            }
+          }
+        },
+        "moves": {
+          "$moveId": {
+            ".write": "auth != null && root.child('matches').child($matchId).child('players').child(auth.uid).exists()",
+            ".validate": "newData.child('id').exists() && newData.child('from').exists() && newData.child('to').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('from').exists()?1:0) + (newData.child('to').exists()?1:0) + (newData.child('promotion').exists()?1:0) + (newData.child('san').exists()?1:0) + (newData.child('fen').exists()?1:0) + (newData.child('by').exists()?1:0) + (newData.child('ts').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $moveId"
+            },
+            "from": {
+              ".validate": "newData.isString() && newData.val().length <= 4"
+            },
+            "to": {
+              ".validate": "newData.isString() && newData.val().length <= 4"
+            },
+            "promotion": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 2)"
+            },
+            "san": {
+              ".validate": "newData.isString() && newData.val().length <= 24"
+            },
+            "fen": {
+              ".validate": "newData.isString() && newData.val().length <= 120"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "ts": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+            }
+          }
+        },
+        "signals": {
+          "$signalId": {
+            ".write": "auth != null && root.child('matches').child($matchId).child('players').child(auth.uid).exists()",
+            ".validate": "newData.child('id').exists() && newData.child('type').exists() && newData.child('by').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('type').exists()?1:0) + (newData.child('by').exists()?1:0) + (newData.child('ts').exists()?1:0)",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $signalId"
+            },
+            "type": {
+              ".validate": "newData.val() == 'resign' || newData.val() == 'draw_offer' || newData.val() == 'draw_accept' || newData.val() == 'draw_reject'"
+            },
+            "by": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "ts": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+            }
+          }
+        }
+      }
+    },
+    "challenges": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$challengeId": {
+          ".write": "auth != null && auth.uid == newData.child('fromId').val()",
+          ".validate": "newData.child('id').exists() && newData.child('fromId').exists() && newData.child('fromName').exists() && newData.child('timeControl').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('fromId').exists()?1:0) + (newData.child('fromName').exists()?1:0) + (newData.child('fromChessUsername').exists()?1:0) + (newData.child('fromRating').exists()?1:0) + (newData.child('timeControl').exists()?1:0) + (newData.child('createdAt').exists()?1:0)",
+          "id": {
+            ".validate": "newData.isString() && newData.val() == $challengeId"
+          },
+          "fromId": {
+            ".validate": "newData.isString() && newData.val() == auth.uid"
+          },
+          "fromName": {
+            ".validate": "newData.isString() && newData.val().length <= 80"
+          },
+          "fromChessUsername": {
+            ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 40)"
+          },
+          "fromRating": {
+            ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 4000)"
+          },
+          "timeControl": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          }
+        }
+      }
+    }
+  }
+}
