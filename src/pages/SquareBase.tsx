@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Brain, ChevronLeft, ChevronRight, Compass, BookOpen, LineChart, Lock, LogOut, Puzzle, Flame } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, Compass, BookOpen, LineChart, Lock, LogOut, Puzzle } from "lucide-react";
 import { get, ref, remove, set } from "firebase/database";
 import squareBaseLogo from "../assets/SquareBase Logo.png";
 import southKnight from "../assets/The South Knight.png";
@@ -249,7 +249,6 @@ export default function SquareBase() {
   const xpIntoLevel = Math.max(0, xp - levelBaseXp);
   const xpToNextLevel = Math.max(0, level * 100 - xp);
   const levelProgress = Math.min(100, Math.max(0, Math.round((xpIntoLevel / 100) * 100)));
-  const streak = user?.streak ?? 0;
   const twitchParent = useMemo(
     () => (typeof window !== "undefined" ? window.location.hostname : "localhost"),
     [],
@@ -1318,16 +1317,6 @@ export default function SquareBase() {
                         <div className="flex items-center justify-between text-xs text-white/60">
                           <span>Level {level}</span>
                           <span>{levelProgress}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/5 feature-card flex items-center justify-center gap-4 p-4 w-full shadow-[0_18px_45px_rgba(0,0,0,0.35)] h-[150px]">
-                      <div className="h-16 w-16 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)] shrink-0">
-                        <Flame className="h-8 w-8 text-yellow-300 flame-pulse" />
-                      </div>
-                      <div className="flex flex-col gap-1 text-center">
-                        <div className="text-4xl font-semibold text-white leading-tight">
-                          {streak} day{streak === 1 ? "" : "s"}
                         </div>
                       </div>
                     </div>
