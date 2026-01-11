@@ -4,4 +4,8 @@
     <loc>https://pawn-point.vercel.app/</loc>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>https://pawnpoint.app/sitemap.xml</loc>
+    <priority>1.0</priority>
+  </url>
 </urlset>
