@@ -313,7 +313,7 @@ export default function Dashboard() {
     {
       icon: FileText,
       title: "BlackBook OPX",
-      description: "Black Book OPX scans a targets public games to generate an exploit-ready intelligence profile.",
+      description: "Generate exploit ready Intelligence Profiles.",
     },
     {
       icon: Brain,

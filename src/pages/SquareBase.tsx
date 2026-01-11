@@ -1436,7 +1436,7 @@ export default function SquareBase() {
                     {!showBlackBookResult || !blackBookResult ? (
                       <div className="sb-blackbookCard">
                         <div className="sb-blackbookTitle">BlackBook OPX</div>
-                        <div className="sb-blackbookSubtitle">Enter targets username to begin AI Analysis.</div>
+                        <div className="sb-blackbookSubtitle">Generate exploit ready Intelligence Profiles.</div>
                         <div className="sb-blackbookFields">
                           <label className="sb-blackbookField">
                             <span>Chess.com username</span>
