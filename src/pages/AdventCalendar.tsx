@@ -48,7 +48,10 @@ const pieceChoices = [
 export default function AdventCalendar() {
   const { user, setUser } = useAuth();
   const [countdown, setCountdown] = useState(getChristmasCountdown());
-  const unlockedCount = useMemo(() => 24 - Math.max(0, countdown.days), [countdown.days]);
+  const unlockedCount = useMemo(
+    () => getAdventUnlockedCount(countdown),
+    [countdown.calendarDay, countdown.calendarMonth],
+  );
   const [flipped, setFlipped] = useState<Record<number, boolean>>({});
   const [showCashIn, setShowCashIn] = useState(false);
   const [editingDay, setEditingDay] = useState<number | null>(null);
@@ -633,17 +636,61 @@ export default function AdventCalendar() {
 
 function getChristmasCountdown() {
   const now = new Date();
-  const christmas = new Date(now.getFullYear(), 11, 25, 0, 0, 0); // Dec 25
-  const nowUTC = now.getTime() + now.getTimezoneOffset() * 60000;
-  const sastOffsetMs = 2 * 60 * 60 * 1000;
-  const nowSAST = nowUTC + sastOffsetMs;
-  const diff = christmas.getTime() - nowSAST;
+  const nowParts = getSastDateTimeParts(now);
+  const nowSastMs = Date.UTC(
+    nowParts.year,
+    nowParts.month - 1,
+    nowParts.day,
+    nowParts.hour,
+    nowParts.minute,
+    nowParts.second,
+  );
+  const christmasSastMs = Date.UTC(nowParts.year, 11, 25, 0, 0, 0);
+  const diff = christmasSastMs - nowSastMs;
   const totalSeconds = Math.max(0, Math.floor(diff / 1000));
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return { days, hours, minutes, seconds };
+  return {
+    days,
+    hours,
+    minutes,
+    seconds,
+    calendarDay: nowParts.day,
+    calendarMonth: nowParts.month,
+  };
+}
+
+function getSastDateTimeParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = part.value;
+  }
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+  };
+}
+
+function getAdventUnlockedCount(countdown: ReturnType<typeof getChristmasCountdown>) {
+  if (countdown.calendarMonth < 12) return 0;
+  if (countdown.calendarMonth > 12) return 24;
+  return Math.min(24, Math.max(0, countdown.calendarDay));
 }
 
 function FlipCountdown({ days }: { days: number }) {

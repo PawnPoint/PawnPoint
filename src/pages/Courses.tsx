@@ -202,12 +202,11 @@ export default function Courses() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Courses</h1>
-            <p className="text-white/70 text-sm">Search, filter, and pick up where you left off.</p>
+            <h1 className="text-4xl font-bold font-inter">Courses</h1>
           </div>
           <div className="flex items-center gap-2 text-white/70 text-sm">
             <Filter className="h-4 w-4" />
-            {inGroup ? "Group catalog" : "Personal catalog"}
+            {inGroup ? "Courses" : "Personal catalog"}
           </div>
         </div>
 
@@ -472,7 +471,7 @@ function CourseCard({
 
   return (
     <Card
-      className="relative overflow-hidden transition flex flex-col card-solid border"
+      className="relative overflow-hidden transition flex flex-col card-solid border h-[360px]"
       style={{ backgroundColor: "#111724", borderColor: "#111724" }}
     >
       {isAdmin && (

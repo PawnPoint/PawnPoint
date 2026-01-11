@@ -52,25 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const bumpStreak = (profile: UserProfile | null): UserProfile | null => {
-    if (!profile) return profile;
-    const lastLoginDay = localStorage.getItem("pawnpoint_last_login_day");
-    if (lastLoginDay === todayKey) return profile;
-    const todayStart = new Date(todayKey);
-    const lastDate = lastLoginDay ? new Date(lastLoginDay) : null;
-    const diffDays =
-      lastDate && !Number.isNaN(lastDate.getTime())
-        ? Math.floor((todayStart.getTime() - lastDate.setHours(0, 0, 0, 0)) / (24 * 60 * 60 * 1000))
-        : null;
-    const nextStreak =
-      diffDays === 1
-        ? (profile.streak || 0) + 1
-        : 1; // reset after a missed day, start fresh on login
-    const next = { ...profile, streak: nextStreak };
-    localStorage.setItem("pawnpoint_last_login_day", todayKey);
-    localStorage.setItem("pawnpoint_user", JSON.stringify(next));
-    return next;
-  };
+  const bumpStreak = (profile: UserProfile | null): UserProfile | null => profile;
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {

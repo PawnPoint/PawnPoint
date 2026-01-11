@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
-import { Card, CardContent } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard, updateTaglineSettings } from "../lib/mockApi";
 import southKnight from "../assets/The South Knight.png";
-import background from "../assets/Snowflake Background.png";
 import avatar1 from "../assets/Avatar 1.png";
 import avatar2 from "../assets/Avatar 2.png";
 import avatar3 from "../assets/Avatar 3.png";
@@ -38,9 +36,6 @@ export default function Profile() {
     queryFn: () => getDashboard(user!),
   });
 
-  const totalXp = user?.totalXp || 0;
-  const level = user?.level || 1;
-  const streak = user?.streak || 0;
   const unlockedPfps = user?.unlockedPfps || [];
   const unlockedTaglines = user?.unlockedTaglines || [];
   const [taglineEnabled, setTaglineEnabled] = useState(user?.taglinesEnabled ?? true);
@@ -123,12 +118,12 @@ export default function Profile() {
   return (
     <AppShell backgroundStyle={pageBackground}>
       <div className="flex flex-col gap-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl">
-          <img
-            src={background}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-50 pointer-events-none"
-          />
+        <div
+          className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl"
+          style={{
+            background: "linear-gradient(135deg, #0b2a5b 0%, #0b1220 50%, #000000 100%)",
+          }}
+        >
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6 p-6">
             <div className="flex items-center gap-4">
               <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white/40 shadow-lg">
@@ -176,36 +171,11 @@ export default function Profile() {
               <Button variant="outline" onClick={() => navigate("/settings")}>
                 Settings
               </Button>
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+              <Button variant="outline" onClick={() => navigate("/dashboard")}>
                 Back to Dashboard
               </Button>
             </div>
           </div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="h-11 w-11 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-200 font-semibold">
-                XP
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white">{totalXp}</div>
-                <div className="text-sm text-white/70">Total XP</div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="h-11 w-11 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-200 font-semibold">
-                Lv
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white">{level}</div>
-                <div className="text-sm text-white/70">Level</div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {pickerOpen && (

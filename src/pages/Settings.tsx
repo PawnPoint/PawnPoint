@@ -1141,6 +1141,7 @@ export default function Settings() {
               <div>
                 <div className="text-lg font-semibold">Cancel Subscription</div>
                 <div className="text-sm text-white/70">Are you sure you want to cancel Pawn Point Pro?</div>
+                <div className="text-sm text-white/60">All Premium features will be locked.</div>
               </div>
               <button
                 className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"

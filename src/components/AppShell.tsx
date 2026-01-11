@@ -387,15 +387,6 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
                     Sign out
                   </button>
                 </div>
-                <div className="flex items-center justify-between px-4 pt-3 text-xs text-white/60">
-                  <span>Theme</span>
-                  <button
-                    className="flex items-center gap-2 rounded-full bg-white/10 px-2 py-1 text-white hover:bg-white/20 transition"
-                    onClick={() => setIsLight((v) => !v)}
-                  >
-                    {isLight ? <Sun className="h-4 w-4 text-amber-300" /> : <Moon className="h-4 w-4 text-amber-300" />}
-                  </button>
-                </div>
               </div>
             )}
           </div>

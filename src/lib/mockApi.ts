@@ -21,6 +21,10 @@ export type UserProfile = {
   selectedTagline?: string;
   taglinesEnabled?: boolean;
   streak?: number;
+  bestStreak?: number;
+  dailyXp?: number;
+  dailyDate?: string;
+  lastQualifiedDate?: string | null;
   lastStreakAt?: number;
   pawns?: number;
   chessUsername?: string;
@@ -46,6 +50,7 @@ export type Group = {
   createdBy: string;
   createdAt: number;
   locked?: boolean;
+  pausedMembers?: Record<string, GroupMember>;
 };
 
 export type GroupMember = {
@@ -209,10 +214,12 @@ export const DEFAULT_COURSE_THUMBNAIL = "/pieces/wQ.png";
 
 const COURSES_PATH = "courses";
 const XP_HISTORY_PATH = "xpHistory";
+const STREAKS_PATH = "streaks";
 const SQUARE_BASE_PATH = "squareBaseBooks";
 const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", "/pieces/bK.png"];
 const DEFAULT_GROUP_NAME = "My Group";
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
+const REQUIRED_DAILY_XP = 10;
 
 type DataScope = {
   scope: "group" | "personal" | "public";
@@ -330,11 +337,21 @@ function readUser(): UserProfile | null {
       parsed.lastStreakAt = startOfDayMs(new Date(parsed.createdAt || Date.now()));
       writeUser(parsed);
     }
-    const today = startOfDayMs(new Date());
-    const lastStreakDay = startOfDayMs(new Date(parsed.lastStreakAt || parsed.createdAt || Date.now()));
-    if (today - lastStreakDay > 24 * 60 * 60 * 1000) {
-      parsed.streak = 0;
-      parsed.lastStreakAt = lastStreakDay;
+    if (parsed.bestStreak === undefined) {
+      parsed.bestStreak = parsed.streak ?? 0;
+      writeUser(parsed);
+    }
+    if (parsed.dailyDate === undefined) {
+      const base = parsed.lastStreakAt || parsed.xpReachedAt || parsed.createdAt || Date.now();
+      parsed.dailyDate = toLocalDateKey(new Date(base));
+      writeUser(parsed);
+    }
+    if (parsed.dailyXp === undefined) {
+      parsed.dailyXp = 0;
+      writeUser(parsed);
+    }
+    if (parsed.lastQualifiedDate === undefined) {
+      parsed.lastQualifiedDate = parsed.lastStreakAt ? toLocalDateKey(new Date(parsed.lastStreakAt)) : null;
       writeUser(parsed);
     }
     if (parsed.pawns === undefined) {
@@ -343,6 +360,10 @@ function readUser(): UserProfile | null {
     }
     if (parsed.accountType === undefined) {
       parsed.accountType = parsed.groupId ? "group" : undefined;
+      writeUser(parsed);
+    }
+    if (parsed.accountType === "personal" && parsed.isAdmin !== true) {
+      parsed.isAdmin = true;
       writeUser(parsed);
     }
     if (parsed.premiumAccess === undefined) {
@@ -784,12 +805,39 @@ type XpEvent = {
   type?: Subsection["type"];
 };
 
+type StreakRow = {
+  user_id: string;
+  current_streak: number;
+  best_streak: number;
+  daily_xp: number;
+  daily_date: string;
+  last_qualified_date: string | null;
+};
+
 const XP_HISTORY_RETENTION_DAYS = 7;
 
 function startOfDayMs(date: Date): number {
   const copy = new Date(date);
   copy.setHours(0, 0, 0, 0);
   return copy.getTime();
+}
+
+function toLocalDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isYesterday(today: string, previous: string): boolean {
+  const [yearStr, monthStr, dayStr] = today.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return false;
+  const yesterday = new Date(year, month - 1, day);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toLocalDateKey(yesterday) === previous;
 }
 
 function pruneOldXpEvents(events: XpEvent[], maxAgeDays = XP_HISTORY_RETENTION_DAYS): XpEvent[] {
@@ -859,47 +907,13 @@ export async function awardXp(
   userId: string,
   amount: number,
   options?: { source?: string; courseId?: string; subsectionId?: string; type?: Subsection["type"] },
-) {
+): Promise<{ streak: StreakRow; totalXp: number } | null> {
   const xpGain = Math.max(0, amount);
-  if (!xpGain) return;
-  const today = startOfDayMs(new Date());
+  if (!xpGain) return null;
+  const today = toLocalDateKey();
   const userNodeRef = ref(db, `users/${userId}`);
-  let nextStreak = 1;
-  try {
-    const snap = await get(userNodeRef);
-    const existingUser = snap.val() || {};
-    const priorStreak = existingUser.streak || 0;
-    const lastStreakAt = startOfDayMs(
-      new Date(existingUser.lastStreakAt || existingUser.xpReachedAt || existingUser.createdAt || 0),
-    );
-    if (lastStreakAt === today) {
-      nextStreak = priorStreak || 1;
-    } else if (today - lastStreakAt === 24 * 60 * 60 * 1000) {
-      nextStreak = (priorStreak || 0) + 1;
-    } else {
-      nextStreak = 1;
-    }
-    const newTotal = (existingUser.totalXp || 0) + xpGain;
-    await persistTotalXp(userId, newTotal, { streak: nextStreak, lastStreakAt: today });
-  } catch (err) {
-    console.warn("Failed to update XP in Firebase, continuing locally", err);
-    const localUser = readUser();
-    const baseTotal = localUser && localUser.id === userId ? localUser.totalXp || 0 : 0;
-    const lastStreakAt =
-      localUser?.lastStreakAt !== undefined
-        ? startOfDayMs(new Date(localUser.lastStreakAt))
-        : startOfDayMs(new Date(localUser?.xpReachedAt || localUser?.createdAt || 0));
-    if (localUser) {
-      if (lastStreakAt === today) {
-        nextStreak = localUser.streak || 1;
-      } else if (today - lastStreakAt === 24 * 60 * 60 * 1000) {
-        nextStreak = (localUser.streak || 0) + 1;
-      } else {
-        nextStreak = 1;
-      }
-    }
-    await persistTotalXp(userId, baseTotal + xpGain, { streak: nextStreak, lastStreakAt: today });
-  }
+  const streakNodeRef = ref(db, `${STREAKS_PATH}/${userId}`);
+
   try {
     await recordXpEvent(userId, {
       amount: xpGain,
@@ -911,6 +925,95 @@ export async function awardXp(
   } catch (err) {
     console.warn("Failed to log XP event", err);
   }
+
+  let existingUser: UserProfile | null = null;
+  let streakRow: StreakRow | null = null;
+
+  try {
+    const [userSnap, streakSnap] = await Promise.all([get(userNodeRef), get(streakNodeRef)]);
+    existingUser = (userSnap.val() as UserProfile) || null;
+    if (streakSnap.exists()) {
+      streakRow = streakSnap.val() as StreakRow;
+    }
+  } catch (err) {
+    console.warn("Failed to load streak data from Firebase, using local fallback", err);
+  }
+
+  const localUser = readUser();
+  const baseUser = existingUser || (localUser && localUser.id === userId ? localUser : null);
+  const fallbackRow: StreakRow = {
+    user_id: userId,
+    current_streak: baseUser?.streak ?? 0,
+    best_streak: baseUser?.bestStreak ?? baseUser?.streak ?? 0,
+    daily_xp: baseUser?.dailyXp ?? 0,
+    daily_date: baseUser?.dailyDate ?? today,
+    last_qualified_date: baseUser?.lastQualifiedDate ?? null,
+  };
+
+  const resolvedRow: StreakRow = {
+    user_id: userId,
+    current_streak: Number.isFinite(Number(streakRow?.current_streak))
+      ? Number(streakRow?.current_streak)
+      : fallbackRow.current_streak,
+    best_streak: Number.isFinite(Number(streakRow?.best_streak))
+      ? Number(streakRow?.best_streak)
+      : fallbackRow.best_streak,
+    daily_xp: Number.isFinite(Number(streakRow?.daily_xp)) ? Number(streakRow?.daily_xp) : fallbackRow.daily_xp,
+    daily_date: streakRow?.daily_date || fallbackRow.daily_date,
+    last_qualified_date:
+      streakRow && typeof streakRow.last_qualified_date === "string"
+        ? streakRow.last_qualified_date
+        : fallbackRow.last_qualified_date,
+  };
+
+  if (resolvedRow.daily_date !== today) {
+    if (resolvedRow.daily_xp < REQUIRED_DAILY_XP) {
+      resolvedRow.current_streak = 0;
+    }
+    resolvedRow.daily_xp = 0;
+    resolvedRow.daily_date = today;
+  }
+
+  resolvedRow.daily_xp += xpGain;
+
+  let qualifiedNow = false;
+  const alreadyQualifiedToday = resolvedRow.last_qualified_date === today;
+  if (!alreadyQualifiedToday && resolvedRow.daily_xp >= REQUIRED_DAILY_XP) {
+    if (resolvedRow.last_qualified_date && isYesterday(today, resolvedRow.last_qualified_date)) {
+      resolvedRow.current_streak += 1;
+    } else {
+      resolvedRow.current_streak = 1;
+    }
+    resolvedRow.last_qualified_date = today;
+    resolvedRow.best_streak = Math.max(resolvedRow.best_streak, resolvedRow.current_streak);
+    qualifiedNow = true;
+  }
+
+  const baseTotal = baseUser?.totalXp ?? 0;
+  const nextTotal = baseTotal + xpGain;
+  let nextLastStreakAt = baseUser?.lastStreakAt;
+  if (resolvedRow.last_qualified_date === today && !nextLastStreakAt) {
+    nextLastStreakAt = Date.now();
+  }
+  if (qualifiedNow) {
+    nextLastStreakAt = Date.now();
+  }
+
+  await persistTotalXp(userId, nextTotal, {
+    streak: resolvedRow.current_streak,
+    bestStreak: resolvedRow.best_streak,
+    dailyXp: resolvedRow.daily_xp,
+    dailyDate: resolvedRow.daily_date,
+    lastQualifiedDate: resolvedRow.last_qualified_date,
+    lastStreakAt: nextLastStreakAt,
+  });
+
+  try {
+    await set(streakNodeRef, resolvedRow);
+  } catch (err) {
+    console.warn("Failed to persist streak row", err);
+  }
+  return { streak: resolvedRow, totalXp: nextTotal };
 }
 
 export async function claimXpForPawns(userId: string): Promise<{ pawnsAdded: number; remainingXp: number } | null> {
@@ -1125,7 +1228,11 @@ export async function ensureProfile(
           avatarUrl: undefined,
           totalXp: 120,
           level: 2,
-          streak: 1,
+          streak: 0,
+          bestStreak: 0,
+          dailyXp: 0,
+          dailyDate: toLocalDateKey(new Date()),
+          lastQualifiedDate: null,
           pawns: 0,
           onlineRating: 1000,
           isAdmin: false,
@@ -1160,6 +1267,7 @@ export async function ensureProfile(
       remote?.accountType ??
       baseProfile.accountType ??
       (remote?.groupId || baseProfile.groupId ? "group" : undefined);
+    const isPersonalAccount = inferredAccountType === "personal";
     const merged: UserProfile = {
       ...baseProfile,
       ...(remote || {}),
@@ -1171,8 +1279,13 @@ export async function ensureProfile(
       xpReachedAt: remote?.xpReachedAt ?? baseProfile.xpReachedAt ?? baseProfile.createdAt ?? Date.now(),
       pawns: remote?.pawns ?? baseProfile.pawns ?? 0,
       onlineRating: remote?.onlineRating ?? baseProfile.onlineRating ?? 1000,
-      totalXp: remote?.totalXp ?? baseProfile.totalXp,
-      level: remote?.level ?? baseProfile.level,
+        totalXp: remote?.totalXp ?? baseProfile.totalXp,
+        level: remote?.level ?? baseProfile.level,
+        streak: remote?.streak ?? baseProfile.streak ?? 0,
+        bestStreak: remote?.bestStreak ?? baseProfile.bestStreak ?? remote?.streak ?? baseProfile.streak ?? 0,
+        dailyXp: remote?.dailyXp ?? baseProfile.dailyXp ?? 0,
+        dailyDate: remote?.dailyDate ?? baseProfile.dailyDate ?? toLocalDateKey(new Date()),
+        lastQualifiedDate: remote?.lastQualifiedDate ?? baseProfile.lastQualifiedDate ?? null,
       // group/account scope
       accountType: inferredAccountType,
       groupId: remote?.groupId ?? baseProfile.groupId ?? null,
@@ -1194,6 +1307,7 @@ export async function ensureProfile(
       subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
       groupLocked: remote?.groupLocked ?? baseProfile.groupLocked ?? false,
       avatarUrl: remote?.avatarUrl ?? baseProfile.avatarUrl,
+      isAdmin: isPersonalAccount ? true : remote?.isAdmin ?? baseProfile.isAdmin ?? false,
     };
     writeUser(merged);
     const safePayload = stripUndefinedShallow(merged);
@@ -1209,7 +1323,8 @@ export async function ensureProfile(
 export async function setAdminStatus(isAdmin: boolean): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
-  const updated: UserProfile = { ...user, isAdmin };
+  const nextIsAdmin = user.accountType === "personal" ? true : isAdmin;
+  const updated: UserProfile = normalizeUser({ ...user, isAdmin: nextIsAdmin });
   writeUser(updated);
   return updated;
 }
@@ -1540,7 +1655,7 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
 export async function attachPaypalSubscription(subscriptionId: string): Promise<{ success: boolean; profile: UserProfile | null }> {
   const user = readUser();
   if (!user) return { success: false, profile: null };
-  const updated: UserProfile = {
+  const baseUpdated: UserProfile = {
     ...user,
     premiumAccess: true,
     paypalSubscriptionId: subscriptionId,
@@ -1548,6 +1663,8 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
     subscriptionUpdatedAt: Date.now(),
     groupLocked: false,
   };
+  const restoreFields = await restoreOwnedGroupIfNeeded(baseUpdated);
+  const updated: UserProfile = restoreFields ? { ...baseUpdated, ...restoreFields } : baseUpdated;
   writeUser(updated);
   try {
     await update(
@@ -1557,7 +1674,13 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
         paypalSubscriptionId: subscriptionId,
         subscriptionStatus: "active",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
-        groupLocked: false,
+        groupLocked: updated.groupLocked,
+        accountType: updated.accountType,
+        groupId: updated.groupId,
+        groupCode: updated.groupCode,
+        groupName: updated.groupName,
+        groupRole: updated.groupRole,
+        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1569,12 +1692,23 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
 export async function cancelPaypalSubscriptionLocally(): Promise<{ success: boolean; profile: UserProfile | null }> {
   const user = readUser();
   if (!user || !user.paypalSubscriptionId) return { success: false, profile: null };
+  const pausedGroup = await pauseOwnedGroupIfNeeded(user);
   const updated: UserProfile = {
     ...user,
     premiumAccess: false,
     subscriptionStatus: "cancelled",
     subscriptionUpdatedAt: Date.now(),
     groupLocked: true,
+    ...(pausedGroup
+      ? {
+          accountType: "personal",
+          groupId: null,
+          groupCode: null,
+          groupName: null,
+          groupRole: null,
+          isAdmin: true,
+        }
+      : {}),
   };
   writeUser(updated);
   try {
@@ -1585,6 +1719,12 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
         subscriptionStatus: "cancelled",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
         groupLocked: true,
+        accountType: updated.accountType,
+        groupId: updated.groupId,
+        groupCode: updated.groupCode,
+        groupName: updated.groupName,
+        groupRole: updated.groupRole,
+        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1600,13 +1740,33 @@ export async function updateSubscriptionStatusFromWebhook(
   const user = readUser();
   if (!user || user.paypalSubscriptionId !== subscriptionId) return null;
   const premiumAccess = status === "active";
-  const updated: UserProfile = {
+  const baseUpdated: UserProfile = {
     ...user,
     premiumAccess,
     subscriptionStatus: status,
     subscriptionUpdatedAt: Date.now(),
     groupLocked: !premiumAccess,
   };
+  let updated: UserProfile = baseUpdated;
+  if (premiumAccess) {
+    const restoreFields = await restoreOwnedGroupIfNeeded(baseUpdated);
+    if (restoreFields) {
+      updated = { ...baseUpdated, ...restoreFields };
+    }
+  } else {
+    const pausedGroup = await pauseOwnedGroupIfNeeded(user);
+    if (pausedGroup) {
+      updated = {
+        ...baseUpdated,
+        accountType: "personal",
+        groupId: null,
+        groupCode: null,
+        groupName: null,
+        groupRole: null,
+        isAdmin: true,
+      };
+    }
+  }
   writeUser(updated);
   try {
     await update(
@@ -1616,6 +1776,12 @@ export async function updateSubscriptionStatusFromWebhook(
         subscriptionStatus: status,
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
         groupLocked: updated.groupLocked,
+        accountType: updated.accountType,
+        groupId: updated.groupId,
+        groupCode: updated.groupCode,
+        groupName: updated.groupName,
+        groupRole: updated.groupRole,
+        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1652,10 +1818,131 @@ async function fetchGroupById(groupId: string): Promise<(Group & { members?: Rec
   }
 }
 
+async function findOwnedGroupByCreator(
+  userId: string,
+): Promise<{ id: string; group: Group & { members?: Record<string, GroupMember> } } | null> {
+  try {
+    const snap = await get(ref(db, "groups"));
+    if (!snap.exists()) return null;
+    const val = snap.val() as Record<string, Group & { members?: Record<string, GroupMember> }>;
+    const match = Object.entries(val).find(([, group]) => group?.createdBy === userId);
+    if (!match) return null;
+    const [groupId, group] = match;
+    return { id: group.id || groupId, group: { ...group, id: group.id || groupId } };
+  } catch {
+    return null;
+  }
+}
+
+async function pauseOwnedGroupIfNeeded(
+  user: UserProfile,
+): Promise<{ id: string; group: Group & { members?: Record<string, GroupMember> } } | null> {
+  if (!user.groupId) return null;
+  const groupData = await fetchGroupById(user.groupId);
+  if (!groupData || groupData.createdBy !== user.id) return null;
+  const members = groupData.members || {};
+  const pausedMembers = Object.fromEntries(
+    Object.entries(members).filter(([memberId]) => memberId !== user.id),
+  );
+  const memberIds = Object.keys(pausedMembers).filter(Boolean);
+  await Promise.all(
+    memberIds
+      .filter((memberId) => memberId !== user.id)
+      .map(async (memberId) => {
+        try {
+          await update(ref(db, `users/${memberId}`), {
+            accountType: "personal",
+            groupId: null,
+            groupCode: null,
+            groupName: null,
+            groupRole: null,
+            groupLocked: false,
+            isAdmin: true,
+          });
+        } catch (err) {
+          console.warn("Failed to remove member during pause", err);
+        }
+      }),
+  );
+  try {
+    await update(ref(db, `groups/${user.groupId}`), {
+      locked: true,
+      members: {},
+      pausedMembers,
+    });
+  } catch (err) {
+    console.warn("Failed to lock group during pause", err);
+  }
+  return { id: groupData.id || user.groupId, group: { ...groupData, id: groupData.id || user.groupId } };
+}
+
+async function restoreOwnedGroupIfNeeded(user: UserProfile): Promise<Partial<UserProfile> | null> {
+  let ownedGroup: { id: string; group: Group & { members?: Record<string, GroupMember> } } | null = null;
+  if (user.groupId) {
+    const existing = await fetchGroupById(user.groupId);
+    if (existing && existing.createdBy === user.id) {
+      ownedGroup = { id: existing.id || user.groupId, group: { ...existing, id: existing.id || user.groupId } };
+    }
+  }
+  if (!ownedGroup) {
+    ownedGroup = await findOwnedGroupByCreator(user.id);
+  }
+  if (!ownedGroup) return null;
+  const displayName = user.displayName || user.email || "Player";
+  const pausedMembers = ownedGroup.group.pausedMembers || {};
+  const hasPausedMembers = Object.keys(pausedMembers).length > 0;
+  if (!ownedGroup.group.locked && !hasPausedMembers) return null;
+  const currentMembers = ownedGroup.group.members || {};
+  const membersToRestore: Record<string, GroupMember> = {
+    ...currentMembers,
+    ...pausedMembers,
+    [user.id]: {
+      id: user.id,
+      displayName,
+      email: user.email,
+      role: "admin",
+      joinedAt: Date.now(),
+    },
+  };
+  try {
+    await update(ref(db, `groups/${ownedGroup.id}`), { locked: false, pausedMembers: null });
+    await set(ref(db, `groups/${ownedGroup.id}/members`), membersToRestore);
+  } catch (err) {
+    console.warn("Failed to restore group ownership", err);
+  }
+  const restoreEntries = Object.entries(pausedMembers);
+  await Promise.all(
+    restoreEntries.map(async ([memberId, member]) => {
+      try {
+        const role = member?.role === "admin" ? "admin" : "member";
+        await update(ref(db, `users/${memberId}`), {
+          accountType: "group",
+          groupId: ownedGroup!.id,
+          groupCode: ownedGroup!.group.code || "",
+          groupName: ownedGroup!.group.name || "Group",
+          groupRole: role,
+          groupLocked: false,
+          isAdmin: role === "admin",
+        });
+      } catch (err) {
+        console.warn("Failed to restore member after pause", err);
+      }
+    }),
+  );
+  return {
+    accountType: "group",
+    groupId: ownedGroup.id,
+    groupCode: ownedGroup.group.code || user.groupCode || "",
+    groupName: ownedGroup.group.name || user.groupName || "Group",
+    groupRole: "admin",
+    groupLocked: false,
+    isAdmin: true,
+  };
+}
+
 export async function choosePersonalAccount(): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
-  const nextIsAdmin = user.groupRole === "admin" ? false : user.isAdmin;
   const updated: UserProfile = {
     ...user,
     accountType: "personal",
@@ -1664,7 +1951,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
     groupName: null,
     groupRole: null,
     groupLocked: false,
-    isAdmin: nextIsAdmin,
+    isAdmin: true,
   };
   writeUser(updated);
   try {
@@ -1675,7 +1962,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
       groupName: null,
       groupRole: null,
       groupLocked: false,
-      isAdmin: updated.isAdmin,
+      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to persist personal account choice", err);
@@ -1802,6 +2089,9 @@ export async function joinGroupWithCode(
       }
     }
   }
+  if (groupData?.locked) {
+    throw new Error("This group is paused. Ask the owner to resubscribe.");
+  }
   const group: Group = {
     id: groupId,
     name: groupData.name || DEFAULT_GROUP_NAME,
@@ -1856,7 +2146,6 @@ export async function leaveGroup(): Promise<UserProfile | null> {
   } catch (err) {
     console.warn("Failed to remove membership from Firebase", err);
   }
-  const nextIsAdmin = user.groupRole === "admin" ? false : user.isAdmin;
   const updated: UserProfile = {
     ...user,
     accountType: "personal",
@@ -1865,7 +2154,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
     groupName: null,
     groupRole: null,
     groupLocked: false,
-    isAdmin: nextIsAdmin,
+    isAdmin: true,
   };
   writeUser(updated);
   try {
@@ -1875,7 +2164,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: updated.isAdmin,
+      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to sync group exit", err);
@@ -1953,7 +2242,7 @@ export async function removeGroupMember(
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: false,
+      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to reset member profile after removal", err);
@@ -1994,14 +2283,13 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
           groupCode: null,
           groupName: null,
           groupRole: null,
-          isAdmin: false,
+          isAdmin: true,
         });
       } catch (err) {
         console.warn("Failed to reset member after deletion", err);
       }
     }),
   );
-  const nextIsAdmin = admin.groupRole === "admin" ? false : admin.isAdmin;
   const updated: UserProfile = {
     ...admin,
     accountType: "personal",
@@ -2009,7 +2297,7 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
     groupCode: null,
     groupName: null,
     groupRole: null,
-    isAdmin: nextIsAdmin,
+    isAdmin: true,
   };
   writeUser(updated);
   try {
@@ -2019,7 +2307,7 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: updated.isAdmin,
+      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to sync profile after deleting group", err);
@@ -2049,6 +2337,12 @@ export async function getCourse(id: string, user?: UserProfile | null): Promise<
 export async function createCourse(course: Omit<Course, "id"> & { id?: string }): Promise<Course> {
   const user = readUser();
   const record = await fetchCourseRecord(user);
+  const hasSubscription = !!(user?.premiumAccess || user?.subscriptionStatus === "active");
+  const isSouthKnightGroup =
+    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
+  if (user && !isSouthKnightGroup && !hasSubscription && Object.keys(record).length >= 3) {
+    throw new Error("Free plan allows up to 3 courses. Subscribe to add more.");
+  }
   const newCourse: Course = {
     ...course,
     id: course.id || nanoid(),
@@ -2257,6 +2551,7 @@ type GiftConfig =
 function normalizeUser(u: UserProfile): UserProfile {
   return {
     ...u,
+    isAdmin: u.accountType === "personal" ? true : u.isAdmin ?? false,
     unlockedPfps: u.unlockedPfps || [],
     unlockedTaglines: u.unlockedTaglines || [],
     unlockedVideos: u.unlockedVideos || [],
@@ -2269,6 +2564,10 @@ function normalizeUser(u: UserProfile): UserProfile {
     subscriptionStatus: u.subscriptionStatus ?? (u.premiumAccess ? "active" : undefined),
     subscriptionUpdatedAt: u.subscriptionUpdatedAt ?? null,
     groupLocked: u.groupLocked ?? false,
+    bestStreak: u.bestStreak ?? u.streak ?? 0,
+    dailyXp: u.dailyXp ?? 0,
+    dailyDate: u.dailyDate ?? toLocalDateKey(new Date()),
+    lastQualifiedDate: u.lastQualifiedDate ?? null,
     pieceTheme: resolvePieceTheme(u.pieceTheme).key,
     boardTheme: resolveBoardTheme(u.boardTheme).key,
   };
@@ -2418,7 +2717,13 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
     const snap = await get(ref(db, "users"));
     const val = (snap.val() || {}) as Record<string, UserProfile>;
     const list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
-    const sorted = list.sort((a, b) => {
+    const filtered = list.filter((entry) => {
+      const isSouthKnightGroup =
+        entry?.groupId === "south-knight" || entry?.groupCode?.includes("0055");
+      if (isSouthKnightGroup) return true;
+      return !!(entry?.premiumAccess || entry?.subscriptionStatus === "active");
+    });
+    const sorted = filtered.sort((a, b) => {
       const diff = (b.totalXp || 0) - (a.totalXp || 0);
       if (diff !== 0) return diff;
       const timeA = a.xpReachedAt ?? a.createdAt ?? 0;

@@ -1,4 +1,5 @@
-import { cloneElement, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { getGlobalXpLeaderboard, type UserProfile } from "../lib/mockApi";
@@ -26,7 +27,7 @@ const rankBands: {
   min: number;
   max?: number;
   accent: string;
-  logo: JSX.Element;
+  icon: string;
 }[] = [
   {
     key: "gold",
@@ -34,7 +35,7 @@ const rankBands: {
     min: 1,
     max: 50,
     accent: "from-amber-400 to-amber-600",
-    logo: <img src={goldIcon} alt="Gold rank" className="h-6 w-6 object-contain" />,
+    icon: goldIcon,
   },
   {
     key: "diamond",
@@ -42,23 +43,23 @@ const rankBands: {
     min: 51,
     max: 100,
     accent: "from-cyan-300 to-blue-500",
-    logo: <img src={diamondIcon} alt="Diamond rank" className="h-6 w-6 object-contain" />,
+    icon: diamondIcon,
   },
   {
     key: "ascendant",
-    label: "Ascendant",
+    label: "Immortal",
     min: 101,
     max: 200,
     accent: "from-emerald-300 to-teal-500",
-    logo: <img src={immortalIcon} alt="Ascendant rank" className="h-6 w-6 object-contain" />,
+    icon: immortalIcon,
   },
   {
     key: "immortal",
-    label: "Immortal",
+    label: "Ascendant",
     min: 201,
     max: 400,
     accent: "from-fuchsia-300 to-purple-500",
-    logo: <img src={ascendantIcon} alt="Immortal rank" className="h-6 w-6 object-contain" />,
+    icon: ascendantIcon,
   },
   {
     key: "radiant",
@@ -66,7 +67,7 @@ const rankBands: {
     min: 401,
     max: undefined,
     accent: "from-indigo-300 to-purple-600",
-    logo: <img src={radiantIcon} alt="Radiant rank" className="h-6 w-6 object-contain" />,
+    icon: radiantIcon,
   },
 ];
 
@@ -77,7 +78,7 @@ const getBandForLevel = (level: number) =>
   rankBands.find((band) => level >= band.min && (band.max === undefined || level <= band.max)) || rankBands[0];
 
 const formatXp = (xp?: number) => {
-  if (!xp && xp !== 0) return "—";
+  if (!xp && xp !== 0) return "";
   if (xp >= 1000000) return `${(xp / 1000000).toFixed(1)}M`;
   if (xp >= 1000) return `${(xp / 1000).toFixed(1)}k`;
   return xp.toString();
@@ -85,15 +86,31 @@ const formatXp = (xp?: number) => {
 
 export default function Ranks() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<UserProfile[]>([]);
+  const isSouthKnightGroup =
+    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
+  const canAccessRanks =
+    isSouthKnightGroup || user?.premiumAccess || user?.subscriptionStatus === "active";
   const currentLevel = levelForUser(user);
   const currentBand = getBandForLevel(currentLevel);
   const [selectedIndex, setSelectedIndex] = useState(rankBands.findIndex((b) => b.key === currentBand.key));
   const spotRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!user) return;
+    if (!canAccessRanks) navigate("/checkout");
+  }, [canAccessRanks, navigate, user]);
+
+  useEffect(() => {
     let mounted = true;
+    if (!user || !canAccessRanks) {
+      setLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
     (async () => {
       setLoading(true);
       try {
@@ -106,18 +123,18 @@ export default function Ranks() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [canAccessRanks, user]);
 
-  const bandData = useMemo(() => {
-    const data: Record<
-      RankKey,
-      {
-        users: { id: string; name: string; xp: number; level: number }[];
-        position: number | null;
-      }
-    > = {
-      gold: { users: [], position: null },
-      diamond: { users: [], position: null },
+const bandData = useMemo(() => {
+  const data: Record<
+    RankKey,
+    {
+      users: { id: string; name: string; xp: number; level: number; rank: number }[];
+      position: number | null;
+    }
+  > = {
+    gold: { users: [], position: null },
+    diamond: { users: [], position: null },
       ascendant: { users: [], position: null },
       immortal: { users: [], position: null },
       radiant: { users: [], position: null },
@@ -135,12 +152,13 @@ export default function Ranks() {
           const diff = b.xp - a.xp;
           if (diff !== 0) return diff;
           return a.name.localeCompare(b.name);
-        });
+        })
+        .map((u, idx) => ({ ...u, rank: idx + 1 }));
       const position =
         user?.id && users.findIndex((u) => u.id === user.id) >= 0 ? users.findIndex((u) => u.id === user.id) + 1 : null;
-      // show top 5 plus the user if not already included
-      let list = users.slice(0, 5);
-      if (position && position > 5) {
+      // show top 10 plus the user if not already included
+      let list = users.slice(0, 10);
+      if (position && position > 10) {
         const me = users.find((u) => u.id === user?.id);
         if (me) {
           list = [...list, { ...me }];
@@ -157,11 +175,29 @@ export default function Ranks() {
   }, [currentBand.key]);
 
   const selectedBand = rankBands[selectedIndex] || rankBands[0];
-  const selectedIcon = useMemo(
-    () => cloneElement(selectedBand.logo, { className: "h-32 w-32 sm:h-44 sm:w-44 object-contain" }),
-    [selectedBand.logo]
-  );
   const selectedPosition = bandData[selectedBand.key].position;
+  const selectedBandUsers = bandData[selectedBand.key].users;
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const selectedLeadText = (() => {
+    if (!user) return null;
+    const me = selectedBandUsers.find((u) => u.id === user.id);
+    if (!me) return "Earn XP in this rank to place on the board.";
+    if (me.rank === 1) {
+      const second = selectedBandUsers.find((u) => u.rank === 2);
+      if (second) {
+        const leadLevels = Math.max(1, me.level - second.level);
+        return `You lead #2 ${second.name} by ${leadLevels} level${leadLevels === 1 ? "" : "s"}.`;
+      }
+      return "You're leading this rank.";
+    }
+    const ahead = selectedBandUsers.find((u) => u.rank === me.rank - 1);
+    if (ahead) {
+      const neededLevels = Math.max(1, ahead.level - me.level + 1);
+      return `Gain ${neededLevels} level${neededLevels === 1 ? "" : "s"} to pass #${ahead.rank} ${ahead.name}.`;
+    }
+    return null;
+  })();
 
   const xpToNext = () => {
     const nextBand = rankBands[selectedIndex + 1];
@@ -211,25 +247,52 @@ export default function Ranks() {
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div className="flex flex-col items-center text-center gap-2">
-                <div className={`rounded-full bg-gradient-to-br ${selectedBand.accent} p-[5px] shadow-2xl`}>
-                  <div className="flex h-40 w-40 sm:h-52 sm:w-52 items-center justify-center rounded-full bg-black/70">
-                    {selectedIcon}
+                <div
+                  className={`relative h-[32rem] w-[26rem] sm:h-[36rem] sm:w-[36rem] rounded-[36px] bg-gradient-to-br ${selectedBand.accent} shadow-[0_60px_140px_rgba(0,0,0,0.7)] border border-white/15`}
+                >
+                  <div className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
+                    <div className="flex items-center gap-2 text-white font-bold text-lg sm:text-xl" style={{ fontFamily: "'Inter', system-ui" }}>
+                      <span>{selectedBand.label}</span>
+                      <button
+                        aria-label="Rank info"
+                        className="h-6 w-6 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-xs font-semibold"
+                        onClick={() => setInfoOpen(true)}
+                      >
+                        ?
+                      </button>
+                    </div>
+                    <img
+                      src={selectedBand.icon}
+                      alt={`${selectedBand.label} rank`}
+                      className="object-contain h-[10rem] w-[10rem] drop-shadow-2xl"
+                    />
                   </div>
-                </div>
-                {selectedBand.key === currentBand.key ? (
-                  <button
-                    className="mt-2 rounded-full bg-white/20 hover:bg-white/30 px-4 py-2 text-sm font-semibold"
-                    onClick={scrollToSpot}
-                  >
-                    View your spot
-                  </button>
-                ) : null}
-                <div className="text-lg font-semibold">{selectedBand.label}</div>
-                <div className="text-xs text-white/70">
-                  Levels {selectedBand.min} - {selectedBand.max ? selectedBand.max : "500+"}
-                </div>
-                <div className="text-xs text-purple-100">
-                  {selectedBand.key === currentBand.key ? "Your current rank" : "Browse ranks"}
+                  <div className="absolute inset-0 p-6 pt-48 sm:pt-52 flex flex-col gap-3 z-10">
+                    {selectedLeadText && (
+                      <div className="text-center text-white" style={{ fontFamily: "'Inter', system-ui" }}>
+                        <div className="text-lg sm:text-xl font-semibold">{selectedLeadText}</div>
+                      </div>
+                    )}
+                    <div className="rounded-2xl bg-black/30 border border-white/10 backdrop-blur-sm p-4 flex-1 overflow-y-auto space-y-2">
+                      <div className="text-sm font-semibold text-white/80">Top players in this rank</div>
+                      <div className="space-y-1">
+                        {bandData[selectedBand.key].users.slice(0, 10).map((u) => (
+                          <div
+                            key={u.id}
+                            className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm text-white"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-lg bg-white/10 flex items-center justify-center text-xs font-semibold">
+                                #{u.rank}
+                              </div>
+                              <div className="font-semibold">{u.name}</div>
+                            </div>
+                            <div className="text-white/70">{formatXp(u.xp)} XP</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <button
@@ -280,7 +343,54 @@ export default function Ranks() {
           )}
 
         </div>
+        {infoOpen && <RankInfoModal band={selectedBand} onClose={() => setInfoOpen(false)} />}
       </div>
     </AppShell>
   );
 }
+
+function RankInfoModal({
+  band,
+  onClose,
+}: {
+  band: (typeof rankBands)[number];
+  onClose: () => void;
+}) {
+  const levelLabel = `Levels ${band.min}–${band.max ? band.max : "500+"}`;
+  const rankName = band.label;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl">
+        <div className="px-5 py-4 border-b border-white/10 space-y-1">
+          <div className="text-lg font-semibold">{rankName} Rank</div>
+          <div className="text-xs text-white/60">{levelLabel}</div>
+        </div>
+        <div className="p-5 space-y-4 text-sm text-white/80">
+          <div>
+            <div className="text-sm font-semibold text-white">About this Rank</div>
+            <p className="mt-1">A premium tier for players in {levelLabel}, where competition tightens and progress signals real momentum.</p>
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-white">How to Advance</div>
+            <p className="mt-1">Earn XP from practice, matches, and achievements, outpace peers in this band, and push toward the next level.</p>
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-white">Objective</div>
+            <p className="mt-1">Outperform your peers. Accumulate XP. Advance to the next tier.</p>
+          </div>
+        </div>
+        <div className="flex justify-end px-5 pb-4">
+          <button
+            className="rounded-full bg-white/15 hover:bg-white/25 px-4 py-2 text-sm font-semibold"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+

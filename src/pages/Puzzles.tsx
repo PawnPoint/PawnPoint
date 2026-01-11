@@ -344,7 +344,6 @@ export default function Puzzles() {
                     row.map((piece, cIdx) => {
                       const sq = squareName(rIdx, cIdx);
                       const isLightSquare = (rIdx + cIdx) % 2 === 0;
-                      const isSelected = selected === sq;
                       const isLastMove = lastMoveSquares.includes(sq);
                       const legalMoves = (() => {
                         if (!selected) return [];
@@ -399,8 +398,8 @@ export default function Puzzles() {
                           }}
                           onDragEnd={() => setDragFrom(null)}
                           className={`w-full h-full flex items-center justify-center text-2xl font-semibold relative overflow-hidden ${
-                            isSelected ? "ring-2 ring-pink-400" : ""
-                          } ${piece ? "cursor-piece" : "cursor-auto"}`}
+                            piece ? "cursor-piece" : "cursor-auto"
+                          }`}
                           style={
                             {
                               backgroundColor: isLightSquare ? boardColors.light : boardColors.dark,
@@ -416,7 +415,7 @@ export default function Puzzles() {
                           {isLastMove && <div className="absolute inset-0 bg-yellow-400/40 pointer-events-none" />}
                           {isLegal && (
                             <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
-                              <div className="h-3 w-3 rounded-full bg-pink-400/80" />
+                              <div className="h-5 w-5 rounded-full bg-black/60" />
                             </div>
                           )}
                           {piece ? (

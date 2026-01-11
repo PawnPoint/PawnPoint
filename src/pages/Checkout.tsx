@@ -193,7 +193,7 @@ export default function Checkout() {
             <>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4 text-white">
-                  <div className="flex items-center gap-3 text-2xl font-bold">
+                  <div className="flex items-center gap-3 text-2xl font-bold" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
                     <Key className="h-7 w-7 text-amber-300" />
                     <span style={gradientTextStyle} className="bg-clip-text text-transparent">
                       Unlock your competitive edge
@@ -202,8 +202,6 @@ export default function Checkout() {
                   <ul className="space-y-3 text-xl text-white">
                     {[
                       "Elite Opening & Middlegame Library",
-                      "Adaptive AI Sparring Partners",
-                      "Progressive XP & Skill Tracking",
                       "Global Rankings & Standings",
                       "SquareBase™",
                       "Training Groups",

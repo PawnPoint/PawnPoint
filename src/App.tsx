@@ -17,6 +17,7 @@ import Ranks from "./pages/Ranks";
 import Analysis from "./pages/Analysis";
 import Puzzles from "./pages/Puzzles";
 import Checkout from "./pages/Checkout";
+import SquareBase from "./pages/SquareBase";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -122,6 +123,13 @@ function Router() {
         {() => (
           <Protected>
             <Ranks />
+          </Protected>
+        )}
+      </Route>
+      <Route path="/squarebase">
+        {() => (
+          <Protected>
+            <SquareBase />
           </Protected>
         )}
       </Route>

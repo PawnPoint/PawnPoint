@@ -1865,7 +1865,6 @@ export default function LessonPlayer({ id }: { id?: string }) {
                           row.map((piece, cIdx) => {
                             const sq = squareName(rIdx, cIdx);
                             const isLightSquare = (rIdx + cIdx) % 2 === 0;
-                            const isSelected = selected === sq;
                             const isLegal = legalMoves.some((m) => m.to === sq);
                             const isLastMove = lastMoveSquares.includes(sq);
                             return (
@@ -1967,8 +1966,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                   }
                                 }}
                                 className={`w-full h-full flex items-center justify-center text-2xl font-semibold relative overflow-hidden ${
-                                  isSelected ? "ring-2 ring-pink-400" : ""
-                                } ${piece ? "cursor-piece" : "cursor-auto"}`}
+                                  piece ? "cursor-piece" : "cursor-auto"
+                                }`}
                                 style={
                                   {
                                     backgroundColor: redSquares.has(sq)
@@ -1994,7 +1993,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                 )}
                                 {isLegal && (
                                   <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
-                                    <div className="h-3 w-3 rounded-full bg-pink-400/80" />
+                                    <div className="h-5 w-5 rounded-full bg-black/60" />
                                   </div>
                                 )}
                                 {piece ? (

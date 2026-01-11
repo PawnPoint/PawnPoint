@@ -39,6 +39,9 @@ export default defineConfig({
   },
   server: {
     headers: crossOriginHeaders,
+    proxy: {
+      "/api": "http://localhost:8787",
+    },
   },
   preview: {
     headers: crossOriginHeaders,

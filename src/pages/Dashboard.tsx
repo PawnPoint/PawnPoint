@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, RefreshCcw, Brain, Puzzle, Flame } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, Brain, Puzzle, Flame } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { AppShell } from "../components/AppShell";
@@ -115,6 +115,17 @@ const pageStyles = `
 
 .arrow-pulse {
   animation: arrowFloat 1.6s ease-in-out infinite;
+}
+
+@keyframes flamePulse {
+  0% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 8px rgba(252, 211, 77, 0.5)); }
+  40% { transform: scale(1.08) rotate(2deg); filter: drop-shadow(0 0 16px rgba(252, 211, 77, 0.85)); }
+  80% { transform: scale(1.03) rotate(-1deg); filter: drop-shadow(0 0 12px rgba(252, 211, 77, 0.7)); }
+  100% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 8px rgba(252, 211, 77, 0.5)); }
+}
+
+.flame-pulse {
+  animation: flamePulse 1.4s ease-in-out infinite;
 }
 
 @keyframes arrowFloat {
@@ -257,9 +268,7 @@ export default function Dashboard() {
   const [gridVisible, setGridVisible] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
-  const [squareFlips, setSquareFlips] = useState([false, false, false, false]);
-  const streak = Math.max(0, user?.streak ?? 0);
-  const [streakDisplay, setStreakDisplay] = useState(streak);
+  const [squareFlips, setSquareFlips] = useState([false, false, false]);
   const squareTiles = [
     {
       icon: Clipboard,
@@ -268,13 +277,8 @@ export default function Dashboard() {
     },
     {
       icon: FileText,
-      title: "Opening Quiz",
-      description: "Discover the openings built for you.",
-    },
-    {
-      icon: RefreshCcw,
-      title: "Move Trainer",
-      description: "Train the right moves, until they’re instinct.",
+      title: "BlackBook OPX",
+      description: "Black Book OPX scans a targets public games to generate an exploit-ready intelligence profile.",
     },
     {
       icon: Brain,
@@ -412,27 +416,6 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    let raf: number | null = null;
-    const duration = 900;
-    const startVal = 0;
-    const target = streak;
-    const start = performance.now();
-    const step = (ts: number) => {
-      const progress = Math.min((ts - start) / duration, 1);
-      const value = Math.round(startVal + (target - startVal) * progress);
-      setStreakDisplay(value);
-      if (progress < 1) {
-        raf = requestAnimationFrame(step);
-      }
-    };
-    setStreakDisplay(startVal);
-    raf = requestAnimationFrame(step);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [streak]);
-
-  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -471,6 +454,7 @@ export default function Dashboard() {
   const xpIntoLevel = Math.max(0, xp - levelBaseXp);
   const xpToNextLevel = Math.max(0, level * 100 - xp);
   const levelProgress = Math.min(100, Math.max(0, Math.round((xpIntoLevel / 100) * 100)));
+  const streak = user?.streak ?? 0;
   const twitchParent = useMemo(
     () => (typeof window !== "undefined" ? window.location.hostname : "localhost"),
     [],
@@ -507,6 +491,10 @@ export default function Dashboard() {
 
   const toggleSquareFlip = (idx: number) => {
     setSquareFlips((prev) => prev.map((v, i) => (i === idx ? !v : v)));
+  };
+
+  const handleSquareBaseExplore = () => {
+    navigate("/squarebase?overlay=1");
   };
 
   const resolveState = (idx: number): VisibleStates => {
@@ -683,7 +671,7 @@ export default function Dashboard() {
                 transition: "opacity 0.7s ease, transform 0.7s ease",
               }}
             >
-              <div className="text-4xl sm:text-5xl font-extrabold text-white">SquareBase™</div>
+              <div className="text-4xl sm:text-5xl font-extrabold text-white">SquareBase{"\u2122"}</div>
               <p className="text-white/80 text-base sm:text-lg italic">
                 Your personal chess intelligence system.
               </p>
@@ -701,7 +689,7 @@ export default function Dashboard() {
                 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white"
                 style={{ letterSpacing: "0.015em" }}
               >
-                Built from how you think — refined by how you play.
+                Built from how you think refined by how you play.
               </div>
             </div>
 
@@ -713,7 +701,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-4 justify-items-center justify-center gap-4 sm:gap-5"
+                className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 justify-items-center justify-center gap-4 sm:gap-5"
                 style={{
                   opacity: gridVisible ? 1 : 0,
                   transform: gridVisible ? "translateY(0)" : "translateY(40px)",
@@ -748,7 +736,10 @@ export default function Dashboard() {
                 ))}
               </div>
               <div className={`mt-[140px] flex justify-center cta-fade ${squareBaseVisible && !profileVisible ? "show" : ""}`} style={{ opacity: profileVisible ? 0 : undefined, transition: "opacity 0.6s ease, transform 0.6s ease" }}>
-                <button className="px-6 py-2 rounded-full bg-white text-black font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition">
+                <button
+                  className="px-6 py-2 rounded-full bg-white text-black font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
+                  onClick={handleSquareBaseExplore}
+                >
                   Explore
                 </button>
               </div>
@@ -820,18 +811,13 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-3 w-full">
-                      <div className="flex items-center gap-2 text-sm uppercase tracking-[0.12em] text-white/60">
-                        <Flame className="h-4 w-4 text-amber-300" />
-                        <span>Daily Streak</span>
+                    <div className="rounded-2xl border border-white/15 bg-white/5 feature-card flex items-center justify-center gap-4 p-4 w-full shadow-[0_18px_45px_rgba(0,0,0,0.35)] h-[150px]">
+                      <div className="h-16 w-16 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)] shrink-0">
+                        <Flame className="h-8 w-8 text-yellow-300 flame-pulse" />
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 text-black font-extrabold flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
-                          {streakDisplay}
-                        </div>
-                        <div className="flex flex-col">
-                          <div className="text-lg font-semibold text-white">Keep it going!</div>
-                          <div className="text-sm text-white/70">Log in daily to extend your streak.</div>
+                      <div className="flex flex-col gap-1 text-center">
+                        <div className="text-4xl font-semibold text-white leading-tight">
+                          {streak} day{streak === 1 ? "" : "s"}
                         </div>
                       </div>
                     </div>

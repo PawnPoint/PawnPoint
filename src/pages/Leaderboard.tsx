@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -12,8 +13,7 @@ import {
   updateClubPerformance,
   resetAllXp,
 } from "../lib/mockApi";
-import { Sparkles, Zap, ChevronDown } from "lucide-react";
-import { PodiumBarsIcon } from "../components/icons/PodiumBars";
+import { Sparkles, ChevronDown, Crown } from "lucide-react";
 import { db } from "../lib/firebase";
 import { onValue, ref } from "firebase/database";
 
@@ -26,8 +26,12 @@ const pageBackground = {
   color: "#ffffff",
 } as const;
 
+const getDisplayName = (entry: UserProfile) =>
+  entry.chessUsername || entry.displayName || (entry.email ? entry.email.split("@")[0] : "Player");
+
 export default function Leaderboard() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [entries, setEntries] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"xp" | "club">("xp");
@@ -44,12 +48,23 @@ export default function Leaderboard() {
   const [xpSearch, setXpSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
   const inGroup = !!user?.groupId && user?.accountType === "group";
+  const isSouthKnightGroup =
+    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
+  const canAccessStandings =
+    isSouthKnightGroup || user?.premiumAccess || user?.subscriptionStatus === "active";
   const clubPath = user?.groupId
     ? `groups/${user.groupId}/clubLeaderboard`
     : user
       ? `users/${user.id}/clubLeaderboard`
       : "clubLeaderboard";
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [rankChangeXp, setRankChangeXp] = useState<number | null>(null);
+  const [xpDeltaToday, setXpDeltaToday] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!canAccessStandings) navigate("/checkout");
+  }, [canAccessStandings, navigate, user]);
 
   useEffect(() => {
     const key = "pawnpoint_xp_reset_v1";
@@ -60,7 +75,7 @@ export default function Leaderboard() {
   }, []);
 
   useEffect(() => {
-    if (!user || mode !== "xp") return;
+    if (!user || !canAccessStandings || mode !== "xp") return;
     const leaderboardRef = ref(db, "users");
     const unsubscribe = onValue(
       leaderboardRef,
@@ -85,10 +100,10 @@ export default function Leaderboard() {
       () => setLoading(false),
     );
     return () => unsubscribe();
-  }, [user, mode, inGroup]);
+  }, [user, mode, inGroup, canAccessStandings]);
 
   useEffect(() => {
-    if (!user || mode !== "club") return;
+    if (!user || !canAccessStandings || mode !== "club") return;
     setClubLoading(true);
     setClubError("");
     getClubLeaderboard(user)
@@ -113,7 +128,7 @@ export default function Leaderboard() {
       () => setClubLoading(false),
     );
     return () => unsubscribe();
-  }, [user, mode, clubPath]);
+  }, [user, mode, clubPath, canAccessStandings]);
 
   const sortedClubEntries = useMemo(
     () =>
@@ -154,6 +169,79 @@ export default function Leaderboard() {
       })),
     [sortedClubEntries],
   );
+
+  const userRankXp = useMemo(() => {
+    if (!user) return null;
+    const idx = xpRows.findIndex(({ entry }) => entry.id === user.id);
+    return idx >= 0 ? idx + 1 : null;
+  }, [user, xpRows]);
+
+  const userRankClub = useMemo(() => {
+    if (!user) return null;
+    const idx = clubRows.findIndex(({ entry }) => entry.id === user.id);
+    return idx >= 0 ? idx + 1 : null;
+  }, [user, clubRows]);
+
+  useEffect(() => {
+    if (!user || mode !== "xp" || userRankXp === null) {
+      setRankChangeXp(null);
+      return;
+    }
+    const key = `pp_rank_${user.id}_xp`;
+    const prevRaw = localStorage.getItem(key);
+    const prev = prevRaw ? parseInt(prevRaw, 10) : NaN;
+    if (!Number.isNaN(prev)) {
+      setRankChangeXp(prev - userRankXp);
+    } else {
+      setRankChangeXp(0);
+    }
+    localStorage.setItem(key, String(userRankXp));
+  }, [user, mode, userRankXp]);
+
+  useEffect(() => {
+    if (!user || mode !== "xp") {
+      setXpDeltaToday(0);
+      return;
+    }
+    const key = `pp_xp_today_${user.id}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = localStorage.getItem(key);
+    let base = user.totalXp || 0;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { date: string; base: number };
+        if (parsed?.date === today && typeof parsed.base === "number") {
+          base = parsed.base;
+        } else {
+          localStorage.setItem(key, JSON.stringify({ date: today, base }));
+        }
+      } catch {
+        localStorage.setItem(key, JSON.stringify({ date: today, base }));
+      }
+    } else {
+      localStorage.setItem(key, JSON.stringify({ date: today, base }));
+    }
+    const delta = (user.totalXp || 0) - base;
+    setXpDeltaToday(delta > 0 ? delta : 0);
+  }, [user, mode, user?.totalXp]);
+
+  const xpLeadText = useMemo(() => {
+    if (!user || mode !== "xp") return null;
+    if (!userRankXp) return "Earn XP to appear on the leaderboard.";
+    if (userRankXp === 1) {
+      if (xpRows.length > 1) {
+        const lead = (xpRows[0].entry.totalXp || 0) - (xpRows[1].entry.totalXp || 0);
+        const secondName = getDisplayName(xpRows[1].entry);
+        return `You lead #2 ${secondName} by ${lead} XP.`;
+      }
+      return "You're in first place. Keep it going!";
+    }
+    const currentRow = xpRows[userRankXp - 1];
+    const aheadRow = xpRows[userRankXp - 2];
+    const needed = Math.max(1, (aheadRow.entry.totalXp || 0) - (currentRow.entry.totalXp || 0) + 1);
+    const aheadName = getDisplayName(aheadRow.entry);
+    return `Gain ${needed} XP to pass #${userRankXp - 1} ${aheadName}.`;
+  }, [user, mode, userRankXp, xpRows]);
 
   const filteredClubRows = useMemo(() => {
     const term = clubSearch.trim().toLowerCase();
@@ -241,88 +329,66 @@ export default function Leaderboard() {
     <AppShell backgroundStyle={pageBackground}>
       <div className="space-y-6">
         <div className="text-center space-y-1" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white">Compete. Climb. Dominate your group.</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold">
+            Compete. Climb. <span className="gradient-heading">Dominate</span> your group.
+          </h1>
         </div>
-        <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="w-full max-w-xs self-start justify-self-center">
-          <CardHeader className="flex flex-col items-center gap-4">
-            <CardTitle className="text-3xl font-extrabold text-white text-center">
-              {user.chessUsername || user.displayName}
-            </CardTitle>
-            <div className="flex items-center justify-center gap-4">
-              <div className="relative h-28 w-28">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-400 via-blue-400 to-purple-500 opacity-80" />
-                <div className="relative h-full w-full rounded-full bg-slate-900 p-1">
-                  <div className="h-full w-full rounded-full overflow-hidden bg-slate-800 border border-white/10">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-white">
-                        {(user.chessUsername || user.displayName || "Player").slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
+        <div className="flex justify-center">
+          <div
+            aria-hidden="true"
+            className="h-[3px] w-24 rounded-full bg-gradient-to-r from-amber-200/70 via-amber-300/80 to-amber-200/70 shadow-[0_8px_24px_rgba(251,191,36,0.25)]"
+          />
+        </div>
+        <div className="flex flex-col gap-6 max-w-6xl mx-auto">
+          <Card className="w-full" style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45)" }}>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-brand.pink" />
+                Standings
+              </CardTitle>
+              <div className="relative">
+                <button
+                  className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+                  onClick={() => setViewMenuOpen((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={viewMenuOpen}
+                >
+                  <span className="text-white/80">{mode === "xp" ? "XP Standings" : "Group Standings"}</span>
+                  <ChevronDown className={`h-4 w-4 transition ${viewMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {viewMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-sm py-2 text-sm text-white">
+                    {[
+                      { key: "xp", label: "XP Standings" },
+                      { key: "club", label: "Group Standings" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        className={`w-full text-left px-4 py-2 hover:bg-white/10 ${
+                          mode === opt.key ? "bg-white/5 text-white" : "text-white/80"
+                        }`}
+                        onClick={() => {
+                          setMode(opt.key as "xp" | "club");
+                          setViewMenuOpen(false);
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
-              <div className="relative h-32 w-32 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-purple-500/60 blur-sm" />
-                <div className="absolute inset-1 rounded-full border-2 border-purple-400/80 animate-pulse" />
-                <div className="absolute inset-0 rounded-full bg-purple-600/20 animate-[spin_6s_linear_infinite]" />
-                <div className="relative z-10 flex flex-col items-center justify-center rounded-full h-24 w-24 bg-slate-900 border border-purple-300/40 shadow-[0_0_20px_rgba(168,85,247,0.35)]">
-                  <Zap className="h-6 w-6 text-purple-300" />
-                  <div className="text-xl font-bold text-white">{user.totalXp}</div>
-                  <div className="text-[11px] uppercase tracking-wide text-purple-200/80">XP</div>
-                </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-xs text-white/60">
+                {mode === "xp"
+                  ? userRankXp
+                    ? `You are #${userRankXp} on your group's XP leaderboard.`
+                    : "Your group XP rank will appear once you've earned points."
+                  : userRankClub
+                    ? `You are #${userRankClub} on your group's standings.`
+                    : "Your group rank will appear once you're listed in standings."}
               </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-          <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-brand.pink" />
-              Standings
-            </CardTitle>
-            <div className="relative">
-              <button
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/90 hover:bg-white/10"
-                onClick={() => setViewMenuOpen((v) => !v)}
-                aria-haspopup="menu"
-                aria-expanded={viewMenuOpen}
-              >
-                <span className="text-white/80">{mode === "xp" ? "XP Standings" : "Group Standings"}</span>
-                <ChevronDown className={`h-4 w-4 transition ${viewMenuOpen ? "rotate-180" : ""}`} />
-              </button>
-              {viewMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-sm py-2 text-sm text-white">
-                  {[
-                    { key: "xp", label: "XP Standings" },
-                    { key: "club", label: "Group Standings" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.key}
-                      className={`w-full text-left px-4 py-2 hover:bg-white/10 ${
-                        mode === opt.key ? "bg-white/5 text-white" : "text-white/80"
-                      }`}
-                      onClick={() => {
-                        setMode(opt.key as "xp" | "club");
-                        setViewMenuOpen(false);
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="text-xs text-white/60">
-              {inGroup
-                ? "You are viewing private rankings for your group only."
-                : "Personal account: only your own stats appear here."}
-            </div>
             {mode === "xp" ? (
               <div className="flex items-center gap-2">
                 <input
@@ -343,25 +409,69 @@ export default function Leaderboard() {
               </div>
             )}
             {mode === "xp" ? (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1 standings-scroll">
                 {filteredXpRows.map(({ entry, rank }) => {
                   const name =
                     entry.chessUsername || entry.displayName || (entry.email ? entry.email.split("@")[0] : "Player");
+                  const isLeader = rank === 1;
+                  const isTopThree = rank <= 3;
+                  const isCurrentUser = user && (entry.id === user.id || entry.email === user.email);
                   return (
                     <div
                       key={`${entry.id || entry.email || entry.displayName || rank}`}
-                      className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3"
+                      className={`flex items-center justify-between rounded-lg p-3 transition hover:-translate-y-[2px] hover:bg-white/10 ${
+                        isLeader
+                          ? "border border-amber-300/40 bg-white/10 shadow-[0_8px_28px_rgba(251,191,36,0.18)]"
+                          : "border border-white/10 bg-white/5"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center">
+                        <div
+                          className={`relative h-10 min-w-[54px] rounded-xl flex items-center justify-center ${
+                            isLeader
+                              ? "bg-gradient-to-br from-amber-200 via-amber-300 to-amber-200 text-slate-900 font-bold shadow-[0_8px_28px_rgba(251,191,36,0.18)] border border-amber-300/60"
+                              : "bg-white/10 text-white"
+                          }`}
+                        >
                           {rank}
+                          {isCurrentUser && rankChangeXp !== null && rankChangeXp !== 0 && (
+                            <span
+                              className={`absolute -right-1 -bottom-1 text-[10px] ${
+                                rankChangeXp > 0
+                                  ? "text-emerald-300"
+                                  : rankChangeXp < 0
+                                    ? "text-amber-300"
+                                    : "text-white/60"
+                              }`}
+                            >
+                              {rankChangeXp > 0 ? "↑" : "↓"}
+                            </span>
+                          )}
                         </div>
-                        <div>
-                          <div className="font-semibold text-white">{name}</div>
+                      <div className="flex flex-col">
+                          <div
+                            className={`font-semibold text-white flex items-center gap-1.5 ${
+                              isTopThree ? "text-lg" : ""
+                            }`}
+                            style={isTopThree ? { fontFamily: "'Inter', system-ui" } : undefined}
+                          >
+                            {name}
+                            {isLeader && <Crown className="h-4 w-4 text-amber-200" aria-hidden="true" />}
+                          </div>
                           <div className="text-xs text-white/60">Level {entry.level}</div>
                         </div>
                       </div>
-                      <div className="font-semibold text-emerald-200">{entry.totalXp} XP</div>
+                      <div className="text-right">
+                        <div
+                          className={`font-semibold ${isTopThree ? "text-xl text-emerald-100" : "text-emerald-200"}`}
+                          style={isTopThree ? { fontFamily: "'Inter', system-ui" } : undefined}
+                        >
+                          {entry.totalXp} XP
+                        </div>
+                        {isCurrentUser && xpDeltaToday > 0 && (
+                          <div className="text-xs text-emerald-300/80">+{xpDeltaToday} XP today</div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -408,16 +518,53 @@ export default function Leaderboard() {
                 ) : sortedClubEntries.length === 0 ? (
                   <div className="text-white/60 text-sm">No club entries yet.</div>
                 ) : (
-                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                    {filteredClubRows.map(({ entry, rank }) => (
-                      <div
-                        key={entry.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-3"
-                      >
+                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1 standings-scroll">
+                    {filteredClubRows.map(({ entry, rank }) => {
+                      const isLeader = rank === 1;
+                      const isTopThree = rank <= 3;
+                      const isCurrentUser = user && (entry.id === user.id || entry.email === user.email);
+                      return (
+                        <div
+                          key={entry.id}
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg p-3 transition hover:-translate-y-[2px] hover:bg-white/10 ${
+                          isLeader
+                            ? "border border-amber-300/40 bg-white/10 shadow-[0_8px_28px_rgba(251,191,36,0.18)]"
+                            : "border border-white/10 bg-white/5"
+                        }`}
+                        >
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center">{rank}</div>
+                            <div
+                              className={`relative h-10 min-w-[54px] rounded-xl flex items-center justify-center ${
+                                isLeader
+                                  ? "bg-gradient-to-br from-amber-200 via-amber-300 to-amber-200 text-slate-900 font-bold shadow-[0_8px_28px_rgba(251,191,36,0.18)] border border-amber-300/60"
+                                  : "bg-white/10 text-white"
+                              }`}
+                            >
+                              {rank}
+                              {isCurrentUser && rankChangeXp !== null && rankChangeXp !== 0 && (
+                                <span
+                                  className={`absolute -right-1 -bottom-1 text-[10px] ${
+                                    rankChangeXp > 0
+                                      ? "text-emerald-300"
+                                      : rankChangeXp < 0
+                                        ? "text-amber-300"
+                                        : "text-white/60"
+                                  }`}
+                                >
+                                  {rankChangeXp > 0 ? "↑" : "↓"}
+                                </span>
+                              )}
+                            </div>
                           <div>
-                            <div className="font-semibold text-white">{entry.name}</div>
+                            <div
+                              className={`font-semibold text-white flex items-center gap-1.5 ${
+                                isTopThree ? "text-lg" : ""
+                              }`}
+                              style={isTopThree ? { fontFamily: "'Inter', system-ui" } : undefined}
+                            >
+                              {entry.name}
+                              {isLeader && <Crown className="h-4 w-4 text-amber-200" aria-hidden="true" />}
+                            </div>
                             <div className="text-xs text-white/60">
                               Rating {entry.rating}
                               {entry.performance !== undefined ? ` • Performance ${entry.performance}` : ""}
@@ -467,13 +614,21 @@ export default function Leaderboard() {
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </>
             )}
           </CardContent>
         </Card>
+        {mode === "xp" && xpLeadText && (
+          <Card className="w-full">
+            <CardContent className="text-center text-white" style={{ fontFamily: "'Inter', system-ui" }}>
+              <div className="text-xl sm:text-2xl font-semibold">{xpLeadText}</div>
+            </CardContent>
+          </Card>
+        )}
         </div>
       </div>
     </AppShell>
