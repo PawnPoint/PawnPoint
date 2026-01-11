@@ -498,7 +498,7 @@ export default function Dashboard() {
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
     return "Good evening";
-  }, [twitchFallback]);
+  }, []);
   const year = useMemo(() => new Date().getFullYear(), []);
 
   const firstName = useMemo(() => {
