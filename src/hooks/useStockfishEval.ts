@@ -17,7 +17,6 @@ const supportsSharedBuffer =
 // Prefer stability first; then fall back to other builds.
 const ENGINE_CANDIDATES = [
   "/stockfish/stockfish-lite-single.js",
-  "/stockfish/stockfish-asm.js",
   supportsSharedBuffer ? "/stockfish/stockfish.js" : null,
 ].filter(Boolean) as string[];
 
@@ -112,7 +111,7 @@ const startEngine = (idx = 0): Worker | null => {
   engineInitTimer = window.setTimeout(() => {
     console.warn(`[SF] Engine init timed out for ${path}.`);
     fallback();
-  }, 2500);
+  }, 6000);
 
   worker.postMessage("uci");
   worker.postMessage("isready");

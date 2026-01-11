@@ -30,7 +30,7 @@ const REVIEWS: Review[] = [
     name: "Ryan T.",
     role: "Blitz - 1800",
     rating: 5,
-    text: "The move trainer exposed holes in my openings I didn't even realise were there.",
+    text: "The opening drills exposed holes in my openings I didn't even realize were there.",
   },
   {
     name: "Priya S.",

@@ -317,7 +317,7 @@ export default function Landing() {
                 />
                 {showPlus && (
                   <div
-                    className={`pointer-events-none absolute -right-16 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border flex items-center justify-center ${
+                    className={`pp-landing-plus pointer-events-none absolute -right-16 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border flex items-center justify-center ${
                       isLight
                         ? "bg-white border-slate-200 text-slate-700"
                         : "bg-white/10 border-white/15 text-white"

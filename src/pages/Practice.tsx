@@ -566,11 +566,53 @@ export function PracticeBoard({
   const [multipvLines, setMultipvLines] = useState<EngineLine[]>([]);
   const analysisSearchIdRef = useRef(0);
   const [currentMoveIdx, setCurrentMoveIdx] = useState(0);
+  const boardWrapRef = useRef<HTMLDivElement | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [boardPixelSize, setBoardPixelSize] = useState(520);
   useEffect(() => {
     if (isAnalysisMode) return;
     botIdRef.current = botId;
     botStateRef.current[botId] = { losingMode: false, lastEvalCp: 0, lastMateThreat: false };
   }, [botId, isAnalysisMode]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handleChange = () => setIsMobile(mq.matches);
+    handleChange();
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handleChange);
+    } else {
+      mq.addListener(handleChange);
+    }
+    return () => {
+      if (mq.addEventListener) {
+        mq.removeEventListener("change", handleChange);
+      } else {
+        mq.removeListener(handleChange);
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return;
+    const node = boardWrapRef.current;
+    if (!node) return;
+    const updateSize = () => {
+      const next = Math.round(node.getBoundingClientRect().width);
+      if (next > 0) setBoardPixelSize(next);
+    };
+    updateSize();
+    let observer: ResizeObserver | null = null;
+    if ("ResizeObserver" in window) {
+      observer = new ResizeObserver(updateSize);
+      observer.observe(node);
+    } else {
+      window.addEventListener("resize", updateSize);
+    }
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, [isMobile]);
   const transparentPixel =
     "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
   const setDragCursor = (active: boolean) => {
@@ -1973,9 +2015,10 @@ export function PracticeBoard({
     }
   }, [fen, playerColor]);
 
-  
+  const mobileEvalHeight = Math.max(240, boardPixelSize);
+
   const boardElement = (
-    <div className="pp-board-wrap relative block w-full max-w-[780px] mx-auto min-w-0">
+    <div ref={boardWrapRef} className="pp-board-wrap relative block w-full max-w-[780px] mx-auto min-w-0">
       <div
         className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full"
         style={{ backgroundColor: boardColors.dark }}
@@ -2198,13 +2241,52 @@ export function PracticeBoard({
         </div>
 
         {isAnalysisMode ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(780px,1fr)_420px] justify-center gap-6 items-stretch">
+          <div
+            className={`grid grid-cols-1 lg:grid-cols-[minmax(780px,1fr)_420px] justify-center gap-6 items-stretch ${
+              embedded ? "pp-analysis-embedded" : ""
+            }`}
+          >
             <div className="flex justify-center w-full flex-shrink-0">
               <div className="pp-analysis-row w-full">
-                {boardElement}
+                <div className="pp-board-stack flex flex-col items-center w-full">
+                  {boardElement}
+                  {embedded && (
+                    <div className="pp-moves-nav-mobile w-full px-2 mt-4">
+                      <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
+                        <button
+                          type="button"
+                          className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                          onClick={() => goToMoveIndex(0)}
+                          disabled={!canStepBack}
+                          aria-label="Back to start"
+                        >
+                          <ChevronsLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="h-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                          onClick={() => goToMoveIndex(currentMoveIdx - 1)}
+                          disabled={!canStepBack}
+                          aria-label="Previous move"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="h-10 rounded-lg bg-white text-slate-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                          onClick={() => goToMoveIndex(currentMoveIdx + 1)}
+                          disabled={!canStepForward}
+                          aria-label="Next move"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 {evalBarOn && embedded && (
                   <div className="pp-eval-mobile flex flex-col items-center flex-shrink-0">
-                    <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={520} />
+                    <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={isMobile ? mobileEvalHeight : 520} />
                   </div>
                 )}
               </div>
@@ -2601,7 +2683,7 @@ export function PracticeBoard({
                         </div>
                       </div>
                     )}
-                    <div className="px-4 pb-4">
+                    <div className="pp-moves-nav px-4 pb-4">
                       <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
                         <button
                           type="button"

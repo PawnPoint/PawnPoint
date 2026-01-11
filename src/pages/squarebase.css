@@ -434,6 +434,10 @@
   width: 100%;
 }
 
+.sb-analysis .pp-moves-nav-mobile {
+  display: none;
+}
+
 .sb-analysis .pp-eval-mobile {
   display: none;
 }
@@ -1705,7 +1709,7 @@
 @media (max-width: 768px) {
   .sb-analysis .pp-analysis-row {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
     width: 100%;
     justify-content: center;
@@ -1713,10 +1717,19 @@
 
   .sb-analysis .pp-eval-mobile {
     display: flex;
+    align-self: stretch;
   }
 
   .sb-analysis .pp-eval-desktop {
     display: none;
+  }
+
+  .sb-analysis .pp-moves-nav {
+    display: none;
+  }
+
+  .sb-analysis .pp-moves-nav-mobile {
+    display: block;
   }
 
   .sb-analysis .pp-board-wrap {
@@ -1728,6 +1741,32 @@
 
   .sb-sidebar {
     padding: 14px 16px;
+  }
+
+  .sb-playerhub-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    justify-items: center;
+    column-gap: 12px;
+  }
+
+  .sb-playerhub-card {
+    max-width: min(46vw, 190px);
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .sb-playerhub-icon {
+    width: 72px;
+    height: 72px;
+  }
+
+  .sb-playerhub-title {
+    font-size: 0.95rem;
+  }
+
+  .sb-playerhub-button {
+    padding: 8px 12px;
+    font-size: 0.75rem;
   }
 
   .sb-main {
@@ -1774,5 +1813,9 @@
 
   .sb-quoteText {
     font-size: 20px;
+  }
+
+  .sb-playerhub-card {
+    max-width: min(46vw, 170px);
   }
 }

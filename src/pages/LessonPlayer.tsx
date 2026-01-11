@@ -1632,7 +1632,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   )}
                 </div>
                 {isStudyLike && (
-                  <div className="px-4 pb-4">
+                  <div className="pp-lesson-nav px-4 pb-4">
                     <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
                       <button
                         type="button"
@@ -1851,7 +1851,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 ) : (
                   <>
                     <div
-                      className="rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
+                      className="pp-lesson-board rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
                       style={{
                         backgroundColor: boardColors.dark,
                         width: `${boardSize}px`,
@@ -2116,6 +2116,39 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         ))}
                       </div>
                     </div>
+                    {isStudyLike && (
+                      <div className="pp-lesson-nav-mobile w-full px-2 mt-4">
+                        <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
+                          <button
+                            type="button"
+                            className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={goFirstMove}
+                            disabled={!canStepBack}
+                            aria-label="Back to start"
+                          >
+                            <SkipBack className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="h-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={goPrevMove}
+                            disabled={!canStepBack}
+                            aria-label="Previous move"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="h-10 rounded-lg bg-white text-slate-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={goNextMove}
+                            disabled={!canStepForward}
+                            aria-label="Next move"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                   </>
                 )}

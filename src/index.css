@@ -317,6 +317,10 @@ img {
   background: linear-gradient(to left, rgba(11, 15, 28, 1), rgba(11, 15, 28, 0));
 }
 
+.pp-lesson-nav-mobile {
+  display: none;
+}
+
 @media (max-width: 520px) {
   .pp-card {
     width: 260px;
@@ -386,11 +390,77 @@ img {
     width: 220px !important;
     height: 220px !important;
   }
+
+  .pp-landing-plus {
+    right: auto !important;
+    left: 50% !important;
+    top: calc(50% + 145px) !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  #squarebase .pp-squarebase-brain {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .pp-playerhub-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pp-playerhub-card {
+    max-width: min(46vw, 190px) !important;
+    padding: 14px !important;
+    gap: 10px !important;
+  }
+
+  .pp-playerhub-icon {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .pp-playerhub-title {
+    font-size: 0.95rem !important;
+  }
+
+  .pp-playerhub-button {
+    padding: 8px 12px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .pp-lesson-board {
+    width: min(94vw, 440px) !important;
+    height: min(94vw, 440px) !important;
+    max-width: min(94vw, 440px) !important;
+    max-height: min(94vw, 440px) !important;
+  }
+
+  .pp-lesson-nav {
+    display: none;
+  }
+
+  .pp-lesson-nav-mobile {
+    display: block;
+  }
 }
 
 @media (max-width: 480px) {
   .pp-landing-icon-card {
     width: 200px !important;
     height: 200px !important;
+  }
+
+  .pp-landing-plus {
+    top: calc(50% + 130px) !important;
+  }
+
+  .pp-playerhub-card {
+    max-width: min(46vw, 170px) !important;
+  }
+
+  .pp-lesson-board {
+    width: min(94vw, 380px) !important;
+    height: min(94vw, 380px) !important;
+    max-width: min(94vw, 380px) !important;
+    max-height: min(94vw, 380px) !important;
   }
 }

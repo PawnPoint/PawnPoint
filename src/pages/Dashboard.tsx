@@ -119,6 +119,16 @@ const pageStyles = `
     gap: 6px;
   }
 
+  .pp-course-card {
+    width: min(72vw, 260px) !important;
+    max-width: min(72vw, 260px) !important;
+  }
+
+  .pp-course-card--center {
+    width: min(90vw, 360px) !important;
+    max-width: min(90vw, 360px) !important;
+  }
+
   #squarebase .pp-squarebase-reveal,
   #squarebase .cta-fade {
     opacity: 1 !important;
@@ -620,10 +630,10 @@ export default function Dashboard() {
                         return (
                           <div
                             key={`${course.id}-${offset}`}
-                            className={`rounded-2xl border overflow-hidden flex flex-col h-full transition-all duration-500 ease-out cursor-pointer ${
+                            className={`pp-course-card rounded-2xl border overflow-hidden flex flex-col h-full transition-all duration-500 ease-out cursor-pointer ${
                               isCenter
-                                ? "opacity-100 scale-100 z-10 curated-card main-course-lift"
-                                : "opacity-50 scale-90 blur-[0.1px]"
+                                ? "pp-course-card--center opacity-100 scale-100 z-10 curated-card main-course-lift"
+                                : "pp-course-card--side opacity-50 scale-90 blur-[0.1px]"
                             }`}
                             style={{
                               backgroundColor: "#111724",
@@ -732,7 +742,9 @@ export default function Dashboard() {
                   <button
                     key={`ghost-block-${idx}`}
                     onClick={() => toggleSquareFlip(idx)}
-                    className="relative w-full max-w-[200px] sm:max-w-[220px] aspect-square mx-auto focus:outline-none"
+                    className={`relative w-full max-w-[200px] sm:max-w-[220px] aspect-square mx-auto focus:outline-none ${
+                      idx === 2 ? "pp-squarebase-brain" : ""
+                    }`}
                     style={{ perspective: "1000px" }}
                   >
                     <div className={`flip-card ${squareFlips[idx] ? "flipped" : ""} h-full`}>
@@ -833,29 +845,29 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="w-full max-w-xl flex flex-col gap-5 md:justify-self-end">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-items-center md:justify-items-start">
-                      <div className="rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start">
-                        <div className="h-24 w-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
+                    <div className="pp-playerhub-actions grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-items-center md:justify-items-start">
+                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start">
+                        <div className="pp-playerhub-icon h-24 w-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
                           <Puzzle className="h-10 w-10 text-white" />
                         </div>
-                        <div className="text-lg font-semibold text-white">Daily Puzzle</div>
+                        <div className="pp-playerhub-title text-lg font-semibold text-white">Daily Puzzle</div>
                         <button
                           type="button"
                           onClick={() => navigate("/puzzles")}
-                          className="px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
+                          className="pp-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
                         >
                           Solve Now
                         </button>
                       </div>
-                      <div className="rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start md:translate-x-3">
-                        <div className="h-24 w-24 rounded-full overflow-hidden border border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
+                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start md:translate-x-3">
+                        <div className="pp-playerhub-icon h-24 w-24 rounded-full overflow-hidden border border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
                           <img src={southKnight} alt="South Knight" className="h-full w-full object-cover" />
                         </div>
-                        <div className="text-lg font-semibold text-white">South Knight</div>
+                        <div className="pp-playerhub-title text-lg font-semibold text-white">South Knight</div>
                         <button
                           type="button"
                           onClick={() => navigate("/practice")}
-                          className="px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
+                          className="pp-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
                         >
                           Play Now
                         </button>

@@ -280,6 +280,18 @@ export function installApiMocks() {
         headers: { "Content-Type": "application/json" },
       });
     }
+    if (url === "/api/twitch/chess-tv") {
+      return new Response(
+        JSON.stringify({
+          live: false,
+          selected: null,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
 
     return originalFetch(input as any, init as any);
   };
