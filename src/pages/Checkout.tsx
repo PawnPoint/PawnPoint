@@ -46,7 +46,7 @@ export default function Checkout() {
     display: "inline-block",
     overflow: "hidden",
     whiteSpace: "nowrap",
-    fontFamily: "cursive",
+    fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
     maxWidth: "0ch",
     animation: "checkoutType 2.4s steps(32, end) forwards, checkoutGradientShift 6s linear infinite",
   } as const;

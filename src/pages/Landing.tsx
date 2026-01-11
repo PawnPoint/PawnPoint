@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocation } from "wouter";
-import { Crown, LogIn, Moon, Plus, Puzzle, Sun, Users } from "lucide-react";
+import { Crown, LogIn, Moon, Plus, Puzzle, Sun, Users, X } from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
 import pawnPointIcon from "../assets/App tab icon.png";
 
@@ -9,7 +9,11 @@ export default function Landing() {
   const [isLight, setIsLight] = useState(false);
   const [groupStage, setGroupStage] = useState(0);
   const [groupFlips, setGroupFlips] = useState([false, false, false]);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
   const groupSectionRef = useRef<HTMLDivElement | null>(null);
+  const year = useMemo(() => new Date().getFullYear(), []);
 
   const toggleTheme = () => setIsLight((prev) => !prev);
   const goToCourses = () => navigate("/courses");
@@ -76,6 +80,27 @@ export default function Landing() {
         icon: Crown,
         headline: "Place on a Global Ranking League",
         text: "Compete against the best in Pawn Point to climb to the top of your league.",
+      },
+    ],
+    [],
+  );
+  const faqItems = useMemo(
+    () => [
+      {
+        question: "What is Pawn Point?",
+        answer: "Pawn Point is a premium chess training platform built to help you improve with clear daily structure.",
+      },
+      {
+        question: "How does membership work?",
+        answer: "Membership unlocks full access to courses, SquareBase, puzzles, and rankings with monthly billing.",
+      },
+      {
+        question: "Can I cancel anytime?",
+        answer: "Yes. You can cancel in account settings but will lose access upon cancellation.",
+      },
+      {
+        question: "Do you offer group training?",
+        answer: "Yes. You can join or create training groups to share curated content and progress together.",
       },
     ],
     [],
@@ -334,6 +359,199 @@ export default function Landing() {
       <div className="w-full px-4 sm:px-6 pb-24">
         <ReviewsMarquee />
       </div>
+      <footer
+        className={`w-full border-t ${
+          isLight ? "border-slate-200 bg-white/90 text-slate-900" : "border-white/10 bg-[#0b0f1c] text-white"
+        }`}
+      >
+        <div className="w-full px-6 sm:px-10 py-12">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`h-10 w-10 rounded-xl overflow-hidden border ${
+                  isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"
+                }`}
+              >
+                <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
+              </div>
+              <div className="text-xl font-bold tracking-tight">Pawn Point</div>
+            </div>
+
+            <div className="flex flex-wrap gap-5 text-sm font-semibold">
+              <a
+                href="/checkout"
+                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+              >
+                Membership Plans
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setContactOpen(true);
+                  setFaqOpen(false);
+                }}
+                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+              >
+                Contact Us
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFaqOpen(true);
+                  setFaqOpenIdx(null);
+                  setContactOpen(false);
+                }}
+                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+              >
+                FAQ
+              </button>
+            </div>
+
+          </div>
+
+          <div
+            className={`mt-6 flex flex-col gap-3 text-xs md:flex-row md:items-center md:justify-between ${
+              isLight ? "text-slate-500" : "text-white/60"
+            }`}
+          >
+            <div>(c) {year} Pawn Point. All rights reserved.</div>
+            <div className="flex flex-wrap gap-4">
+              <a
+                href="/terms-of-use"
+                className={isLight ? "hover:text-slate-800" : "hover:text-white"}
+              >
+                Terms of Use
+              </a>
+              <a
+                href="/privacy-policy"
+                className={isLight ? "hover:text-slate-800" : "hover:text-white"}
+              >
+                Privacy
+              </a>
+              <a
+                href="/cookie-policy"
+                className={isLight ? "hover:text-slate-800" : "hover:text-white"}
+              >
+                Cookie Policy
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+      {contactOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setContactOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className={`relative z-10 w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+              isLight ? "bg-white text-slate-900 border-slate-200" : "bg-[#111827] text-white border-white/10"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="text-lg font-semibold">Contact Us</div>
+              <button
+                type="button"
+                onClick={() => setContactOpen(false)}
+                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+                aria-label="Close contact dialog"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className={`mt-3 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>
+              Please contact officialpawnpoint@gmail.com
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setContactOpen(false)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  isLight
+                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    : "bg-white text-black hover:bg-white/90"
+                }`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {faqOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setFaqOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className={`relative z-10 w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${
+              isLight ? "bg-white text-slate-900 border-slate-200" : "bg-[#111827] text-white border-white/10"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="text-lg font-semibold">FAQ</div>
+              <button
+                type="button"
+                onClick={() => setFaqOpen(false)}
+                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+                aria-label="Close FAQ dialog"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {faqItems.map((item, idx) => {
+                const isOpen = faqOpenIdx === idx;
+                return (
+                  <div
+                    key={item.question}
+                    className={`rounded-xl border px-4 py-3 ${
+                      isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setFaqOpenIdx((prev) => (prev === idx ? null : idx))}
+                      className="w-full flex items-center justify-between gap-4 text-left"
+                    >
+                      <span className="font-semibold">{item.question}</span>
+                      <span className={`text-lg ${isLight ? "text-slate-500" : "text-white/70"}`}>
+                        {isOpen ? "-" : "+"}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <p className={`mt-3 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                        {item.answer}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setFaqOpen(false)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  isLight
+                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    : "bg-white text-black hover:bg-white/90"
+                }`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

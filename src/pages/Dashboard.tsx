@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, Brain, Puzzle } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, Brain, Puzzle, X } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { AppShell } from "../components/AppShell";
@@ -8,6 +8,7 @@ import { Card } from "../components/ui/Card";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard } from "../lib/mockApi";
 import southKnight from "../assets/The South Knight.png";
+import pawnPointIcon from "../assets/App tab icon.png";
 
 const backgroundStyle = {
   backgroundImage: `
@@ -304,6 +305,9 @@ export default function Dashboard() {
   const profileRef = useRef<HTMLDivElement | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
   const [squareFlips, setSquareFlips] = useState([false, false, false]);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
   const squareTiles = [
     {
       icon: Clipboard,
@@ -321,6 +325,27 @@ export default function Dashboard() {
       description: "A chess plan that adapts as you improve.",
     },
   ];
+  const faqItems = useMemo(
+    () => [
+      {
+        question: "What is Pawn Point?",
+        answer: "Pawn Point is a premium chess training platform built to help you improve with clear daily structure.",
+      },
+      {
+        question: "How does membership work?",
+        answer: "Membership unlocks full access to courses, SquareBase, puzzles, and rankings with monthly billing.",
+      },
+      {
+        question: "Can I cancel anytime?",
+        answer: "Yes. You can cancel in account settings but will lose access upon cancellation.",
+      },
+      {
+        question: "Do you offer group training?",
+        answer: "Yes. You can join or create training groups to share curated content and progress together.",
+      },
+    ],
+    [],
+  );
   const autoScrollDone = useRef(false);
 
   useEffect(() => {
@@ -471,6 +496,7 @@ export default function Dashboard() {
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   }, []);
+  const year = useMemo(() => new Date().getFullYear(), []);
 
   const firstName = useMemo(() => {
     const raw =
@@ -901,6 +927,150 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
+        <footer className="relative w-screen left-1/2 -translate-x-1/2 border-t border-white/10 bg-[#0b0f1c] text-white -mb-6 sm:-mb-8">
+          <div className="w-full px-6 sm:px-10 py-12">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                  <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
+                </div>
+                <div className="text-xl font-bold tracking-tight">Pawn Point</div>
+              </div>
+
+              <div className="flex flex-wrap gap-5 text-sm font-semibold">
+                <a href="/checkout" className="text-white/70 hover:text-white">
+                  Membership Plans
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactOpen(true);
+                    setFaqOpen(false);
+                  }}
+                  className="text-white/70 hover:text-white"
+                >
+                  Contact Us
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFaqOpen(true);
+                    setFaqOpenIdx(null);
+                    setContactOpen(false);
+                  }}
+                  className="text-white/70 hover:text-white"
+                >
+                  FAQ
+                </button>
+              </div>
+
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 text-xs md:flex-row md:items-center md:justify-between text-white/60">
+              <div>(c) {year} Pawn Point. All rights reserved.</div>
+              <div className="flex flex-wrap gap-4">
+                <a href="/terms-of-use" className="hover:text-white">
+                  Terms of Use
+                </a>
+                <a href="/privacy-policy" className="hover:text-white">
+                  Privacy
+                </a>
+                <a href="/cookie-policy" className="hover:text-white">
+                  Cookie Policy
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+        {contactOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setContactOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-6 text-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="text-lg font-semibold">Contact Us</div>
+                <button
+                  type="button"
+                  onClick={() => setContactOpen(false)}
+                  className="text-white/70 hover:text-white"
+                  aria-label="Close contact dialog"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="mt-3 text-sm text-white/70">Please contact officialpawnpoint@gmail.com</p>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setContactOpen(false)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-white text-black hover:bg-white/90"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {faqOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setFaqOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="relative z-10 w-full max-w-lg rounded-2xl border border-white/10 bg-[#111827] p-6 text-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="text-lg font-semibold">FAQ</div>
+                <button
+                  type="button"
+                  onClick={() => setFaqOpen(false)}
+                  className="text-white/70 hover:text-white"
+                  aria-label="Close FAQ dialog"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {faqItems.map((item, idx) => {
+                  const isOpen = faqOpenIdx === idx;
+                  return (
+                    <div key={item.question} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setFaqOpenIdx((prev) => (prev === idx ? null : idx))}
+                        className="w-full flex items-center justify-between gap-4 text-left"
+                      >
+                        <span className="font-semibold">{item.question}</span>
+                        <span className="text-lg text-white/70">{isOpen ? "-" : "+"}</span>
+                      </button>
+                      {isOpen && <p className="mt-3 text-sm text-white/70">{item.answer}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setFaqOpen(false)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-white text-black hover:bg-white/90"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

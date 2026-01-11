@@ -18,6 +18,9 @@ import Analysis from "./pages/Analysis";
 import Puzzles from "./pages/Puzzles";
 import Checkout from "./pages/Checkout";
 import SquareBase from "./pages/SquareBase";
+import TermsOfUse from "./pages/TermsOfUse";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import CookiePolicy from "./pages/CookiePolicy";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -154,6 +157,9 @@ function Router() {
           </Protected>
         )}
       </Route>
+      <Route path="/terms-of-use" component={TermsOfUse} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/cookie-policy" component={CookiePolicy} />
       <Route component={NotFound} />
     </Switch>
   );
