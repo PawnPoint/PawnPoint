@@ -18,46 +18,6 @@ type ChessProfile = {
   username: string;
   displayName: string;
   avatarUrl: string | null;
-  country: string | null;
-  title: string | null;
-  lastOnline: string | null;
-  ratings: {
-    bullet: number | null;
-    blitz: number | null;
-    rapid: number | null;
-    classical: number | null;
-  };
-  stats: {
-    games: number;
-    wins: number;
-    losses: number;
-    draws: number;
-  };
-  openings?: {
-    white: { name: string; freq: number; winRate: number }[];
-    black: { name: string; freq: number; winRate: number }[];
-  };
-  recentGames: Array<{
-    id: string;
-    playedAt: string | null;
-    timeControl: string | null;
-    color: "white" | "black" | null;
-    result: "win" | "loss" | "draw" | "unknown";
-    opponent: { username: string | null; rating: number | null };
-    pgn: string | null;
-    opening?: string | null;
-  }>;
-};
-type StoredPlanState = {
-  planKey: PlanKey;
-  planDayIndex: number;
-  viewDayIndex: number;
-  dayChecks: Record<number, boolean[]>;
-  completedDays: Record<number, boolean>;
-  pendingDayIndex: number | null;
-  pendingUnlockDate: string | null;
-  nextUnlockAt: number | null;
-  updatedAt: number;
 };
 
 const rankBands = [
@@ -71,21 +31,6 @@ const rankBands = [
 const rankForLevel = (level: number) =>
   rankBands.find((band) => level >= band.min && (band.max === undefined || level <= band.max)) || rankBands[0];
 
-const getLocalDateKey = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const getMidnightMsForDateKey = (dateKey: string) => {
-  const [yearStr, monthStr, dayStr] = dateKey.split("-");
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
-};
 
 const getNextLocalMidnightMs = (date = new Date()) => {
   const next = new Date(date);
@@ -1314,117 +1259,66 @@ export default function SquareBase() {
           )}
 
           {contentVisible && activeTab === "explore" && (
-            <>
-              <div className="w-full max-w-6xl mx-auto px-4 md:px-0 -mt-6 sm:-mt-4 md:-mt-2">
-                <div className="mb-4" />
-                <div
-                  ref={profileRef}
-                  className="grid grid-cols-1 md:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-10 md:gap-12 items-start mt-10"
-                  style={{
-                    opacity: profileVisible ? 1 : 0,
-                    transform: profileVisible ? "translateY(0)" : "translateY(30px)",
-                    transition: "opacity 0.7s ease 140ms, transform 0.7s ease 140ms",
-                  }}
-                >
-                  <div className="flex flex-col gap-5 w-full max-w-[540px] justify-self-center md:justify-self-start">
-                    <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-4 w-full">
-                      <div className="flex items-start">
-                        <div className="text-sm uppercase tracking-[0.12em] text-white/60">Player Profile</div>
-                      </div>
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="h-24 w-24 rounded-full bg-white/10 border border-white/15 overflow-hidden flex items-center justify-center text-3xl font-bold shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-                          {user?.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-                          ) : (
-                            <span>{firstName.slice(0, 1).toUpperCase()}</span>
-                          )}
+            <div>
+              <div className="w-full flex justify-center">
+                <div className="w-full max-w-[540px] px-4 md:px-0 -mt-6 sm:-mt-4 md:-mt-2">
+                  <div className="mb-4" />
+                  <div
+                    ref={profileRef}
+                    className="grid grid-cols-1 gap-10 md:gap-12 items-start mt-10"
+                    style={{
+                      opacity: profileVisible ? 1 : 0,
+                      transform: profileVisible ? "translateY(0)" : "translateY(30px)",
+                      transition: "opacity 0.7s ease 140ms, transform 0.7s ease 140ms",
+                    }}
+                  >
+                    <div className="flex flex-col gap-5 w-full">
+                      <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-4 w-full">
+                        <div className="flex items-start">
+                          <div className="text-sm uppercase tracking-[0.12em] text-white/60">Player Profile</div>
                         </div>
-                        <div className="text-2xl font-semibold text-white text-center">{displayName}</div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {[
-                          { label: "Rank", value: rankInfo.label },
-                          { label: "Level", value: `Lv. ${level}` },
-                          { label: "Total XP", value: xp.toLocaleString() },
-                        ].map((stat) => (
-                          <div key={stat.label} className="rounded-xl bg-white/5 border border-white/10 p-3">
-                            <div className="text-[11px] uppercase tracking-[0.12em] text-white/60">{stat.label}</div>
-                            <div className="text-lg font-semibold text-white mt-1">{stat.value}</div>
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="h-24 w-24 rounded-full bg-white/10 border border-white/15 overflow-hidden flex items-center justify-center text-3xl font-bold shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                            {user?.avatarUrl ? (
+                              <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                            ) : (
+                              <span>{firstName.slice(0, 1).toUpperCase()}</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                      <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-white/60">
-                          <span>XP to next level</span>
-                          <span className="text-white/80 tracking-normal uppercase">
-                            {xpToNextLevel.toLocaleString()} XP
-                          </span>
+                          <div className="text-2xl font-semibold text-white text-center">{displayName}</div>
                         </div>
-                        <div className="h-3 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-500"
-                            style={{ width: `${levelProgress}%` }}
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {[
+                            { label: "Rank", value: rankInfo.label },
+                            { label: "Level", value: `Lv. ${level}` },
+                            { label: "Total XP", value: xp.toLocaleString() },
+                          ].map((stat) => (
+                            <div key={stat.label} className="rounded-xl bg-white/5 border border-white/10 p-3">
+                              <div className="text-[11px] uppercase tracking-[0.12em] text-white/60">{stat.label}</div>
+                              <div className="text-lg font-semibold text-white mt-1">{stat.value}</div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex items-center justify-between text-xs text-white/60">
-                          <span>Level {level}</span>
-                          <span>{levelProgress}%</span>
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+                          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-white/60">
+                            <span>XP to next level</span>
+                            <span className="text-white/80 tracking-normal uppercase">
+                              {xpToNextLevel.toLocaleString()} XP
+                            </span>
+                          </div>
+                          <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-500"
+                              style={{ width: `${levelProgress}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-white/60">
+                            <span>Level {level}</span>
+                            <span>{levelProgress}%</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="w-full max-w-xl flex flex-col gap-5 md:justify-self-end">
-                    <div className="sb-playerhub-actions grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-items-center md:justify-items-start">
-                      <div className="sb-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start">
-                        <div className="sb-playerhub-icon h-24 w-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
-                          <Puzzle className="h-10 w-10 text-white" />
-                        </div>
-                        <div className="sb-playerhub-title text-lg font-semibold text-white">Daily Puzzle</div>
-                        <button
-                          type="button"
-                          onClick={() => setLocation("/puzzles")}
-                          className="sb-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
-                        >
-                          Solve Now
-                        </button>
-                      </div>
-                      <div className="sb-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start md:translate-x-3">
-                        <div className="sb-playerhub-icon h-24 w-24 rounded-full overflow-hidden border border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
-                          <img src={southKnight} alt="South Knight" className="h-full w-full object-cover" />
-                        </div>
-                        <div className="sb-playerhub-title text-lg font-semibold text-white">South Knight</div>
-                        <button
-                          type="button"
-                          onClick={() => setLocation("/practice")}
-                          className="sb-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
-                        >
-                          Play Now
-                        </button>
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/5 w-full aspect-video overflow-hidden shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
-                      <div className="flex items-center justify-between px-4 pt-3 text-sm text-white/80">
-                        <span className="font-semibold">Chess TV</span>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs border border-white/15">
-                          {twitchLabel}
-                        </span>
-                      </div>
-                      <div className="px-4 pb-3">
-                        <div className="h-px w-full bg-white/10" />
-                      </div>
-                      {twitchLive && twitchSrc ? (
-                        <iframe
-                          title="Twitch TV"
-                          src={twitchSrc}
-                          className="w-full h-[calc(100%-56px)]"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div className="w-full h-[calc(100%-56px)] flex items-center justify-center text-sm text-white/70">
-                          Stream offline. Check back soon.
-                        </div>
-                      )}
+                      {/* action blocks removed per request */}
                     </div>
                   </div>
                 </div>
@@ -1436,7 +1330,7 @@ export default function SquareBase() {
                   <span className="sb-quoteLine">{quoteLine}</span>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {contentVisible && activeTab === "analysis" && (
