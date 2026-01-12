@@ -7,6 +7,7 @@ import { AppShell } from "../components/AppShell";
 import { Card } from "../components/ui/Card";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard } from "../lib/mockApi";
+import TwitchChannelPlaylist from "../components/TwitchChannelPlaylist";
 import southKnight from "../assets/The South Knight.png";
 import pawnPointIcon from "../assets/App tab icon.png";
 
@@ -418,45 +419,6 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    let timer: number | null = null;
-
-    const load = async () => {
-      try {
-        const res = await fetch("/api/twitch/chess-tv");
-        if (!res.ok) throw new Error(`Twitch fetch failed: ${res.status}`);
-        const data = await res.json();
-        if (cancelled) return;
-        if (data?.live && data?.selected?.user_login) {
-          setTwitchChannel((data.selected.user_login as string).toLowerCase());
-          setTwitchLabel(data.selected.user_name || data.selected.user_login || "Chess TV");
-          setTwitchLive(true);
-        } else {
-          const fallback = twitchFallback[0];
-          setTwitchChannel(null);
-          setTwitchLabel(fallback.label);
-          setTwitchLive(false);
-        }
-      } catch {
-        if (!cancelled) {
-          const fallback = twitchFallback[0];
-          setTwitchChannel(null);
-          setTwitchLabel(fallback.label);
-          setTwitchLive(false);
-        }
-      }
-    };
-
-    load();
-    timer = window.setInterval(load, 90_000);
-
-    return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
-    };
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -518,41 +480,7 @@ export default function Dashboard() {
   const xpIntoLevel = Math.max(0, xp - levelBaseXp);
   const xpToNextLevel = Math.max(0, level * 100 - xp);
   const levelProgress = Math.min(100, Math.max(0, Math.round((xpIntoLevel / 100) * 100)));
-  const twitchParents = useMemo(() => {
-    const parents = ["pawnpoint.app", "www.pawnpoint.app", "localhost", "127.0.0.1"];
-    const hostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
-    if (hostname && !parents.includes(hostname)) parents.push(hostname);
-    return parents;
-  }, []);
-  const [twitchChannel, setTwitchChannel] = useState<string | null>(null);
-  const [twitchLabel, setTwitchLabel] = useState("Chess TV");
-  const [twitchLive, setTwitchLive] = useState(false);
-  const twitchFallback = useMemo(
-    () => [
-      { channel: "gmhikaru", label: "GM Hikaru" },
-      { channel: "gothamchess", label: "GothamChess" },
-      { channel: "botezlive", label: "BotezLive" },
-      { channel: "chess", label: "Chess TV" },
-      { channel: "chess24", label: "Chess24" },
-      { channel: "imrosen", label: "Eric Rosen" },
-      { channel: "penguingm1", label: "PenguinGM1" },
-      { channel: "annacramling", label: "Anna Cramling" },
-      { channel: "chessdojo", label: "ChessDojo" },
-      { channel: "thebelenkaya", label: "Dina Belenkaya" },
-      { channel: "wittyalien", label: "Witty Alien" },
-      { channel: "akanemsko", label: "akaNemsko" },
-    ],
-    [],
-  );
-  const twitchSrc = useMemo(() => {
-    if (!twitchChannel) return "";
-    const params = new URLSearchParams();
-    params.set("channel", twitchChannel);
-    twitchParents.forEach((parent) => params.append("parent", parent));
-    params.set("muted", "true");
-    params.set("autoplay", "false");
-    return `https://player.twitch.tv/?${params.toString()}`;
-  }, [twitchChannel, twitchParents]);
+  const twitchChannels = ["gmhikaru", "gothamchess", "botezlive", "chess", "chess24", "imrosen", "penguingm1", "annacramling", "chessdojo", "thebelenkaya", "wittyalien", "akanemsko", "afrchess", "keithonsky"];
 
   const handlePrev = () => {
     if (!courses.length) return;
@@ -918,29 +846,19 @@ export default function Dashboard() {
                         </button>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/5 w-full aspect-video overflow-hidden shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
+                    <div className="rounded-2xl border border-white/15 bg-white/5 w-full aspect-video overflow-hidden shadow-[0_18px_45px_rgba(0,0,0,0.35)] flex flex-col">
                       <div className="flex items-center justify-between px-4 pt-3 text-sm text-white/80">
                         <span className="font-semibold">Chess TV</span>
                         <span className="rounded-full bg-white/10 px-3 py-1 text-xs border border-white/15">
-                          {twitchLabel}
+                          Live Streams
                         </span>
                       </div>
                       <div className="px-4 pb-3">
                         <div className="h-px w-full bg-white/10" />
                       </div>
-                      {twitchLive && twitchSrc ? (
-                        <iframe
-                          title="Twitch TV"
-                          src={twitchSrc}
-                          className="w-full h-[calc(100%-56px)]"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div className="w-full h-[calc(100%-56px)] flex items-center justify-center text-sm text-white/70">
-                          Stream offline. Check back soon.
-                        </div>
-                      )}
+                      <div className="flex-1 overflow-hidden">
+                        <TwitchChannelPlaylist channels={twitchChannels} startIndex={0} autoplay muted aspectRatio="100%" />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -531,9 +531,6 @@ export function PracticeBoard({
   const editorDropHandledRef = useRef(false);
   const [variations, setVariations] = useState<VariationLine[]>([]);
   const [activeLine, setActiveLine] = useState<{ type: "main" } | { type: "variation"; id: string }>({ type: "main" });
-  const [variationPrompt, setVariationPrompt] = useState<{ from: number; target: number; baseMoves: string[] } | null>(
-    null,
-  );
   const [importText, setImportText] = useState("");
   const lastImportedPgnRef = useRef<string | null>(null);
   const editorPieceImages: Record<`${Color}${PieceSymbol}`, string> = {
@@ -878,7 +875,7 @@ export function PracticeBoard({
     opts?: { force?: boolean; movesOverride?: string[]; baseFenOverride?: string; lastMoveOverride?: [Square, Square] },
   ) => {
     if (boardEditorOpen) return;
-    const moves = opts?.movesOverride ?? getActiveMoves();
+    let moves = opts?.movesOverride ?? getActiveMoves();
     const target = Math.max(0, Math.min(index, moves.length));
     if (!opts?.force && target === currentMoveIdx + 1) {
       const currentPrefix = moves.slice(0, currentMoveIdx);
@@ -886,8 +883,10 @@ export function PracticeBoard({
         (v) => v.fromIndex === currentMoveIdx && movesEqual(getVariationBaseMoves(v), currentPrefix),
       );
       if (branches.length) {
-        setVariationPrompt({ from: currentMoveIdx, target, baseMoves: currentPrefix });
-        return;
+        // Auto-select the first matching variation (no user prompt).
+        const branch = branches[0];
+        setActiveLine({ type: "variation", id: branch.id });
+        moves = [...getVariationBaseMoves(branch), ...branch.moves];
       }
     }
     let g: Chess;
@@ -917,24 +916,7 @@ export function PracticeBoard({
     setCurrentMoveIdx(target);
     setEvalRefresh((k) => k + 1);
   };
-  const handleSelectVariation = (variationId?: string) => {
-    if (!variationPrompt) return;
-    const target = variationPrompt.target;
-    setVariationPrompt(null);
-    const movesOverride = (() => {
-      if (!variationId) return moveList;
-      const v = variations.find((line) => line.id === variationId);
-      if (!v) return moveList;
-      const baseMoves = getVariationBaseMoves(v);
-      return [...baseMoves, ...v.moves];
-    })();
-    if (variationId) {
-      setActiveLine({ type: "variation", id: variationId });
-    } else {
-      setActiveLine({ type: "main" });
-    }
-    goToMoveIndex(target, { force: true, movesOverride });
-  };
+  // variation selection UI removed: variations are auto-selected when stepping into branches.
   const openBoardEditor = () => {
     engineRef.current?.postMessage("stop");
     editorOriginFenRef.current = fen;
@@ -987,7 +969,7 @@ export function PracticeBoard({
     setSelected(null);
     setDragFrom(null);
     setCurrentMoveIdx(0);
-    setVariationPrompt(null);
+    // variation prompting removed
     setEvalRefresh((k) => k + 1);
   };
   const clearBoardEditor = () => {
@@ -1012,11 +994,35 @@ export function PracticeBoard({
       const sideToMove = parts[1] === "b" ? "b" : "w";
       const baseMoveNumber = Number(parts[5] || "1") || 1;
       const sanMoves: string[] = [];
-      for (const move of pv.slice(0, 10)) {
-        const from = move.slice(0, 2) as Square;
-        const to = move.slice(2, 4) as Square;
-        const promotion = move[4] as PieceSymbol | undefined;
-        const res = g.move({ from, to, promotion }, { sloppy: true } as any);
+      for (const token of pv.slice(0, 10)) {
+        // Engine may output UCI (e.g., g8c6) or SAN (e.g., Nf6). Try UCI first if it matches the pattern,
+        // otherwise try SAN parsing.
+        const uciMatch = /^[a-h][1-8][a-h][1-8][qrbn]?$/i.test(token);
+        let res: ReturnType<Chess['move']> | null = null;
+        if (uciMatch) {
+          const from = token.slice(0, 2) as Square;
+          const to = token.slice(2, 4) as Square;
+          const promotion = token[4] ? (token[4] as PieceSymbol) : undefined;
+          try {
+            res = g.move({ from, to, promotion }, { sloppy: true } as any);
+          } catch {
+            res = null;
+          }
+          // If UCI application failed, as a fallback try SAN parsing of the token
+          if (!res) {
+            try {
+              res = g.move(token, { sloppy: true } as any);
+            } catch {
+              res = null;
+            }
+          }
+        } else {
+          try {
+            res = g.move(token, { sloppy: true } as any);
+          } catch {
+            res = null;
+          }
+        }
         if (!res) break;
         sanMoves.push(res.san);
       }
@@ -1039,6 +1045,35 @@ export function PracticeBoard({
     }
   };
 
+  const convertMoveTokenToSan = (token: string | undefined, fenString: string) => {
+    if (!token) return "";
+    // If token contains multiple moves separated by spaces, convert each and join.
+    const parts = token.trim().split(/\s+/);
+    try {
+      const g = new Chess(fenString);
+      const sanParts: string[] = [];
+      for (const part of parts) {
+        if (!part) continue;
+        if (/^[a-h][1-8][a-h][1-8][qrbn]?$/i.test(part)) {
+          const from = part.slice(0, 2) as Square;
+          const to = part.slice(2, 4) as Square;
+          const promotion = part[4] ? (part[4] as PieceSymbol) : undefined;
+          const res = g.move({ from, to, promotion }, { sloppy: true } as any);
+          if (res) {
+            sanParts.push(res.san);
+            continue;
+          }
+        }
+        const res2 = g.move(part, { sloppy: true } as any);
+        if (res2) sanParts.push(res2.san);
+        else sanParts.push(part);
+      }
+      return sanParts.join(" ");
+    } catch {
+      return token;
+    }
+  };
+
   const recommendedLines = useMemo(() => {
     if (multipvLines.length) {
       return multipvLines.slice(0, 3).map((entry) => ({
@@ -1048,7 +1083,7 @@ export function PracticeBoard({
               ? "Mate"
               : "Mate"
             : `${entry.score >= 0 ? "+" : ""}${(entry.score / 100).toFixed(1)}`,
-        line: pvToSanLine(entry.pv, fen) || entry.move,
+        line: pvToSanLine(entry.pv, fen) || convertMoveTokenToSan(entry.move, fen) || entry.move,
       }));
     }
     return [
@@ -1685,7 +1720,6 @@ export function PracticeBoard({
     setCurrentMoveIdx(0);
     setPromotionPending(null);
     setEvalRefresh((k) => k + 1);
-    setVariationPrompt(null);
     gameOverAwardedRef.current.value = false;
     setOrientation(playerColor);
     setEngineThinking(false);
@@ -1743,7 +1777,6 @@ export function PracticeBoard({
         setImportPanelOpen(false);
       }
       setEvalRefresh((k) => k + 1);
-      setVariationPrompt(null);
       goToMoveIndex(history.length, {
         force: true,
         movesOverride: history,
@@ -1865,9 +1898,7 @@ export function PracticeBoard({
       return;
     }
 
-    if (variationPrompt) {
-      setVariationPrompt(null);
-    }
+    // variation prompting removed: proceed without showing prompts
     const lineMoves = getActiveMoves();
     const resolvedIdx = resolveMoveIndexForFen(lineMoves, fen, startFenRef.current, currentMoveIdx);
     const fallbackIdx = Math.min(currentMoveIdx, lineMoves.length);
@@ -1967,32 +1998,59 @@ export function PracticeBoard({
           });
           setActiveLine({ type: "main" });
         } else {
-          const newId = addVariationMove(linePrefix, moved.san, moveIndex);
-          if (newId) {
-            setActiveLine({ type: "variation", id: newId });
-            setVariationPrompt(null);
-            setCurrentMoveIdx(moveIndex + 1);
-          }
+          // Diverged from existing main moves: truncate the main move list and append the new move.
+          setMoveList((prev) => {
+            const next = prev.slice(0, moveIndex);
+            next.push(moved.san);
+            setCurrentMoveIdx(next.length);
+            return next;
+          });
+          // Clear any stored variations since the main line changed.
+          setVariations([]);
+          setActiveLine({ type: "main" });
         }
       } else {
         const v = variations.find((vv) => vv.id === activeLine.id);
         const baseMoves = v ? getVariationBaseMoves(v) : [];
         const baseLength = baseMoves.length;
-        const relativeIdx = v ? moveIndex - baseLength : -1;
-        const matchesExisting = v && relativeIdx >= 0 && relativeIdx < v.moves.length && v.moves[relativeIdx] === moved.san;
-        if (matchesExisting) {
-          setActiveLine({ type: "variation", id: v.id });
-          setCurrentMoveIdx(moveIndex + 1);
+        // If the user edits the base portion of a variation, treat it like editing the main line: truncate main and apply change.
+        if (moveIndex < baseLength) {
+          setMoveList((prev) => {
+            const next = prev.slice(0, moveIndex);
+            next.push(moved.san);
+            setCurrentMoveIdx(next.length);
+            return next;
+          });
+          setVariations([]);
+          setActiveLine({ type: "main" });
+        } else if (!v) {
+          // No matching variation found: fall back to truncating main.
+          setMoveList((prev) => {
+            const next = prev.slice(0, moveIndex);
+            next.push(moved.san);
+            setCurrentMoveIdx(next.length);
+            return next;
+          });
+          setVariations([]);
+          setActiveLine({ type: "main" });
         } else {
-          const variationEnd = v ? baseLength + v.moves.length : moveIndex;
-          const shouldExtend = v && moveIndex >= variationEnd;
-          const targetId = shouldExtend ? activeLine.id : undefined;
-          const newBaseMoves = shouldExtend ? baseMoves : linePrefix;
-          const newId = addVariationMove(newBaseMoves, moved.san, moveIndex, targetId);
-          if (newId) {
-            setActiveLine({ type: "variation", id: newId });
+          const relativeIdx = moveIndex - baseLength;
+          const matchesExisting = relativeIdx >= 0 && relativeIdx < v.moves.length && v.moves[relativeIdx] === moved.san;
+          if (matchesExisting) {
+            setActiveLine({ type: "variation", id: v.id });
+            setCurrentMoveIdx(moveIndex + 1);
+          } else {
+            // Diverging inside the variation: truncate this variation's moves up to the divergence and append the new move.
+            setVariations((prev) =>
+              prev.map((vv) => {
+                if (vv.id !== v.id) return vv;
+                const kept = vv.moves.slice(0, Math.max(0, relativeIdx));
+                return { ...vv, moves: [...kept, moved.san] };
+              }),
+            );
+            setActiveLine({ type: "variation", id: v.id });
+            setCurrentMoveIdx(moveIndex + 1);
           }
-          setCurrentMoveIdx(moveIndex + 1);
         }
       }
     }
@@ -2508,7 +2566,7 @@ export function PracticeBoard({
                               <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-semibold text-emerald-200">
                                 {line.score}
                               </span>
-                              <span className="truncate text-[12px]">{line.line}</span>
+                              <span className="whitespace-pre-wrap break-words text-[12px]">{line.line}</span>
                             </div>
                           ))}
                         </div>
@@ -2573,7 +2631,6 @@ export function PracticeBoard({
                               className="inline-flex items-center gap-1 text-xs text-white/70 hover:text-white"
                               onClick={() => {
                                 setActiveLine({ type: "main" });
-                                setVariationPrompt(null);
                                 const target = moveList.length;
                                 goToMoveIndex(target, { force: true, movesOverride: moveList });
                               }}
@@ -2660,29 +2717,7 @@ export function PracticeBoard({
                         </>
                       )}
                     </div>
-                    {variationPrompt && (
-                      <div className="px-4 pb-4">
-                        <div className="rounded-lg border border-white/10 bg-black/70 p-3 text-sm text-white/80">
-                          <div className="mb-2 font-semibold">Choose a line to follow:</div>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            <Button size="sm" variant="outline" onClick={() => handleSelectVariation(undefined)}>
-                              Main line
-                            </Button>
-                            {variations
-                              .filter(
-                                (v) =>
-                                  v.fromIndex === variationPrompt.from &&
-                                  movesEqual(getVariationBaseMoves(v), variationPrompt.baseMoves),
-                              )
-                              .map((v) => (
-                                <Button key={v.id} size="sm" variant="outline" onClick={() => handleSelectVariation(v.id)}>
-                                  {v.label}
-                                </Button>
-                              ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* variation prompting UI removed; variations are auto-selected when stepping into branches */}
                     <div className="pp-moves-nav px-4 pb-4">
                       <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
                         <button

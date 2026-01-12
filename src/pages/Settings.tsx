@@ -131,9 +131,9 @@ export default function Settings() {
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
 
   useEffect(() => {
-    if (user?.chessUsername) setLinkedUsername(user.chessUsername);
-    else if (user?.displayName) setLinkedUsername(user.displayName);
-    else if (user?.email) setLinkedUsername(user.email.split("@")[0]);
+    if (user?.chessUsername) setLinkedUsername(user.chessUsername.slice(0, 9));
+    else if (user?.displayName) setLinkedUsername(user.displayName.slice(0, 9));
+    else if (user?.email) setLinkedUsername(user.email.split("@")[0].slice(0, 9));
   }, [user]);
 
   useEffect(() => {
@@ -995,9 +995,10 @@ export default function Settings() {
                 <div className="flex items-center gap-2">
                   <input
                     value={accountInput}
-                    onChange={(e) => setAccountInput(e.target.value)}
+                    onChange={(e) => setAccountInput(e.target.value.slice(0, 9))}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
                     placeholder="Chess.com username"
+                    maxLength={9}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -1045,8 +1046,9 @@ export default function Settings() {
                       const courses = await getCourses();
                       const courseIds = mapOpeningsToCourses(openings, courses);
                       setSuggestedCourses(courseIds, inputRaw || fetchedProfile.username);
-                      setLinkedUsername(inputRaw || fetchedProfile.username);
-                      const updated = await setChessUsername(inputRaw || fetchedProfile.username);
+                      const chosen = (inputRaw || fetchedProfile.username || "").slice(0, 9);
+                      setLinkedUsername(chosen);
+                      const updated = await setChessUsername(chosen);
                       if (updated) setUser(updated);
                       setAccountStatus("success");
                       setAccountModalOpen(false);

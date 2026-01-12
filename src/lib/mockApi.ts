@@ -359,7 +359,7 @@ function readUser(): UserProfile | null {
       writeUser(parsed);
     }
     if (parsed.accountType === undefined) {
-      parsed.accountType = parsed.groupId ? "group" : undefined;
+      parsed.accountType = parsed.groupId ? "group" : "personal";
       writeUser(parsed);
     }
     if (parsed.accountType === "personal" && parsed.isAdmin !== true) {
@@ -1238,7 +1238,7 @@ export async function ensureProfile(
           isAdmin: false,
           createdAt: Date.now(),
           xpReachedAt: Date.now(),
-          accountType: undefined,
+          accountType: "personal",
           groupId: null,
           groupCode: null,
           groupName: null,
@@ -1561,7 +1561,8 @@ export async function acceptChallenge(
 export async function setChessUsername(username: string): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
-  const updated: UserProfile = { ...user, chessUsername: username, displayName: user.displayName || username };
+  const truncated = (username || "").slice(0, 9);
+  const updated: UserProfile = { ...user, chessUsername: truncated, displayName: (user.displayName || truncated).slice(0, 9) };
   writeUser(updated);
   try {
     await update(ref(db, `users/${user.id}`), { chessUsername: username });

@@ -17,6 +17,7 @@
     "@mliebelt/pgn-parser": "^1.4.13",
     "@supabase/supabase-js": "^2.52.1",
     "@tanstack/react-query": "^5.60.5",
+    "amazon-ivs-player": "^1.48.0",
     "chess.js": "^1.4.0",
     "chessboardjs": "^0.0.1",
     "clsx": "^2.1.1",

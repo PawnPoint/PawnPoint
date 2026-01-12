@@ -50,7 +50,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     }
     try {
       setError("");
-      await login(email, password, name || email.split("@")[0], isLogin ? "login" : "signup");
+      const truncatedName = (name || email.split("@")[0]).slice(0, 9);
+      await login(email, password, truncatedName, isLogin ? "login" : "signup");
       navigate("/dashboard");
     } catch (err: unknown) {
       console.error("Auth error", err);
