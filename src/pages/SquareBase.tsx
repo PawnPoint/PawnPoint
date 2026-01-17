@@ -1259,7 +1259,7 @@ export default function SquareBase() {
           )}
 
           {contentVisible && activeTab === "explore" && (
-            <div>
+            <div className="sb-exploreLayout">
               <div className="w-full flex justify-center">
                 <div className="w-full max-w-[540px] px-4 md:px-0 -mt-6 sm:-mt-4 md:-mt-2">
                   <div className="mb-4" />

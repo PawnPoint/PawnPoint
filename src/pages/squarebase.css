@@ -1546,12 +1546,32 @@
   border-color: rgba(255, 255, 255, 0.16);
 }
 
+.sb-exploreLayout {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: clamp(120px, 18vh, 180px);
+}
+
 .sb-quote {
   margin: 25px auto 0;
   max-width: 920px;
   text-align: center;
   margin-top: 25px;
   padding-bottom: 18px;
+}
+
+.sb-exploreLayout .sb-quote {
+  position: fixed;
+  left: calc(50% + 140px);
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(920px, calc(100% - 280px));
+  margin: 0;
+  padding: 0 18px 18px;
+  box-sizing: border-box;
+  z-index: 2;
 }
 
 .sb-quoteLabel {
@@ -1704,6 +1724,10 @@
   .sb-surveyCard { flex-basis: 88vw; }
   .sb-planGrid { grid-template-columns: 1fr; }
   .sb-planStage { min-height: auto; }
+  .sb-exploreLayout .sb-quote {
+    left: 50%;
+    width: min(920px, 100%);
+  }
 }
 
 @media (max-width: 768px) {
