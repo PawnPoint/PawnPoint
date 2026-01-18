@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -31,7 +30,6 @@ const getDisplayName = (entry: UserProfile) =>
 
 export default function Leaderboard() {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
   const [entries, setEntries] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"xp" | "club">("xp");
@@ -47,11 +45,6 @@ export default function Leaderboard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [xpSearch, setXpSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
-  const inGroup = !!user?.groupId && user?.accountType === "group";
-  const isSouthKnightGroup =
-    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
-  const canAccessStandings =
-    isSouthKnightGroup || user?.premiumAccess || user?.subscriptionStatus === "active";
   const clubPath = user?.groupId
     ? `groups/${user.groupId}/clubLeaderboard`
     : user
@@ -62,11 +55,6 @@ export default function Leaderboard() {
   const [xpDeltaToday, setXpDeltaToday] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
-    if (!canAccessStandings) navigate("/checkout");
-  }, [canAccessStandings, navigate, user]);
-
-  useEffect(() => {
     const key = "pawnpoint_xp_reset_v1";
     const alreadyReset = localStorage.getItem(key);
     if (!alreadyReset) {
@@ -75,18 +63,13 @@ export default function Leaderboard() {
   }, []);
 
   useEffect(() => {
-    if (!user || !canAccessStandings || mode !== "xp") return;
+    if (!user || mode !== "xp") return;
     const leaderboardRef = ref(db, "users");
     const unsubscribe = onValue(
       leaderboardRef,
       (snap) => {
         const val = (snap.val() || {}) as Record<string, UserProfile>;
-        let list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
-        if (inGroup) {
-          list = list.filter((entry) => entry.groupId === user.groupId);
-        } else {
-          list = list.filter((entry) => entry.id === user.id);
-        }
+        const list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
         const sorted = list.sort((a, b) => {
           const diff = (b.totalXp || 0) - (a.totalXp || 0);
           if (diff !== 0) return diff;
@@ -100,10 +83,10 @@ export default function Leaderboard() {
       () => setLoading(false),
     );
     return () => unsubscribe();
-  }, [user, mode, inGroup, canAccessStandings]);
+  }, [user, mode]);
 
   useEffect(() => {
-    if (!user || !canAccessStandings || mode !== "club") return;
+    if (!user || mode !== "club") return;
     setClubLoading(true);
     setClubError("");
     getClubLeaderboard(user)
@@ -128,7 +111,7 @@ export default function Leaderboard() {
       () => setClubLoading(false),
     );
     return () => unsubscribe();
-  }, [user, mode, clubPath, canAccessStandings]);
+  }, [user, mode, clubPath]);
 
   const sortedClubEntries = useMemo(
     () =>
@@ -383,8 +366,8 @@ export default function Leaderboard() {
               <div className="text-xs text-white/60">
                 {mode === "xp"
                   ? userRankXp
-                    ? `You are #${userRankXp} on your group's XP leaderboard.`
-                    : "Your group XP rank will appear once you've earned points."
+                    ? `You are #${userRankXp} on the XP leaderboard.`
+                    : "Your XP rank will appear once you've earned points."
                   : userRankClub
                     ? `You are #${userRankClub} on your group's standings.`
                     : "Your group rank will appear once you're listed in standings."}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Mail, Lock, Chrome } from "lucide-react";
+import { ArrowLeft, Mail, Lock, Chrome } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import loginBg from "../assets/Login screen.png";
@@ -97,6 +97,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-950/50 to-black/60" />
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-5 z-20 h-10 w-10 rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition"
+        aria-label="Back to landing page"
+      >
+        <ArrowLeft className="h-4 w-4 mx-auto" />
+      </button>
       <div className="relative z-10 w-full max-w-lg rounded-3xl p-8 shadow-2xl border border-white/10 bg-white/5 backdrop-blur-xl">
         <div className="text-center mb-6 space-y-2">
           <div className="pill glass inline-flex items-center gap-2 border-white/10">

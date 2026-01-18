@@ -2718,13 +2718,7 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
     const snap = await get(ref(db, "users"));
     const val = (snap.val() || {}) as Record<string, UserProfile>;
     const list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
-    const filtered = list.filter((entry) => {
-      const isSouthKnightGroup =
-        entry?.groupId === "south-knight" || entry?.groupCode?.includes("0055");
-      if (isSouthKnightGroup) return true;
-      return !!(entry?.premiumAccess || entry?.subscriptionStatus === "active");
-    });
-    const sorted = filtered.sort((a, b) => {
+    const sorted = list.sort((a, b) => {
       const diff = (b.totalXp || 0) - (a.totalXp || 0);
       if (diff !== 0) return diff;
       const timeA = a.xpReachedAt ?? a.createdAt ?? 0;

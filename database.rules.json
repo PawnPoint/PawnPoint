@@ -7,11 +7,11 @@
       ".write": false
     },
     "users": {
-      ".read": false,
+      ".read": "auth != null",
       ".write": false,
       ".indexOn": ["paypalSubscriptionId"],
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid",
         ".validate": "newData.child('id').exists() && newData.child('email').exists() && newData.child('displayName').exists() && newData.childrenCount() == (newData.child('id').exists()?1:0) + (newData.child('email').exists()?1:0) + (newData.child('displayName').exists()?1:0) + (newData.child('avatarUrl').exists()?1:0) + (newData.child('accountType').exists()?1:0) + (newData.child('groupId').exists()?1:0) + (newData.child('groupCode').exists()?1:0) + (newData.child('groupName').exists()?1:0) + (newData.child('groupRole').exists()?1:0) + (newData.child('unlockedPfps').exists()?1:0) + (newData.child('unlockedTaglines').exists()?1:0) + (newData.child('unlockedVideos').exists()?1:0) + (newData.child('unlockedSets').exists()?1:0) + (newData.child('selectedTagline').exists()?1:0) + (newData.child('taglinesEnabled').exists()?1:0) + (newData.child('streak').exists()?1:0) + (newData.child('bestStreak').exists()?1:0) + (newData.child('dailyXp').exists()?1:0) + (newData.child('dailyDate').exists()?1:0) + (newData.child('lastQualifiedDate').exists()?1:0) + (newData.child('lastStreakAt').exists()?1:0) + (newData.child('pawns').exists()?1:0) + (newData.child('chessUsername').exists()?1:0) + (newData.child('onlineRating').exists()?1:0) + (newData.child('totalXp').exists()?1:0) + (newData.child('level').exists()?1:0) + (newData.child('isAdmin').exists()?1:0) + (newData.child('createdAt').exists()?1:0) + (newData.child('xpReachedAt').exists()?1:0) + (newData.child('boardTheme').exists()?1:0) + (newData.child('pieceTheme').exists()?1:0) + (newData.child('premiumAccess').exists()?1:0) + (newData.child('paypalSubscriptionId').exists()?1:0) + (newData.child('subscriptionStatus').exists()?1:0) + (newData.child('subscriptionUpdatedAt').exists()?1:0) + (newData.child('groupLocked').exists()?1:0) + (newData.child('courses').exists()?1:0) + (newData.child('clubLeaderboard').exists()?1:0) + (newData.child('squareBaseBooks').exists()?1:0)",
         "id": {

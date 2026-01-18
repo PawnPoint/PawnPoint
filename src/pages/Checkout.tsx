@@ -39,16 +39,13 @@ export default function Checkout() {
     }
   `;
   const gradientTextStyle = {
-    backgroundImage: "linear-gradient(90deg, #60a5fa, #8b5cf6, #60a5fa)",
-    backgroundSize: "200% 200%",
-    WebkitBackgroundClip: "text",
-    color: "transparent",
+    color: "#ffffff",
     display: "inline-block",
     overflow: "hidden",
     whiteSpace: "nowrap",
     fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
     maxWidth: "0ch",
-    animation: "checkoutType 2.4s steps(32, end) forwards, checkoutGradientShift 6s linear infinite",
+    animation: "checkoutType 2.4s steps(32, end) forwards",
   } as const;
 
   const nextBilling = useMemo(() => {
@@ -195,7 +192,7 @@ export default function Checkout() {
                 <div className="space-y-4 text-white">
                   <div className="flex items-center gap-3 text-2xl font-bold" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
                     <Key className="h-7 w-7 text-amber-300" />
-                    <span style={gradientTextStyle} className="bg-clip-text text-transparent">
+                    <span style={gradientTextStyle} className="text-white">
                       Unlock your competitive edge
                     </span>
                   </div>

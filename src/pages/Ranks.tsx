@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { getGlobalXpLeaderboard, type UserProfile } from "../lib/mockApi";
@@ -86,31 +85,15 @@ const formatXp = (xp?: number) => {
 
 export default function Ranks() {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<UserProfile[]>([]);
-  const isSouthKnightGroup =
-    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
-  const canAccessRanks =
-    isSouthKnightGroup || user?.premiumAccess || user?.subscriptionStatus === "active";
   const currentLevel = levelForUser(user);
   const currentBand = getBandForLevel(currentLevel);
   const [selectedIndex, setSelectedIndex] = useState(rankBands.findIndex((b) => b.key === currentBand.key));
   const spotRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    if (!canAccessRanks) navigate("/checkout");
-  }, [canAccessRanks, navigate, user]);
-
-  useEffect(() => {
     let mounted = true;
-    if (!user || !canAccessRanks) {
-      setLoading(false);
-      return () => {
-        mounted = false;
-      };
-    }
     (async () => {
       setLoading(true);
       try {
@@ -123,7 +106,7 @@ export default function Ranks() {
     return () => {
       mounted = false;
     };
-  }, [canAccessRanks, user]);
+  }, []);
 
 const bandData = useMemo(() => {
   const data: Record<
