@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, Brain, Puzzle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Clipboard, FileText, Brain, Puzzle, X, Youtube } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { AppShell } from "../components/AppShell";
@@ -12,13 +12,18 @@ import southKnight from "../assets/The South Knight.png";
 import pawnPointIcon from "../assets/App tab icon.png";
 
 const backgroundStyle = {
-  backgroundImage: `
-    radial-gradient(1200px 600px at 50% -10%, rgba(255, 255, 255, 0.03), transparent 60%),
-    linear-gradient(180deg, #0b1220 0%, #0d1628 25%, #0b1220 45%, #0a0f1c 60%, #070a12 75%, #000000 92%)
-  `,
+  backgroundColor: "#050608",
   minHeight: "100vh",
   color: "#ffffff",
 } as const;
+
+const backgroundOverlay = (
+  <div className="pp-landing-bg" aria-hidden="true">
+    <div className="pp-landing-radial" />
+    <div className="pp-landing-dots" />
+    <div className="pp-landing-vignette" />
+  </div>
+);
 
 const pageStyles = `
 .greeting h1 {
@@ -79,21 +84,6 @@ const pageStyles = `
 .hero-blend {
   position: relative;
   overflow: hidden;
-}
-.hero-blend::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -140px;
-  height: 240px;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(11, 18, 32, 0) 0%,
-    rgba(7, 10, 18, 0.7) 65%,
-    #000000 100%
-  );
 }
 
 .slider-arrow {
@@ -245,7 +235,7 @@ const pageStyles = `
   position: relative;
   min-height: 100vh;
   width: 100vw;
-  background: #000000;
+  background: transparent;
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -253,23 +243,6 @@ const pageStyles = `
   align-items: center;
   z-index: 10;
   overflow: visible;
-}
-#squarebase::before {
-  content: "";
-  position: absolute;
-  top: -160px;
-  left: 0;
-  width: 100%;
-  height: 260px;
-  background: linear-gradient(
-    180deg,
-    rgba(11, 18, 32, 0) 0%,
-    rgba(11, 18, 32, 0.55) 38%,
-    rgba(7, 10, 18, 0.82) 64%,
-    rgba(0, 0, 0, 0.95) 86%,
-    #000000 100%
-  );
-  pointer-events: none;
 }
 `;
 
@@ -513,7 +486,7 @@ export default function Dashboard() {
   const courseCards = courses.length ? courses : [];
 
   return (
-    <AppShell backgroundStyle={backgroundStyle}>
+    <AppShell backgroundStyle={backgroundStyle} backgroundOverlay={backgroundOverlay}>
       <style>{pageStyles}</style>
       <div
         className="fixed inset-0 pointer-events-none"
@@ -901,6 +874,15 @@ export default function Dashboard() {
                 >
                   FAQ
                 </button>
+                <a
+                  href="https://www.youtube.com/@Pawn-Point"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Pawn Point YouTube"
+                  className="inline-flex items-center justify-center text-white/70 hover:text-white"
+                >
+                  <Youtube className="h-4 w-4" />
+                </a>
               </div>
 
             </div>

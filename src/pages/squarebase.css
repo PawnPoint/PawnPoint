@@ -174,7 +174,28 @@
   margin-top: auto;
   padding: 14px 10px 0;
   font-size: 12px;
-  opacity: 0.45;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sb-footerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  opacity: 0.9;
+  transition: opacity 160ms ease;
+}
+
+.sb-footerLink:hover {
+  opacity: 1;
+}
+
+.sb-footerIcon {
+  width: 14px;
+  height: 14px;
 }
 
 /* Main */
@@ -1149,13 +1170,14 @@
 
 .sb-planNav {
   width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
 }
 
 .sb-planNavBtn {
+  display: none;
   width: 38px;
   height: 38px;
   border-radius: 12px;
@@ -1188,7 +1210,8 @@
 }
 
 .sb-planSingle .sb-planCard {
-  width: min(560px, 100%);
+  width: min(820px, 94vw);
+  min-height: clamp(320px, 52vh, 520px);
 }
 
 .sb-planTitle {
@@ -1211,6 +1234,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: left;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.sb-planCard > * {
+  display: none;
 }
 
 .sb-planCard.is-complete {
@@ -1245,31 +1274,158 @@
   margin-bottom: 10px;
 }
 
+.sb-planWeek {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin: 6px 0 18px;
+}
+
+.sb-planWeekDay {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  transition: transform 150ms ease;
+}
+
+.sb-planWeekLabel {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.sb-planWeekDate {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.sb-planWeekDay.is-active .sb-planWeekDate {
+  background: #f8fafc;
+  border-color: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+}
+
+.sb-planWeekDay.is-active .sb-planWeekLabel {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sb-planWeekDay:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.sb-planWeekDay:focus-visible .sb-planWeekDate {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.sb-planWeekDay:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  transform: none;
+}
+
 .sb-planItems {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .sb-planItem {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 16px;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.35;
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  min-height: 68px;
 }
 
 .sb-planItem input {
-  margin-top: 2px;
-  accent-color: #34d399;
+  order: 2;
+  margin-top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2px solid rgba(37, 99, 235, 0.35);
+  background: #ffffff;
+  appearance: none;
+  display: grid;
+  place-items: center;
+  position: relative;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.sb-planItem input::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(-45deg);
+  opacity: 0;
+}
+
+.sb-planItem input:checked {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.sb-planItem input:checked::after {
+  opacity: 1;
+}
+
+.sb-planItem input:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.sb-planItem input:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+}
+
+.sb-planItem span {
+  order: 1;
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: block;
 }
 
 .sb-planItem input:disabled {
   opacity: 0.55;
+  box-shadow: none;
 }
 
 .sb-planItem input:disabled + span {
   opacity: 0.7;
+  color: rgba(15, 23, 42, 0.6);
 }
 
 .sb-planNext {
@@ -1279,7 +1435,8 @@
 }
 
 .sb-planRetake {
-  margin-top: 6px;
+  display: inline-flex;
+  margin-top: auto;
   padding: 6px 12px;
   border-radius: 10px;
   border: 1px solid rgba(16, 185, 129, 0.7);
@@ -1289,6 +1446,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+  align-self: center;
 }
 
 .sb-planRetake:hover {
@@ -1711,7 +1869,7 @@
   }
   .sb-footer {
     padding: 12px 0 0;
-    text-align: center;
+    justify-content: center;
   }
   .sb-main { padding: 30px 18px; }
   .sb-grid { gap: 0; }
@@ -1795,6 +1953,22 @@
 
   .sb-main {
     padding: 24px 16px;
+  }
+
+  .sb-planWeek {
+    gap: 6px;
+    margin: 8px 0 14px;
+  }
+
+  .sb-planWeekLabel {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  .sb-planWeekDate {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
   }
 
   .sb-heroTitle {

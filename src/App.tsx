@@ -17,6 +17,7 @@ import Ranks from "./pages/Ranks";
 import Analysis from "./pages/Analysis";
 import Puzzles from "./pages/Puzzles";
 import Checkout from "./pages/Checkout";
+import Pricing from "./pages/Pricing";
 import SquareBase from "./pages/SquareBase";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -157,6 +158,7 @@ function Router() {
           </Protected>
         )}
       </Route>
+      <Route path="/pricing" component={Pricing} />
       <Route path="/terms-of-use" component={TermsOfUse} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/cookie-policy" component={CookiePolicy} />

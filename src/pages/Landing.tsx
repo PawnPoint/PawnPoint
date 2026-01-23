@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { BookOpen, CheckCircle2, Moon, Sparkles, Sun, Users, X } from "lucide-react";
+import {
+  Bot,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  Flame,
+  GraduationCap,
+  Puzzle,
+  Sparkles,
+  Trophy,
+  Users,
+  Youtube,
+  X,
+} from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
 import pawnPointIcon from "../assets/App tab icon.png";
-import courseIcon from "../assets/Icon.png";
-import squarebaseIcon from "../assets/Icon 2.png";
-import groupsIcon from "../assets/Icon 3.png";
 
 const heroHighlights = [
   "No credit card required",
@@ -13,52 +23,73 @@ const heroHighlights = [
   "Built for serious players",
 ];
 
-const heroCards = [
+const featureCards = [
   {
-    key: "ai",
     title: "AI Guided Training",
-    text: "Personalized drills that target your exact weaknesses.",
+    text: "Personalized study plans that target your exact weaknesses.",
     icon: Sparkles,
+    tone: "text-pink-400",
   },
   {
-    key: "ranks",
-    title: "Training Groups",
-    text: "Collaborate with teammates and track shared progress.",
-    icon: Users,
+    title: "Group-Only Courses",
+    text: "Private courses built exclusively for your training group.",
+    icon: GraduationCap,
+    tone: "text-amber-400",
   },
   {
-    key: "squarebase",
     title: "SquareBase Library",
-    text: "A Private Chess Intelligence hub for your study.",
+    text: "A private chess intelligence hub for study files.",
     icon: BookOpen,
+    tone: "text-emerald-400",
   },
-];
-
-const pricingFeatures = [
-  "Unlimited Courses",
-  "Our AI bots",
-  "XP Gains",
-  "Leaderboards and Ranks",
-  "SquareBase",
-  "Groups",
+  {
+    title: "Training Groups",
+    text: "A focused space for teammates to share progress together.",
+    icon: Users,
+    tone: "text-blue-400",
+  },
+  {
+    title: "AI Training Bots",
+    text: "Practice sessions powered by our dedicated AI bots.",
+    icon: Bot,
+    tone: "text-sky-400",
+  },
+  {
+    title: "Puzzles Included",
+    text: "Tactical puzzles to enhance in game tactical capabilities.",
+    icon: Puzzle,
+    tone: "text-rose-400",
+  },
+  {
+    title: "XP Gains",
+    text: "Earn XP as you complete your training sessions.",
+    icon: Flame,
+    tone: "text-orange-400",
+  },
+  {
+    title: "Leaderboards & Ranks",
+    text: "Climb ranks and track progress on leaderboards.",
+    icon: Trophy,
+    tone: "text-violet-400",
+  },
 ];
 
 export default function Landing() {
   const [, navigate] = useLocation();
-  const [isLight, setIsLight] = useState(false);
+  const [isLight] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
+  const [landingFaqOpenIdx, setLandingFaqOpenIdx] = useState<number | null>(0);
   const featuresRef = useRef<HTMLDivElement | null>(null);
-  const pricingRef = useRef<HTMLDivElement | null>(null);
+  const faqSectionRef = useRef<HTMLDivElement | null>(null);
   const year = useMemo(() => new Date().getFullYear(), []);
 
-  const toggleTheme = () => setIsLight((prev) => !prev);
-  const goToCourses = () => navigate("/courses");
   const goToLogin = () => navigate("/login");
   const goToSignup = () => navigate("/signup");
+  const goToPricing = () => navigate("/pricing");
   const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const scrollToPricing = () => pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToFaqs = () => faqSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -86,11 +117,11 @@ export default function Landing() {
     () => [
       {
         question: "What is Pawn Point?",
-        answer: "Pawn Point is a premium chess training platform built to help you improve with clear daily structure.",
+        answer: "Pawn Point is a premium chess training platform built to help you improve solo or with your friends simultaneously.",
       },
       {
         question: "How does membership work?",
-        answer: "Membership unlocks full access to courses, SquareBase, puzzles, and rankings with monthly billing.",
+        answer: "Membership unlocks full access to courses, SquareBase, Groups, and rankings with monthly billing.",
       },
       {
         question: "Can I cancel anytime?",
@@ -107,27 +138,21 @@ export default function Landing() {
   return (
     <div
       className={`pp-landing min-h-screen relative overflow-hidden ${
-        isLight ? "bg-[#f7f7fb] text-slate-900" : "bg-[#0b0f1c] text-white"
+        isLight ? "bg-[#f7f7fb] text-slate-900" : "bg-[#050608] text-white"
       }`}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div
-          className={`absolute -left-24 top-24 h-72 w-72 ${
-            isLight ? "bg-pink-300/30" : "bg-pink-500/20"
-          } blur-[120px]`}
-        />
-        <div
-          className={`absolute right-0 top-10 h-96 w-96 ${
-            isLight ? "bg-purple-300/30" : "bg-purple-500/25"
-          } blur-[160px]`}
-        />
+      <div className="pp-landing-bg" aria-hidden="true">
+        <div className="pp-landing-radial" />
+        <div className="pp-landing-dots" />
+        <div className="pp-landing-vignette" />
       </div>
 
+      <div className="relative z-10">
       <div
         className={`relative ${
           isLight
             ? "bg-white/90 border-b border-slate-200"
-            : "bg-[#0b0f1c]/90 border-b border-white/5"
+            : "bg-black/30 border-b border-white/5 backdrop-blur-xl"
         }`}
       >
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 h-16 md:h-[72px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
@@ -147,42 +172,24 @@ export default function Landing() {
               onClick={scrollToFeatures}
               className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
             >
-              Courses
+              Features
             </button>
             <button
               type="button"
-              onClick={scrollToFeatures}
-              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
-            >
-              SquareBase
-            </button>
-            <button
-              type="button"
-              onClick={scrollToFeatures}
-              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
-            >
-              Groups
-            </button>
-            <button
-              type="button"
-              onClick={scrollToPricing}
+              onClick={goToPricing}
               className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
             >
               Pricing
             </button>
+            <button
+              type="button"
+              onClick={scrollToFaqs}
+              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
+            >
+              FAQs
+            </button>
           </nav>
           <div className="flex items-center justify-end gap-2 md:gap-3">
-            <button
-              onClick={toggleTheme}
-              className={`h-9 w-9 rounded-full border flex items-center justify-center transition ${
-                isLight
-                  ? "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200"
-                  : "bg-white/5 border-white/10 text-white hover:bg-white/10"
-              }`}
-              aria-label="Toggle theme"
-            >
-              {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            </button>
             <button
               onClick={goToLogin}
               className={`hidden sm:inline-flex rounded-full px-3 py-2 text-sm font-semibold border transition ${
@@ -195,7 +202,11 @@ export default function Landing() {
             </button>
             <button
               onClick={goToSignup}
-              className="rounded-full bg-[#e05a9c] hover:bg-[#d64f92] text-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition"
+              className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
+                isLight
+                  ? "bg-slate-900 text-white hover:bg-slate-800"
+                  : "bg-white text-black hover:bg-white/90"
+              }`}
             >
               Get Started Free
             </button>
@@ -205,24 +216,21 @@ export default function Landing() {
 
       <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-12 sm:pt-16 min-h-[calc(100vh-72px)] flex items-center">
         <section className="w-full flex flex-col items-center text-center">
-          <div className="w-full max-w-4xl space-y-6 sm:space-y-7">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight">
-              <span className="block">Become the</span>
-              <span className="block">
-                <span className="inline-block pp-gradient-player">Player</span> You Were Meant to Be
-              </span>
+          <div className="w-full max-w-5xl">
+            <h1 className="text-5xl max-[540px]:text-4xl max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-tight tracking-tight font-league-spartan whitespace-nowrap">
+              <span className="gradient-text">Where Serious Players Get Better</span>
             </h1>
             <p
-              className={`text-lg leading-relaxed ${
+              className={`mt-6 text-base sm:text-lg md:text-xl leading-relaxed md:whitespace-nowrap ${
                 isLight ? "text-slate-700" : "text-white/80"
               }`}
             >
-              Pawn Point gives you the roadmap to real improvement, Learn smarter and develop the skills that win games.
+              Designed for players who take improvement seriously.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
               <button
                 onClick={goToSignup}
-                className="w-full sm:w-auto rounded-full bg-[#e05a9c] hover:bg-[#d64f92] text-white px-5 py-3 text-sm font-semibold transition"
+                className="w-full sm:w-auto rounded-full bg-white hover:bg-white/90 text-black px-5 py-3 text-sm font-semibold transition"
               >
                 Get Started Free
               </button>
@@ -237,149 +245,109 @@ export default function Landing() {
                 I already have an account
               </button>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-4 text-xs sm:text-sm">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
               {heroHighlights.map((item) => (
-                <div key={item} className="flex items-center gap-2">
+                <div key={item} className="flex items-center gap-2 text-white/65">
                   <CheckCircle2
-                    className={`h-4 w-4 ${isLight ? "text-pink-600" : "text-pink-300"}`}
+                    className="h-3.5 w-3.5 text-emerald-300 drop-shadow-[0_0_8px_rgba(16,185,129,0.75)]"
                     aria-hidden="true"
                   />
-                  <span className={isLight ? "text-slate-600" : "text-white/70"}>{item}</span>
+                  <span>{item}</span>
                 </div>
               ))}
             </div>
-          </div>
-          <div className="mt-10 w-full max-w-5xl grid gap-4 md:grid-cols-3">
-            {heroCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.key}
-                  className={`pp-feature-card rounded-2xl border p-5 text-left shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${
-                    isLight ? "bg-white/90 border-slate-200 text-slate-900" : "bg-white/5 border-white/10 text-white"
-                  }`}
-                >
-                  <div className="pp-particles" aria-hidden="true">
-                    <span className="pp-particle p1" />
-                    <span className="pp-particle p2" />
-                    <span className="pp-particle p3" />
-                    <span className="pp-particle p4" />
-                    <span className="pp-particle p5" />
-                    <span className="pp-particle p6" />
-                    <span className="pp-particle p7" />
-                    <span className="pp-particle p8" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`h-10 w-10 rounded-xl border flex items-center justify-center ${
-                        isLight ? "bg-pink-50 border-slate-200 text-pink-600" : "bg-white/10 border-white/10 text-pink-200"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <div className="text-base font-semibold">{card.title}</div>
-                  </div>
-                  <p className={`mt-3 text-sm ${isLight ? "text-slate-600" : "text-white/70"}`}>
-                    {card.text}
-                  </p>
-                </div>
-              );
-            })}
+            <div className="mt-8 flex flex-col items-center">
+              <div className="h-px w-24 bg-white/15" />
+              <ChevronDown className="mt-4 h-5 w-5 text-white/50 animate-bounce" aria-hidden="true" />
+            </div>
           </div>
         </section>
       </main>
       <section ref={featuresRef} className="relative w-full px-4 sm:px-6 pb-20">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center pb-10 sm:pb-12">
-            <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">Features</div>
+          <div className="text-center pb-10 sm:pb-12 fade-in">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.2em] ${
+                isLight ? "border-slate-200 text-slate-600" : "border-white/15 text-white/70"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isLight ? "bg-pink-500" : "bg-pink-300"}`} />
+              Our Features
+            </div>
+            <div className="mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
+              Your complete chess training ecosystem.
+            </div>
+            <p className={`mt-3 text-base sm:text-lg ${isLight ? "text-slate-600" : "text-white/70"}`}>
+              Everything you need to train smarter — courses, SquareBase, puzzles, AI bots, and group training working as one.
+            </p>
           </div>
-          <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center">
-            <div className="fade-in flex justify-center md:justify-start">
-              <div className="w-[280px] sm:w-[340px] md:w-[400px] h-[220px] sm:h-[260px] md:h-[300px] flex items-center justify-center">
-                <img
-                  src={courseIcon}
-                  alt="Pawn Point courses"
-                  className="h-full w-full object-contain rounded-3xl"
-                />
-              </div>
-            </div>
-            <div className="space-y-4 text-center fade-in delay-1">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold">Courses</h2>
-              <p className={`text-base sm:text-lg md:text-xl ${isLight ? "text-slate-600" : "text-white/80"}`}>
-                Group-exclusive courses, built to remain private. Whether created or followed, access is limited strictly to your training group.
-              </p>
-            </div>
-          </div>
-          <div className="mt-16 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center">
-            <div className="fade-in flex justify-center md:justify-start">
-              <div className="w-[320px] sm:w-[390px] md:w-[460px] h-[250px] sm:h-[300px] md:h-[360px] flex items-center justify-center md:-translate-x-8">
-                <img
-                  src={squarebaseIcon}
-                  alt="SquareBase"
-                  className="h-full w-full object-contain rounded-3xl"
-                />
-              </div>
-            </div>
-            <div className="space-y-4 text-center fade-in delay-1">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold">SquareBase</h2>
-              <p className={`text-base sm:text-lg md:text-xl ${isLight ? "text-slate-600" : "text-white/80"}`}>
-                A Private Intelligence Hub for Chess Where Private Chess Study files live.
-              </p>
-            </div>
-          </div>
-          <div className="mt-16 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center">
-            <div className="fade-in flex justify-center md:justify-start">
-              <div className="w-[320px] sm:w-[390px] md:w-[460px] h-[250px] sm:h-[300px] md:h-[360px] flex items-center justify-center md:-translate-x-8">
-                <img
-                  src={groupsIcon}
-                  alt="Groups"
-                  className="h-full w-full object-contain rounded-3xl"
-                />
-              </div>
-            </div>
-            <div className="space-y-4 text-center fade-in delay-1">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold">Groups</h2>
-              <p className={`text-base sm:text-lg md:text-xl ${isLight ? "text-slate-600" : "text-white/80"}`}>
-                A private training space with your teammates where structure, focus, and progression come together.
-              </p>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featureCards.map((feature, idx) => {
+              const Icon = feature.icon;
+              const delayClass = idx % 3 === 1 ? "delay-1" : idx % 3 === 2 ? "delay-2" : "";
+              return (
+                <div
+                  key={feature.title}
+                  className={`fade-in ${delayClass} rounded-2xl border p-5 text-left bg-transparent transition ${
+                    isLight
+                      ? "border-slate-200 text-slate-900 hover:border-slate-300"
+                      : "border-white/10 text-white hover:border-white/30"
+                  }`}
+                >
+                  <div
+                    className={`h-10 w-10 rounded-xl border flex items-center justify-center bg-transparent ${
+                      isLight ? "border-slate-200" : "border-white/10"
+                    } ${feature.tone}`}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="mt-4 text-base font-semibold">{feature.title}</div>
+                  <p className={`mt-2 text-sm leading-relaxed ${isLight ? "text-slate-600" : "text-white/70"}`}>
+                    {feature.text}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
-      <section ref={pricingRef} className="w-full px-4 sm:px-6 pb-24">
-        <div className="max-w-4xl mx-auto flex justify-center">
-          <div
-            className={`w-full max-w-md rounded-3xl border p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.45)] ${
-              isLight ? "bg-white/90 border-slate-200 text-slate-900" : "bg-white/5 border-white/10 text-white"
-            }`}
-          >
-            <div
-              className={`text-sm uppercase tracking-[0.2em] ${
-                isLight ? "text-slate-500" : "text-white/60"
-              }`}
-            >
-              Monthly Plan
+      <section ref={faqSectionRef} className="relative w-full px-4 sm:px-6 pb-24">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-semibold text-white font-league-spartan">
+                Questions, answered clearly.
+              </h2>
             </div>
-            <div className="mt-4 text-4xl font-extrabold">$15</div>
-            <div className={`text-sm ${isLight ? "text-slate-500" : "text-white/70"}`}>/ month</div>
-            <div className={`mt-3 text-base ${isLight ? "text-slate-600" : "text-white/80"}`}>
-              Unlock full access and cancel anytime.
+            <div className="divide-y divide-white/15">
+              {faqItems.map((item, idx) => {
+                const isOpen = landingFaqOpenIdx === idx;
+                return (
+                  <div key={item.question} className="py-4">
+                    <button
+                      type="button"
+                      onClick={() => setLandingFaqOpenIdx((prev) => (prev === idx ? null : idx))}
+                      className="w-full flex items-center justify-between gap-4 text-left"
+                      aria-expanded={isOpen}
+                      aria-controls={`landing-faq-${idx}`}
+                    >
+                      <span className="text-sm sm:text-base font-semibold text-white">
+                        {item.question}
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 text-white/70 transition ${isOpen ? "rotate-180" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {isOpen && (
+                      <p id={`landing-faq-${idx}`} className="mt-3 text-sm text-white/70">
+                        {item.answer}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-6 space-y-3 text-left">
-              {pricingFeatures.map((feature) => (
-                <div key={feature} className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" aria-hidden="true" />
-                  <span className={`text-sm ${isLight ? "text-slate-700" : "text-white/80"}`}>{feature}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={goToLogin}
-              className="mt-8 w-full rounded-full bg-[#e05a9c] hover:bg-[#d64f92] text-white px-5 py-3 text-sm font-semibold transition"
-            >
-              Sign in to upgrade
-            </button>
           </div>
         </div>
       </section>
@@ -432,6 +400,17 @@ export default function Landing() {
               >
                 FAQ
               </button>
+              <a
+                href="https://www.youtube.com/@Pawn-Point"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Pawn Point YouTube"
+                className={`inline-flex items-center justify-center ${
+                  isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"
+                }`}
+              >
+                <Youtube className="h-4 w-4" />
+              </a>
             </div>
 
           </div>
@@ -465,6 +444,7 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+      </div>
       {contactOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div

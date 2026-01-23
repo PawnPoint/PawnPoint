@@ -47,7 +47,15 @@ const mobileLinks = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function AppShell({ children, backgroundStyle }: { children: React.ReactNode; backgroundStyle?: CSSProperties }) {
+export function AppShell({
+  children,
+  backgroundStyle,
+  backgroundOverlay,
+}: {
+  children: React.ReactNode;
+  backgroundStyle?: CSSProperties;
+  backgroundOverlay?: React.ReactNode;
+}) {
   const { user, logout, setUser } = useAuth();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
@@ -235,8 +243,10 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
   };
 
   return (
-    <div className={`min-h-screen ${themeBg}`} style={backgroundStyle}>
-      <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
+    <div className={`min-h-screen ${themeBg} relative`} style={backgroundStyle}>
+      {backgroundOverlay}
+      <div className="relative z-10">
+        <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden">
@@ -456,9 +466,10 @@ export function AppShell({ children, backgroundStyle }: { children: React.ReactN
         )}
       </header>
 
-      <main className="pp-shell-main w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {children}
-      </main>
+        <main className="pp-shell-main w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {children}
+        </main>
+      </div>
 
       {groupModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">

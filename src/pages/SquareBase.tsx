@@ -1,6 +1,18 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Brain, ChevronLeft, ChevronRight, Compass, BookOpen, LineChart, Lock, LogOut, Menu, Puzzle } from "lucide-react";
+import {
+  Brain,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+  BookOpen,
+  LineChart,
+  Lock,
+  LogOut,
+  Menu,
+  Puzzle,
+  Youtube,
+} from "lucide-react";
 import { get, ref, remove, set } from "firebase/database";
 import squareBaseLogo from "../assets/SquareBase Logo.png";
 import southKnight from "../assets/The South Knight.png";
@@ -37,6 +49,19 @@ const getNextLocalMidnightMs = (date = new Date()) => {
   next.setHours(0, 0, 0, 0);
   next.setDate(next.getDate() + 1);
   return next.getTime();
+};
+
+const buildPlanWeek = () => {
+  const today = new Date();
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(today.getDate() - today.getDay());
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return labels.map((label, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return { label, date: date.getDate() };
+  });
 };
 
 export default function SquareBase() {
@@ -931,6 +956,7 @@ export default function SquareBase() {
   const visibleDayComplete = Boolean(completedDays[visibleDayIndex]);
   const visibleDayLocked = activePlan ? visibleDayIndex > unlockedDayIndex : false;
   const canEditVisibleDay = !visibleDayLocked && visibleDayIndex === unlockedDayIndex && !visibleDayComplete;
+  const planWeekDays = buildPlanWeek();
 
   const showXpEarned = useCallback(() => {
     setShowXpToast(true);
@@ -1243,7 +1269,18 @@ export default function SquareBase() {
             Return to PawnPoint
           </button>
 
-          <div className="sb-footer">{"\u00a9"} {year} Pawn Point</div>
+          <div className="sb-footer">
+            <span>{"\u00a9"} {year} Pawn Point</span>
+            <a
+              href="https://www.youtube.com/@Pawn-Point"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Pawn Point YouTube"
+              className="sb-footerLink"
+            >
+              <Youtube className="sb-footerIcon" />
+            </a>
+          </div>
         </div>
       </aside>
 
@@ -1494,14 +1531,6 @@ export default function SquareBase() {
                         {visiblePlanDay && (
                           <div className="sb-planStage">
                             <div className="sb-planNav">
-                              <button
-                                className="sb-planNavBtn"
-                                onClick={() => movePlanDay(-1)}
-                                aria-label="Previous day"
-                                disabled={visibleDayIndex === 0}
-                              >
-                                <ChevronLeft size={18} />
-                              </button>
                               <div className="sb-planSingle">
                                 <div
                                   className={`sb-planCard ${visibleDayComplete ? "is-complete" : ""} ${visibleDayLocked ? "is-locked" : ""}`}
@@ -1513,6 +1542,26 @@ export default function SquareBase() {
                                     </div>
                                   )}
                                   <div className="sb-planDay">{visiblePlanDay.day}</div>
+                                  <div className="sb-planWeek" role="group" aria-label="Plan days">
+                                    {planWeekDays.map((weekDay, uiIndex) => {
+                                      const planIndex = (uiIndex + 6) % 7;
+                                      const isActive = planIndex === visibleDayIndex;
+                                      const isDisabled = planIndex >= totalPlanDays;
+                                      return (
+                                        <button
+                                          key={`${weekDay.label}-${weekDay.date}`}
+                                          className={`sb-planWeekDay ${isActive ? "is-active" : ""}`}
+                                          type="button"
+                                          onClick={() => setViewDayIndex(planIndex)}
+                                          disabled={isDisabled}
+                                          aria-pressed={isActive}
+                                        >
+                                          <span className="sb-planWeekLabel">{weekDay.label}</span>
+                                          <span className="sb-planWeekDate">{weekDay.date}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                   <div className="sb-planItems">
                                     {visiblePlanDay.items.map((item, idx) => (
                                       <label className="sb-planItem" key={`${visiblePlanDay.day}-${idx}`}>
@@ -1526,16 +1575,11 @@ export default function SquareBase() {
                                       </label>
                                     ))}
                                   </div>
+                                  <button className="sb-planRetake" type="button" onClick={resetSurvey}>
+                                    Retake survey
+                                  </button>
                                 </div>
                               </div>
-                              <button
-                                className="sb-planNavBtn"
-                                onClick={() => movePlanDay(1)}
-                                aria-label="Next day"
-                                disabled={visibleDayIndex >= totalPlanDays - 1}
-                              >
-                                <ChevronRight size={18} />
-                              </button>
                             </div>
                             {unlockedDayComplete && pendingDayIndex !== null && visibleDayIndex === unlockedDayIndex && (
                               <div className="sb-planNext">Next day unlocks tomorrow.</div>
@@ -1546,9 +1590,6 @@ export default function SquareBase() {
                               unlockedDayIndex === activePlan.days.length - 1 && (
                                 <div className="sb-planNext">Plan complete. Great work.</div>
                               )}
-                            <button className="sb-planRetake" type="button" onClick={resetSurvey}>
-                              Retake survey
-                            </button>
                           </div>
                         )}
                       </div>
