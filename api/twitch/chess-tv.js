@@ -14,7 +14,22 @@ const WATCHLIST = [
   "thebelenkaya",
   "wittyalien",
   "akanemsko",
+  "afrchess",
+  "keithonsky",
 ];
+
+const normalizeChannel = (value) => String(value || "").trim().replace(/^@/, "").toLowerCase();
+
+const getWatchlist = (req) => {
+  const raw = req?.query?.channels;
+  const joined = Array.isArray(raw) ? raw.join(",") : typeof raw === "string" ? raw : "";
+  const parsed = joined
+    .split(",")
+    .map((entry) => normalizeChannel(entry))
+    .filter((entry) => /^[a-z0-9_]{3,30}$/.test(entry));
+  const unique = Array.from(new Set(parsed));
+  return unique.length ? unique : WATCHLIST;
+};
 
 let cachedToken = null;
 let cachedTokenExp = 0;
@@ -56,8 +71,9 @@ async function helix(path, token) {
 
 export default async function handler(req, res) {
   try {
+    const watchlist = getWatchlist(req);
     const token = await getAppToken();
-    const query = WATCHLIST.map((u) => `user_login=${encodeURIComponent(u)}`).join("&");
+    const query = watchlist.map((u) => `user_login=${encodeURIComponent(u)}`).join("&");
     const streams = await helix(`/streams?${query}`, token);
     const liveEntries = (streams?.data || []).map((s) => ({
       user_login: s.user_login,

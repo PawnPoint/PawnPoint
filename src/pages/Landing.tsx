@@ -218,7 +218,12 @@ export default function Landing() {
         <section className="w-full flex flex-col items-center text-center">
           <div className="w-full max-w-5xl">
             <h1 className="text-5xl max-[540px]:text-4xl max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-tight tracking-tight font-league-spartan whitespace-nowrap">
-              <span className="gradient-text">Where Serious Players Get Better</span>
+              <span className="block sm:inline-block">
+                <span className="gradient-text">Where Serious Players</span>
+              </span>
+              <span className="block sm:inline-block sm:ml-2">
+                <span className="gradient-text">Get Better</span>
+              </span>
             </h1>
             <p
               className={`mt-6 text-base sm:text-lg md:text-xl leading-relaxed md:whitespace-nowrap ${

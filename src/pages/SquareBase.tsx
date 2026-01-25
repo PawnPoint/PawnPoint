@@ -51,6 +51,32 @@ const getNextLocalMidnightMs = (date = new Date()) => {
   return next.getTime();
 };
 
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getMidnightMsForDateKey = (dateKey: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  const local = new Date(year, month - 1, day);
+  local.setHours(0, 0, 0, 0);
+  if (
+    local.getFullYear() !== year ||
+    local.getMonth() !== month - 1 ||
+    local.getDate() !== day
+  ) {
+    return null;
+  }
+  return local.getTime();
+};
+
 const buildPlanWeek = () => {
   const today = new Date();
   const start = new Date(today);
@@ -1298,19 +1324,19 @@ export default function SquareBase() {
           {contentVisible && activeTab === "explore" && (
             <div className="sb-exploreLayout">
               <div className="w-full flex justify-center">
-                <div className="w-full max-w-[540px] px-4 md:px-0 -mt-6 sm:-mt-4 md:-mt-2">
+                <div className="w-full max-w-[980px] px-4 md:px-0 -mt-6 sm:-mt-4 md:-mt-2">
                   <div className="mb-4" />
                   <div
                     ref={profileRef}
-                    className="grid grid-cols-1 gap-10 md:gap-12 items-start mt-10"
+                    className="grid grid-cols-1 md:grid-cols-[minmax(0,540px)_minmax(0,260px)] gap-6 md:gap-12 items-start mt-10"
                     style={{
                       opacity: profileVisible ? 1 : 0,
                       transform: profileVisible ? "translateY(0)" : "translateY(30px)",
                       transition: "opacity 0.7s ease 140ms, transform 0.7s ease 140ms",
                     }}
                   >
-                    <div className="flex flex-col gap-5 w-full">
-                      <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-4 w-full">
+                    <div className="flex flex-col gap-5 w-full h-full">
+                      <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-4 w-full flex-1">
                         <div className="flex items-start">
                           <div className="text-sm uppercase tracking-[0.12em] text-white/60">Player Profile</div>
                         </div>
@@ -1355,7 +1381,34 @@ export default function SquareBase() {
                           </div>
                         </div>
                       </div>
-                      {/* action blocks removed per request */}
+                    </div>
+                    <div className="flex flex-col gap-4 items-center md:items-end">
+                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2">
+                        <div className="pp-playerhub-icon h-24 w-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
+                          <Puzzle className="h-10 w-10 text-white" />
+                        </div>
+                        <div className="pp-playerhub-title text-lg font-semibold text-white">Daily Puzzle</div>
+                        <button
+                          type="button"
+                          onClick={() => setLocation("/puzzles")}
+                          className="pp-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
+                        >
+                          Solve Now
+                        </button>
+                      </div>
+                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2">
+                        <div className="pp-playerhub-icon h-24 w-24 rounded-full overflow-hidden border border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
+                          <img src={southKnight} alt="South Knight" className="h-full w-full object-cover" />
+                        </div>
+                        <div className="pp-playerhub-title text-lg font-semibold text-white">South Knight</div>
+                        <button
+                          type="button"
+                          onClick={() => setLocation("/practice")}
+                          className="pp-playerhub-button px-4 py-2 rounded-full bg-white text-black font-semibold shadow-[0_12px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
+                        >
+                          Play Now
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

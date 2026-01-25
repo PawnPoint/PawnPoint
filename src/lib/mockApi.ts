@@ -1,5 +1,5 @@
 import { nanoid } from "./nanoid";
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
 import { DEFAULT_BOARD_THEME, resolveBoardTheme } from "./boardThemes";
 import { DEFAULT_PIECE_THEME, resolvePieceTheme } from "./pieceThemes";
@@ -43,6 +43,12 @@ export type UserProfile = {
   groupLocked?: boolean;
 };
 
+export type GroupRemovedMember = {
+  removedAt: number;
+  reason: "kicked" | "paused" | "other";
+  removedBy?: string;
+};
+
 export type Group = {
   id: string;
   name: string;
@@ -51,6 +57,7 @@ export type Group = {
   createdAt: number;
   locked?: boolean;
   pausedMembers?: Record<string, GroupMember>;
+  removedMembers?: Record<string, GroupRemovedMember>;
 };
 
 export type GroupMember = {
@@ -219,6 +226,7 @@ const SQUARE_BASE_PATH = "squareBaseBooks";
 const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", "/pieces/bK.png"];
 const DEFAULT_GROUP_NAME = "My Group";
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
+const GROUP_REJOIN_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUIRED_DAILY_XP = 10;
 
 type DataScope = {
@@ -866,7 +874,9 @@ function writeXpEventsLocal(userId: string, events: XpEvent[]) {
 
 async function recordXpEvent(userId: string, event: Omit<XpEvent, "id">) {
   const ts = event.ts || Date.now();
+  const id = nanoid();
   const payload: XpEvent = {
+    id,
     ts,
     amount: Math.max(0, event.amount),
   };
@@ -874,7 +884,6 @@ async function recordXpEvent(userId: string, event: Omit<XpEvent, "id">) {
   if (event.subsectionId) payload.subsectionId = event.subsectionId;
   if (event.type) payload.type = event.type;
   if (event.source) payload.source = event.source;
-  const id = nanoid();
   try {
     await set(ref(db, `${XP_HISTORY_PATH}/${userId}/${id}`), payload);
   } catch (err) {
@@ -910,6 +919,12 @@ export async function awardXp(
 ): Promise<{ streak: StreakRow; totalXp: number } | null> {
   const xpGain = Math.max(0, amount);
   if (!xpGain) return null;
+  const authUid = auth.currentUser?.uid;
+  if (!authUid) {
+    console.warn("awardXp called without auth user; Firebase writes may fail.", { userId });
+  } else if (authUid !== userId) {
+    console.warn("awardXp userId mismatch; Firebase writes may fail.", { userId, authUid });
+  }
   const today = toLocalDateKey();
   const userNodeRef = ref(db, `users/${userId}`);
   const streakNodeRef = ref(db, `${STREAKS_PATH}/${userId}`);
@@ -1693,23 +1708,13 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
 export async function cancelPaypalSubscriptionLocally(): Promise<{ success: boolean; profile: UserProfile | null }> {
   const user = readUser();
   if (!user || !user.paypalSubscriptionId) return { success: false, profile: null };
-  const pausedGroup = await pauseOwnedGroupIfNeeded(user);
+  await pauseOwnedGroupIfNeeded(user);
   const updated: UserProfile = {
     ...user,
     premiumAccess: false,
     subscriptionStatus: "cancelled",
     subscriptionUpdatedAt: Date.now(),
     groupLocked: true,
-    ...(pausedGroup
-      ? {
-          accountType: "personal",
-          groupId: null,
-          groupCode: null,
-          groupName: null,
-          groupRole: null,
-          isAdmin: true,
-        }
-      : {}),
   };
   writeUser(updated);
   try {
@@ -1755,18 +1760,7 @@ export async function updateSubscriptionStatusFromWebhook(
       updated = { ...baseUpdated, ...restoreFields };
     }
   } else {
-    const pausedGroup = await pauseOwnedGroupIfNeeded(user);
-    if (pausedGroup) {
-      updated = {
-        ...baseUpdated,
-        accountType: "personal",
-        groupId: null,
-        groupCode: null,
-        groupName: null,
-        groupRole: null,
-        isAdmin: true,
-      };
-    }
+    await pauseOwnedGroupIfNeeded(user);
   }
   writeUser(updated);
   try {
@@ -1842,6 +1836,15 @@ async function pauseOwnedGroupIfNeeded(
   const groupData = await fetchGroupById(user.groupId);
   if (!groupData || groupData.createdBy !== user.id) return null;
   const members = groupData.members || {};
+  const adminDisplayName = user.displayName || user.email || "Admin";
+  const existingAdmin = members[user.id];
+  const adminMember: GroupMember = {
+    id: user.id,
+    displayName: existingAdmin?.displayName || adminDisplayName,
+    email: existingAdmin?.email || user.email,
+    role: "admin",
+    joinedAt: existingAdmin?.joinedAt || Date.now(),
+  };
   const pausedMembers = Object.fromEntries(
     Object.entries(members).filter(([memberId]) => memberId !== user.id),
   );
@@ -1868,7 +1871,7 @@ async function pauseOwnedGroupIfNeeded(
   try {
     await update(ref(db, `groups/${user.groupId}`), {
       locked: true,
-      members: {},
+      members: { [user.id]: adminMember },
       pausedMembers,
     });
   } catch (err) {
@@ -2093,6 +2096,16 @@ export async function joinGroupWithCode(
   if (groupData?.locked) {
     throw new Error("This group is paused. Ask the owner to resubscribe.");
   }
+  const removal = groupData?.removedMembers?.[user.id];
+  if (removal?.reason === "kicked") {
+    const removedAtRaw = typeof removal.removedAt === "number" ? removal.removedAt : Number(removal.removedAt);
+    const removedAt = Number.isFinite(removedAtRaw) && removedAtRaw > 0 ? removedAtRaw : Date.now();
+    const cooldownEnds = removedAt + GROUP_REJOIN_COOLDOWN_MS;
+    if (Date.now() < cooldownEnds) {
+      const availableOn = toLocalDateKey(new Date(cooldownEnds));
+      throw new Error(`You were removed from this group. Try again after ${availableOn}.`);
+    }
+  }
   const group: Group = {
     id: groupId,
     name: groupData.name || DEFAULT_GROUP_NAME,
@@ -2247,6 +2260,15 @@ export async function removeGroupMember(
     });
   } catch (err) {
     console.warn("Failed to reset member profile after removal", err);
+  }
+  try {
+    await set(ref(db, `groups/${admin.groupId}/removedMembers/${memberId}`), {
+      removedAt: Date.now(),
+      removedBy: admin.id,
+      reason: "kicked",
+    });
+  } catch (err) {
+    console.warn("Failed to record group removal cooldown", err);
   }
   return getGroupMembers(admin.groupId);
 }

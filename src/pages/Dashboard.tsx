@@ -7,7 +7,6 @@ import { AppShell } from "../components/AppShell";
 import { Card } from "../components/ui/Card";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard } from "../lib/mockApi";
-import TwitchChannelPlaylist from "../components/TwitchChannelPlaylist";
 import southKnight from "../assets/The South Knight.png";
 import pawnPointIcon from "../assets/App tab icon.png";
 
@@ -453,7 +452,6 @@ export default function Dashboard() {
   const xpIntoLevel = Math.max(0, xp - levelBaseXp);
   const xpToNextLevel = Math.max(0, level * 100 - xp);
   const levelProgress = Math.min(100, Math.max(0, Math.round((xpIntoLevel / 100) * 100)));
-  const twitchChannels = ["gmhikaru", "gothamchess", "botezlive", "chess", "chess24", "imrosen", "penguingm1", "annacramling", "chessdojo", "thebelenkaya", "wittyalien", "akanemsko", "afrchess", "keithonsky"];
 
   const handlePrev = () => {
     if (!courses.length) return;
@@ -736,14 +734,14 @@ export default function Dashboard() {
                 </div>
                 <div
                   ref={profileRef}
-                  className="grid grid-cols-1 md:grid-cols-[minmax(0,540px)_minmax(0,1fr)] gap-10 md:gap-12 items-start mt-10 pp-playerhub-reveal"
+                  className="grid grid-cols-1 gap-10 md:gap-12 items-start mt-14 pp-playerhub-reveal"
                   style={{
                     opacity: profileVisible ? 1 : 0,
                     transform: profileVisible ? "translateY(0)" : "translateY(30px)",
                     transition: "opacity 0.7s ease 140ms, transform 0.7s ease 140ms",
                   }}
                 >
-                  <div className="flex flex-col gap-5 w-full max-w-[540px] justify-self-center md:justify-self-start">
+                  <div className="flex flex-col gap-5 w-full max-w-[540px] mx-auto">
                     <div className="rounded-2xl border border-white/15 bg-white/5 feature-card text-left flex flex-col gap-4 w-full">
                       <div className="flex items-start">
                         <div className="text-sm uppercase tracking-[0.12em] text-white/60">Player Profile</div>
@@ -789,9 +787,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="w-full max-w-xl flex flex-col gap-5 md:justify-self-end">
-                    <div className="pp-playerhub-actions grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-items-center md:justify-items-start">
+                    <div className="pp-playerhub-actions grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-items-center">
                       <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start">
                         <div className="pp-playerhub-icon h-24 w-24 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
                           <Puzzle className="h-10 w-10 text-white" />
@@ -805,7 +801,7 @@ export default function Dashboard() {
                           Solve Now
                         </button>
                       </div>
-                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start md:translate-x-3">
+                      <div className="pp-playerhub-card rounded-2xl border border-white/15 bg-white/5 aspect-square w-full max-w-[260px] flex flex-col items-center justify-center gap-3 text-center p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:-translate-y-2 md:justify-self-start">
                         <div className="pp-playerhub-icon h-24 w-24 rounded-full overflow-hidden border border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.3)]">
                           <img src={southKnight} alt="South Knight" className="h-full w-full object-cover" />
                         </div>
@@ -817,20 +813,6 @@ export default function Dashboard() {
                         >
                           Play Now
                         </button>
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/5 w-full aspect-video overflow-hidden shadow-[0_18px_45px_rgba(0,0,0,0.35)] flex flex-col">
-                      <div className="flex items-center justify-between px-4 pt-3 text-sm text-white/80">
-                        <span className="font-semibold">Chess TV</span>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs border border-white/15">
-                          Live Streams
-                        </span>
-                      </div>
-                      <div className="px-4 pb-3">
-                        <div className="h-px w-full bg-white/10" />
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <TwitchChannelPlaylist channels={twitchChannels} startIndex={0} autoplay muted aspectRatio="100%" />
                       </div>
                     </div>
                   </div>

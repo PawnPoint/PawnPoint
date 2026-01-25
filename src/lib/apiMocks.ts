@@ -280,7 +280,7 @@ export function installApiMocks() {
         headers: { "Content-Type": "application/json" },
       });
     }
-    if (url === "/api/twitch/chess-tv") {
+    if (url.startsWith("/api/twitch/chess-tv")) {
       return new Response(
         JSON.stringify({
           live: false,

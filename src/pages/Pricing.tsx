@@ -93,7 +93,7 @@ export default function Pricing() {
                 <div className="flex items-start justify-between w-full">
                   <div className="text-2xl font-bold">Monthly Plan</div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold text-brand.pink">$15.00</div>
+                    <div className="text-3xl font-bold text-brand.pink">$25.00</div>
                     <div className="text-sm text-white/70">/ Month</div>
                   </div>
                 </div>

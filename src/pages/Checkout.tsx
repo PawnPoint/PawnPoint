@@ -215,7 +215,7 @@ export default function Checkout() {
                   <div className="flex items-start justify-between w-full">
                     <div className="text-2xl font-bold">Monthly Plan</div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-brand.pink">$15.00</div>
+                      <div className="text-3xl font-bold text-brand.pink">$25.00</div>
                       <div className="text-sm text-white/70">/ Month</div>
                     </div>
                   </div>
@@ -245,14 +245,14 @@ export default function Checkout() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/70">Price:</span>
-                  <span className="font-semibold">USD 15.00</span>
+                  <span className="font-semibold">USD 25.00</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/70">Next billing date:</span>
                   <span className="font-semibold">{nextBilling}</span>
                 </div>
               </div>
-              <div className="text-center text-xl font-semibold">Total: USD 15.00</div>
+              <div className="text-center text-xl font-semibold">Total: USD 25.00</div>
               <div className="text-center text-sm text-white/70">Pay with:</div>
               <div className="space-y-3">
                 <div className="w-full">
