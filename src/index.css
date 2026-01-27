@@ -1,4 +1,6 @@
-﻿:root {
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&family=League+Spartan:wght@400;500;600&display=swap");
+
+:root {
   --font-manrope: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -45,8 +47,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&family=League+Spartan:wght@400;500;600&display=swap");
 
 :root {
   color-scheme: light;
