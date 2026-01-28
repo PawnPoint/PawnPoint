@@ -439,40 +439,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("visible");
-          } else {
-            entry.target.classList.remove("visible");
-          }
-        });
-      },
-      { threshold: 0.3, rootMargin: "0px 0px -5% 0px" },
-    );
-    const nodes = document.querySelectorAll<HTMLElement>(".fade-in");
-    nodes.forEach((node) => {
-      node.classList.remove("visible"); // ensure hidden until observed
-      observer.observe(node);
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === profileRef.current) {
-            setProfileVisible(entry.isIntersecting);
-          }
-        });
-      },
-      { threshold: 0.2, rootMargin: "0px 0px -10% 0px" },
-    );
-    if (profileRef.current) observer.observe(profileRef.current);
-    return () => observer.disconnect();
+    setProfileVisible(true);
   }, []);
 
   const greeting = useMemo(() => {
@@ -759,7 +726,7 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-              <div className={`mt-[140px] flex justify-center cta-fade ${squareBaseVisible && !profileVisible ? "show" : ""}`} style={{ opacity: profileVisible ? 0 : undefined, transition: "opacity 0.6s ease, transform 0.6s ease" }}>
+              <div className="mt-[140px] flex justify-center">
                 <button
                   className="px-6 py-2 rounded-full bg-white text-black font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)] transition"
                   onClick={handleSquareBaseExplore}
@@ -769,14 +736,10 @@ export default function Dashboard() {
               </div>
               <div className="max-w-6xl mx-auto px-4 md:px-0 mt-24 sm:mt-28 md:mt-48 pp-playerhub">
                 <div className="text-left md:text-center mb-10" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-                  <div
-                    className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white fade-in"
-                  >
+                  <div className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white">
                     Player Hub
                   </div>
-                  <div
-                    className="text-sm sm:text-base italic text-white/70 mt-3 fade-in delay-1"
-                  >
+                  <div className="text-sm sm:text-base italic text-white/70 mt-3">
                     Your profile, puzzles, and quick actions
                   </div>
                 </div>
