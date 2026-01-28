@@ -32,6 +32,7 @@ export type UserProfile = {
   totalXp: number;
   level: number;
   isAdmin: boolean;
+  adminKeyUnlocked?: boolean;
   createdAt?: number;
   xpReachedAt?: number;
   boardTheme?: string;
@@ -328,6 +329,10 @@ function scopedStorageKey(base: string, scope: DataScope) {
   return `${base}:${scope.cacheKey}`;
 }
 
+function resolveIsAdmin(profile: UserProfile): boolean {
+  return profile.adminKeyUnlocked === true || profile.groupRole === "admin";
+}
+
 function readUser(): UserProfile | null {
   const raw = localStorage.getItem(STORAGE_KEYS.user);
   if (!raw) return null;
@@ -335,6 +340,10 @@ function readUser(): UserProfile | null {
     const parsed = JSON.parse(raw) as UserProfile;
     if (parsed.isAdmin === undefined) {
       parsed.isAdmin = false;
+      writeUser(parsed);
+    }
+    if (parsed.adminKeyUnlocked === undefined) {
+      parsed.adminKeyUnlocked = false;
       writeUser(parsed);
     }
     if (parsed.createdAt === undefined) {
@@ -370,10 +379,6 @@ function readUser(): UserProfile | null {
       parsed.accountType = parsed.groupId ? "group" : "personal";
       writeUser(parsed);
     }
-    if (parsed.accountType === "personal" && parsed.isAdmin !== true) {
-      parsed.isAdmin = true;
-      writeUser(parsed);
-    }
     if (parsed.premiumAccess === undefined) {
       parsed.premiumAccess = false;
       writeUser(parsed);
@@ -407,6 +412,10 @@ function readUser(): UserProfile | null {
     parsed.onlineRating = typeof parsed.onlineRating === "number" ? parsed.onlineRating : 1000;
     parsed.boardTheme = resolveBoardTheme(parsed.boardTheme).key;
     parsed.pieceTheme = resolvePieceTheme(parsed.pieceTheme).key;
+    const nextIsAdmin = resolveIsAdmin(parsed);
+    if (parsed.isAdmin !== nextIsAdmin) {
+      parsed.isAdmin = nextIsAdmin;
+    }
     writeUser(parsed);
     if (parsed.xpReachedAt === undefined) {
       parsed.xpReachedAt = parsed.createdAt ?? Date.now();
@@ -1217,6 +1226,7 @@ export async function ensureProfile(
           groupName: localUser.groupName ?? null,
           groupRole: localUser.groupRole ?? (localUser.groupId ? "member" : null),
           isAdmin: localUser.isAdmin ?? false,
+          adminKeyUnlocked: localUser.adminKeyUnlocked ?? false,
           chessUsername: localUser.chessUsername || localUser.displayName || localUser.email.split("@")[0],
           createdAt: localUser.createdAt ?? Date.now(),
           xpReachedAt: localUser.xpReachedAt ?? localUser.createdAt ?? Date.now(),
@@ -1251,6 +1261,7 @@ export async function ensureProfile(
           pawns: 0,
           onlineRating: 1000,
           isAdmin: false,
+          adminKeyUnlocked: false,
           createdAt: Date.now(),
           xpReachedAt: Date.now(),
           accountType: "personal",
@@ -1282,7 +1293,6 @@ export async function ensureProfile(
       remote?.accountType ??
       baseProfile.accountType ??
       (remote?.groupId || baseProfile.groupId ? "group" : undefined);
-    const isPersonalAccount = inferredAccountType === "personal";
     const merged: UserProfile = {
       ...baseProfile,
       ...(remote || {}),
@@ -1307,6 +1317,7 @@ export async function ensureProfile(
       groupCode: remote?.groupCode ?? baseProfile.groupCode ?? null,
       groupName: remote?.groupName ?? baseProfile.groupName ?? null,
       groupRole: remote?.groupRole ?? baseProfile.groupRole ?? (remote?.groupId || baseProfile.groupId ? "member" : null),
+      adminKeyUnlocked: remote?.adminKeyUnlocked ?? baseProfile.adminKeyUnlocked ?? false,
       unlockedPfps: remote?.unlockedPfps || baseProfile.unlockedPfps || [],
       unlockedTaglines: remote?.unlockedTaglines || baseProfile.unlockedTaglines || [],
       unlockedVideos: remote?.unlockedVideos || baseProfile.unlockedVideos || [],
@@ -1322,8 +1333,9 @@ export async function ensureProfile(
       subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
       groupLocked: remote?.groupLocked ?? baseProfile.groupLocked ?? false,
       avatarUrl: remote?.avatarUrl ?? baseProfile.avatarUrl,
-      isAdmin: isPersonalAccount ? true : remote?.isAdmin ?? baseProfile.isAdmin ?? false,
+      isAdmin: false,
     };
+    merged.isAdmin = resolveIsAdmin(merged);
     writeUser(merged);
     const safePayload = stripUndefinedShallow(merged);
     await update(userNodeRef, safePayload);
@@ -1338,9 +1350,16 @@ export async function ensureProfile(
 export async function setAdminStatus(isAdmin: boolean): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
-  const nextIsAdmin = user.accountType === "personal" ? true : isAdmin;
-  const updated: UserProfile = normalizeUser({ ...user, isAdmin: nextIsAdmin });
+  const updated: UserProfile = normalizeUser({ ...user, adminKeyUnlocked: isAdmin });
   writeUser(updated);
+  try {
+    await update(ref(db, `users/${user.id}`), {
+      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
+      isAdmin: updated.isAdmin,
+    });
+  } catch (err) {
+    console.warn("Failed to sync admin status", err);
+  }
   return updated;
 }
 
@@ -1861,7 +1880,6 @@ async function pauseOwnedGroupIfNeeded(
             groupName: null,
             groupRole: null,
             groupLocked: false,
-            isAdmin: true,
           });
         } catch (err) {
           console.warn("Failed to remove member during pause", err);
@@ -1947,7 +1965,7 @@ async function restoreOwnedGroupIfNeeded(user: UserProfile): Promise<Partial<Use
 export async function choosePersonalAccount(): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...user,
     accountType: "personal",
     groupId: null,
@@ -1955,8 +1973,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
     groupName: null,
     groupRole: null,
     groupLocked: false,
-    isAdmin: true,
-  };
+  });
   writeUser(updated);
   try {
     await update(ref(db, `users/${user.id}`), {
@@ -1966,7 +1983,8 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
       groupName: null,
       groupRole: null,
       groupLocked: false,
-      isAdmin: true,
+      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
+      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to persist personal account choice", err);
@@ -2160,7 +2178,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
   } catch (err) {
     console.warn("Failed to remove membership from Firebase", err);
   }
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...user,
     accountType: "personal",
     groupId: null,
@@ -2168,8 +2186,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
     groupName: null,
     groupRole: null,
     groupLocked: false,
-    isAdmin: true,
-  };
+  });
   writeUser(updated);
   try {
     await update(ref(db, `users/${user.id}`), {
@@ -2178,7 +2195,8 @@ export async function leaveGroup(): Promise<UserProfile | null> {
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: true,
+      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
+      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to sync group exit", err);
@@ -2256,7 +2274,6 @@ export async function removeGroupMember(
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to reset member profile after removal", err);
@@ -2306,22 +2323,20 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
           groupCode: null,
           groupName: null,
           groupRole: null,
-          isAdmin: true,
         });
       } catch (err) {
         console.warn("Failed to reset member after deletion", err);
       }
     }),
   );
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...admin,
     accountType: "personal",
     groupId: null,
     groupCode: null,
     groupName: null,
     groupRole: null,
-    isAdmin: true,
-  };
+  });
   writeUser(updated);
   try {
     await update(ref(db, `users/${admin.id}`), {
@@ -2330,7 +2345,8 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
       groupCode: null,
       groupName: null,
       groupRole: null,
-      isAdmin: true,
+      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
+      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to sync profile after deleting group", err);
@@ -2572,9 +2588,12 @@ type GiftConfig =
   | { type: "video"; value: string };
 
 function normalizeUser(u: UserProfile): UserProfile {
+  const adminKeyUnlocked = u.adminKeyUnlocked ?? false;
+  const isAdmin = resolveIsAdmin({ ...u, adminKeyUnlocked });
   return {
     ...u,
-    isAdmin: u.accountType === "personal" ? true : u.isAdmin ?? false,
+    adminKeyUnlocked,
+    isAdmin,
     unlockedPfps: u.unlockedPfps || [],
     unlockedTaglines: u.unlockedTaglines || [],
     unlockedVideos: u.unlockedVideos || [],
