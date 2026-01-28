@@ -306,7 +306,9 @@ export default function Dashboard() {
   const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
   const [isLaptop, setIsLaptop] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.matchMedia("(min-width: 1024px) and (max-width: 1535px)").matches;
+    return window.matchMedia(
+      "(min-width: 1024px) and (max-width: 1600px)",
+    ).matches;
   });
   const squareTiles = [
     {
@@ -350,7 +352,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
+    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1600px)");
     const handleChange = () => setIsLaptop(mq.matches);
     handleChange();
     if (mq.addEventListener) {

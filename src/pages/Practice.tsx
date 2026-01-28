@@ -592,7 +592,7 @@ export function PracticeBoard({
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
+    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1600px)");
     const handleChange = () => setIsLaptop(mq.matches);
     handleChange();
     if (mq.addEventListener) {
@@ -3024,7 +3024,6 @@ export function PracticeBoard({
 export default function Practice() {
   return <PracticeBoard />;
 }
-
 
 
 
