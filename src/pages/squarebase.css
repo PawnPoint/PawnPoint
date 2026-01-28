@@ -1888,6 +1888,33 @@
   }
 }
 
+@media (min-width: 1024px) and (max-width: 1600px) {
+  .sb-analysisBoardInner {
+    width: min(1040px, 100%);
+  }
+
+  .sb-analysis .pp-analysis-embedded {
+    grid-template-columns: minmax(640px, 1fr) 360px;
+    gap: 20px;
+    justify-content: center;
+  }
+
+  .sb-analysis .pp-analysis-row {
+    display: flex;
+    justify-content: center;
+  }
+
+  .sb-analysis .pp-board-wrap {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sb-analysis .pp-eval-desktop {
+    align-self: flex-start;
+  }
+}
+
 @media (max-width: 768px) {
   .sb-analysis .pp-analysis-row {
     display: flex;

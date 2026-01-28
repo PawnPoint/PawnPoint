@@ -543,18 +543,18 @@ img {
   }
 
   .pp-board-wrap {
-    max-width: 600px;
+    max-width: 640px;
   }
 
   .pp-board {
-    max-width: 600px;
+    max-width: 640px;
   }
 
   .pp-lesson-board {
-    width: clamp(420px, 55vw, 600px) !important;
-    height: clamp(420px, 55vw, 600px) !important;
-    max-width: clamp(420px, 55vw, 600px) !important;
-    max-height: clamp(420px, 55vw, 600px) !important;
+    width: clamp(420px, 55vw, 640px) !important;
+    height: clamp(420px, 55vw, 640px) !important;
+    max-width: clamp(420px, 55vw, 640px) !important;
+    max-height: clamp(420px, 55vw, 640px) !important;
   }
 }
 
