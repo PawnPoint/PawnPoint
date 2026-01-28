@@ -243,6 +243,29 @@ const pageStyles = `
   z-index: 10;
   overflow: visible;
 }
+
+@media (min-width: 1024px) and (max-width: 1535px) {
+  .pp-dashboard,
+  .pp-dashboard * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .pp-dashboard *::before,
+  .pp-dashboard *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .pp-dashboard .pp-squarebase-reveal,
+  .pp-dashboard .pp-playerhub-reveal,
+  .pp-dashboard .cta-fade,
+  .pp-dashboard .fade-in {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
 `;
 
 const rankBands = [
@@ -281,6 +304,10 @@ export default function Dashboard() {
   const [contactOpen, setContactOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
+  const [isLaptop, setIsLaptop] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1024px) and (max-width: 1535px)").matches;
+  });
   const squareTiles = [
     {
       icon: Clipboard,
@@ -322,6 +349,25 @@ export default function Dashboard() {
   const autoScrollDone = useRef(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
+    const handleChange = () => setIsLaptop(mq.matches);
+    handleChange();
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handleChange);
+    } else {
+      mq.addListener(handleChange);
+    }
+    return () => {
+      if (mq.addEventListener) {
+        mq.removeEventListener("change", handleChange);
+      } else {
+        mq.removeListener(handleChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!courses.length) return;
     if (courseIndex >= courses.length) {
       setCourseIndex(0);
@@ -348,7 +394,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || autoScrollDone.current) return;
+    if (typeof window === "undefined" || autoScrollDone.current || isLaptop) return;
     const timer = setTimeout(() => {
       if (!squareBaseRef.current || autoScrollDone.current) return;
       autoScrollDone.current = true;
@@ -358,7 +404,7 @@ export default function Dashboard() {
       window.scrollTo({ top: target, behavior: "smooth" });
     }, 200);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLaptop]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -507,7 +553,7 @@ export default function Dashboard() {
           pointerEvents: "none",
         }}
       />
-      <div className="relative z-10 text-white">
+      <div className="pp-dashboard relative z-10 text-white">
         <div
           className="max-w-6xl mx-auto px-4 pt-16 pb-10 text-center greeting scroll-fade hero-blend"
           style={{

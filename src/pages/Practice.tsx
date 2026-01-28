@@ -565,6 +565,7 @@ export function PracticeBoard({
   const [currentMoveIdx, setCurrentMoveIdx] = useState(0);
   const boardWrapRef = useRef<HTMLDivElement | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLaptop, setIsLaptop] = useState(false);
   const [boardPixelSize, setBoardPixelSize] = useState(520);
   useEffect(() => {
     if (isAnalysisMode) return;
@@ -590,7 +591,25 @@ export function PracticeBoard({
     };
   }, []);
   useEffect(() => {
-    if (!isMobile || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
+    const handleChange = () => setIsLaptop(mq.matches);
+    handleChange();
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handleChange);
+    } else {
+      mq.addListener(handleChange);
+    }
+    return () => {
+      if (mq.addEventListener) {
+        mq.removeEventListener("change", handleChange);
+      } else {
+        mq.removeListener(handleChange);
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if ((!isMobile && !isLaptop) || typeof window === "undefined") return;
     const node = boardWrapRef.current;
     if (!node) return;
     const updateSize = () => {
@@ -609,7 +628,7 @@ export function PracticeBoard({
       if (observer) observer.disconnect();
       window.removeEventListener("resize", updateSize);
     };
-  }, [isMobile]);
+  }, [isMobile, isLaptop]);
   const transparentPixel =
     "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
   const setDragCursor = (active: boolean) => {
@@ -2073,7 +2092,8 @@ export function PracticeBoard({
     }
   }, [fen, playerColor]);
 
-  const mobileEvalHeight = Math.max(240, boardPixelSize);
+  const responsiveEvalHeight = Math.max(240, boardPixelSize);
+  const evalHeight = isMobile || isLaptop ? responsiveEvalHeight : 520;
 
   const boardElement = (
     <div ref={boardWrapRef} className="pp-board-wrap relative block w-full max-w-[780px] mx-auto min-w-0">
@@ -2344,7 +2364,7 @@ export function PracticeBoard({
                 </div>
                 {evalBarOn && embedded && (
                   <div className="pp-eval-mobile flex flex-col items-center flex-shrink-0">
-                    <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={isMobile ? mobileEvalHeight : 520} />
+                  <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={evalHeight} />
                   </div>
                 )}
               </div>
@@ -2352,7 +2372,7 @@ export function PracticeBoard({
             <div className="flex flex-col lg:flex-row gap-4 items-center lg:items-start lg:self-center">
               {evalBarOn && (
                 <div className="pp-eval-desktop flex flex-col items-center flex-shrink-0">
-                  <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={520} />
+                  <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={evalHeight} />
                 </div>
               )}
               <div className="w-full max-w-2xl lg:w-full flex flex-col gap-4 lg:h-[780px] lg:max-h-[780px]">
@@ -3004,7 +3024,6 @@ export function PracticeBoard({
 export default function Practice() {
   return <PracticeBoard />;
 }
-
 
 
 

@@ -528,6 +528,36 @@ img {
   display: none;
 }
 
+/* Laptop overrides */
+@media (min-width: 1024px) and (max-width: 1535px) {
+  .pp-shell-main {
+    max-width: 1200px;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .pp-shell-header > div {
+    max-width: 1200px;
+  }
+
+  .pp-board-wrap {
+    max-width: 640px;
+  }
+
+  .pp-board {
+    max-width: 640px;
+  }
+
+  .pp-lesson-board {
+    width: clamp(420px, 55vw, 640px) !important;
+    height: clamp(420px, 55vw, 640px) !important;
+    max-width: clamp(420px, 55vw, 640px) !important;
+    max-height: clamp(420px, 55vw, 640px) !important;
+  }
+}
+
 @media (max-width: 520px) {
   .pp-card {
     width: 260px;
