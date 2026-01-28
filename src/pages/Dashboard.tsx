@@ -295,7 +295,7 @@ export default function Dashboard() {
   const [courseIndex, setCourseIndex] = useState(0);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
   const squareBaseRef = useRef<HTMLDivElement | null>(null);
-  const [squareBaseVisible, setSquareBaseVisible] = useState(false);
+  const [squareBaseVisible, setSquareBaseVisible] = useState(true);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [gridVisible, setGridVisible] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
@@ -409,18 +409,7 @@ export default function Dashboard() {
   }, [isLaptop]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === squareBaseRef.current) {
-            setSquareBaseVisible(entry.isIntersecting);
-          }
-        });
-      },
-      { threshold: 0.35, rootMargin: "0px 0px -10% 0px" },
-    );
-    if (squareBaseRef.current) observer.observe(squareBaseRef.current);
-    return () => observer.disconnect();
+    setSquareBaseVisible(true);
   }, []);
 
   useEffect(() => {
@@ -652,35 +641,21 @@ export default function Dashboard() {
           }}
         >
           <div className="max-w-6xl w-full mx-auto flex flex-col items-center justify-center text-center space-y-12 relative z-10 py-12">
-            <div
-              className="space-y-4 pp-squarebase-reveal"
-              style={{
-                opacity: squareBaseVisible ? 1 : 0,
-                transform: squareBaseVisible ? "translateY(0)" : "translateY(28px)",
-                transition: "opacity 0.7s ease, transform 0.7s ease",
-              }}
-            >
-              <div className="text-4xl sm:text-5xl font-extrabold text-white">SquareBase{"\u2122"}</div>
-              <p className="text-white/80 text-base sm:text-lg italic">
-                Your personal chess intelligence system.
-              </p>
-            </div>
-
-            <div
-              className="max-w-5xl w-full text-center pp-squarebase-reveal"
-              style={{
-                opacity: squareBaseVisible ? 1 : 0,
-                transform: squareBaseVisible ? "translateY(0)" : "translateY(36px)",
-                transition: "opacity 0.8s ease 120ms, transform 0.8s ease 120ms",
-              }}
-            >
-              <div
-                className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white"
-                style={{ letterSpacing: "0.015em" }}
-              >
-                Built from how you think refined by how you play.
+              <div className="space-y-4 pp-squarebase-reveal">
+                <div className="text-4xl sm:text-5xl font-extrabold text-white">SquareBase{"\u2122"}</div>
+                <p className="text-white/80 text-base sm:text-lg italic">
+                  Your personal chess intelligence system.
+                </p>
               </div>
-            </div>
+
+              <div className="max-w-5xl w-full text-center pp-squarebase-reveal">
+                <div
+                  className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white"
+                  style={{ letterSpacing: "0.015em" }}
+                >
+                  Built from how you think refined by how you play.
+                </div>
+              </div>
 
             <div
               ref={gridRef}
@@ -689,14 +664,7 @@ export default function Dashboard() {
                 padding: "60px 0 120px",
               }}
             >
-              <div
-                className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 justify-items-center justify-center gap-4 sm:gap-5 pp-squarebase-reveal"
-                style={{
-                  opacity: gridVisible ? 1 : 0,
-                  transform: gridVisible ? "translateY(0)" : "translateY(40px)",
-                  transition: "opacity 0.8s ease 180ms, transform 0.8s ease 180ms",
-                }}
-              >
+              <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-3 justify-items-center justify-center gap-4 sm:gap-5 pp-squarebase-reveal">
                 {squareTiles.map(({ icon: Icon, title, description }, idx) => (
                   <button
                     key={`ghost-block-${idx}`}
