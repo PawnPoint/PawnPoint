@@ -35,7 +35,6 @@ import { PodiumBarsIcon } from "./icons/PodiumBars";
 const links = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "Courses", href: "/courses", icon: Archive },
-  { label: "Standings", href: "/leaderboard", icon: PodiumBarsIcon },
   { label: "Global Ranks", href: "/ranks", icon: Crown },
   { label: "Practice", href: "/practice", icon: Dumbbell },
 ];
