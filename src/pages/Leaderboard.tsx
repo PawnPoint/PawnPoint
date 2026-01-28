@@ -30,6 +30,8 @@ const getDisplayName = (entry: UserProfile) =>
 
 export default function Leaderboard() {
   const { user } = useAuth();
+  const inGroup = user?.accountType === "group" && !!user?.groupId;
+  const isGroupAdmin = inGroup && user?.groupRole === "admin";
   const [entries, setEntries] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"xp" | "club">("xp");
@@ -45,11 +47,7 @@ export default function Leaderboard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [xpSearch, setXpSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
-  const clubPath = user?.groupId
-    ? `groups/${user.groupId}/clubLeaderboard`
-    : user
-      ? `users/${user.id}/clubLeaderboard`
-      : "clubLeaderboard";
+  const clubPath = inGroup && user?.groupId ? `groups/${user.groupId}/clubLeaderboard` : null;
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [rankChangeXp, setRankChangeXp] = useState<number | null>(null);
   const [xpDeltaToday, setXpDeltaToday] = useState(0);
@@ -87,6 +85,12 @@ export default function Leaderboard() {
 
   useEffect(() => {
     if (!user || mode !== "club") return;
+    if (!inGroup || !clubPath) {
+      setClubEntries([]);
+      setClubLoading(false);
+      setClubError("Switch to a group account or join a group to view standings.");
+      return;
+    }
     setClubLoading(true);
     setClubError("");
     getClubLeaderboard(user)
@@ -108,10 +112,13 @@ export default function Leaderboard() {
         setClubEntries(list);
         setClubLoading(false);
       },
-      () => setClubLoading(false),
+      () => {
+        setClubError("Could not load group leaderboard.");
+        setClubLoading(false);
+      },
     );
     return () => unsubscribe();
-  }, [user, mode, clubPath]);
+  }, [user, mode, clubPath, inGroup]);
 
   const sortedClubEntries = useMemo(
     () =>
@@ -242,8 +249,8 @@ export default function Leaderboard() {
 
   const handleAddParticipant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.isAdmin) {
-      setClubError("Only admins can add participants.");
+    if (!isGroupAdmin) {
+      setClubError(inGroup ? "Only group admins can add participants." : "Switch to a group account to add participants.");
       return;
     }
     const rating = Number(addRating);
@@ -271,8 +278,8 @@ export default function Leaderboard() {
   };
 
   const handleUpdatePerformance = async (id: string) => {
-    if (!user?.isAdmin) {
-      setClubError("Only admins can update performance.");
+    if (!isGroupAdmin) {
+      setClubError(inGroup ? "Only group admins can update performance." : "Switch to a group account to update performance.");
       return;
     }
     const raw = editingPerformance[id];
@@ -293,8 +300,8 @@ export default function Leaderboard() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!user?.isAdmin) {
-      setClubError("Only admins can remove participants.");
+    if (!isGroupAdmin) {
+      setClubError(inGroup ? "Only group admins can remove participants." : "Switch to a group account to remove participants.");
       return;
     }
     setRemovingId(id);
@@ -469,7 +476,7 @@ export default function Leaderboard() {
               </div>
             ) : (
               <>
-                {user?.isAdmin && (
+                {isGroupAdmin && (
                   <form onSubmit={handleAddParticipant} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
                 <div className="text-sm font-semibold text-white">Group Standings Controls (Admin)</div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -504,10 +511,12 @@ export default function Leaderboard() {
                   </form>
                 )}
 
+                {!isGroupAdmin && clubError && <div className="text-xs text-amber-300">{clubError}</div>}
+
                 {clubLoading ? (
                 <div className="text-white/70 text-sm">Loading group leaderboard...</div>
                 ) : sortedClubEntries.length === 0 ? (
-                  <div className="text-white/60 text-sm">No club entries yet.</div>
+                  inGroup && !clubError ? <div className="text-white/60 text-sm">No club entries yet.</div> : null
                 ) : (
                   <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1 standings-scroll">
                     {filteredClubRows.map(({ entry, rank }) => {
@@ -563,7 +572,7 @@ export default function Leaderboard() {
                             </div>
                           </div>
                         </div>
-                        {user?.isAdmin ? (
+                        {isGroupAdmin ? (
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                             <input
                               type="number"

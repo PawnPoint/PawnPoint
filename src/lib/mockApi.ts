@@ -236,6 +236,7 @@ type DataScope = {
   groupId?: string | null;
   userId?: string | null;
 };
+type ScopedResource = DataScope & { path: string };
 const sampleCourses: Course[] = [
   {
     id: "course-london",
@@ -327,6 +328,28 @@ function scopedPath(resource: string, user?: UserProfile | null) {
 
 function scopedStorageKey(base: string, scope: DataScope) {
   return `${base}:${scope.cacheKey}`;
+}
+
+function resolveClubScope(user?: UserProfile | null): ScopedResource {
+  const active = user || readUser();
+  if (active?.accountType === "group" && active.groupId) {
+    return {
+      scope: "group",
+      cacheKey: `group-${active.groupId}`,
+      groupId: active.groupId,
+      userId: active.id,
+      path: `groups/${active.groupId}/clubLeaderboard`,
+    };
+  }
+  if (active?.id) {
+    return {
+      scope: "personal",
+      cacheKey: `user-${active.id}`,
+      userId: active.id,
+      path: `users/${active.id}/clubLeaderboard`,
+    };
+  }
+  return { scope: "public", cacheKey: "public", path: "clubLeaderboard" };
 }
 
 function resolveIsAdmin(profile: UserProfile): boolean {
@@ -2805,20 +2828,22 @@ export async function getGlobalXpLeaderboard(limit = 500): Promise<UserProfile[]
 }
 
 export async function getClubLeaderboard(user?: UserProfile | null): Promise<ClubLeaderboardEntry[]> {
-  const scope = resolveScope(user);
-  const { path } = scopedPath("clubLeaderboard", user);
-  const fallback = () => readClubLeaderboardLocal(scope);
+  const scoped = resolveClubScope(user);
+  const fallback = () => readClubLeaderboardLocal(scoped);
   try {
-    const snap = await get(ref(db, path));
+    const snap = await get(ref(db, scoped.path));
     if (snap.exists()) {
       const val = snap.val() as Record<string, ClubLeaderboardEntry>;
       const list = Object.values(val || {}).map((entry) => normalizeClubEntry(entry || {}));
-      writeClubLeaderboardLocal(list, scope);
+      writeClubLeaderboardLocal(list, scoped);
       return list;
     }
     return fallback();
   } catch (err) {
     console.warn("Failed to load group leaderboard from Firebase", err);
+    if (scoped.scope === "group") {
+      throw err;
+    }
     return fallback();
   }
 }
@@ -2827,17 +2852,23 @@ export async function addClubParticipant(
   admin: UserProfile | null,
   payload: { name: string; rating: number; performance?: number },
 ): Promise<ClubLeaderboardEntry[]> {
-  if (!admin?.isAdmin) throw new Error("Only admins can add participants.");
-  const entry = normalizeClubEntry({ ...payload, addedBy: admin.id });
-  const scope = resolveScope(admin);
-  const { path } = scopedPath("clubLeaderboard", admin);
-  const list = [...readClubLeaderboardLocal(scope), entry];
-  writeClubLeaderboardLocal(list, scope);
+  const scoped = resolveClubScope(admin);
+  if (scoped.scope === "group") {
+    if (admin?.groupRole !== "admin") throw new Error("Only group admins can add participants.");
+  } else if (!admin?.isAdmin) {
+    throw new Error("Only admins can add participants.");
+  }
+  const entry = normalizeClubEntry({ ...payload, addedBy: admin?.id });
+  const list = [...readClubLeaderboardLocal(scoped), entry];
   try {
-    await set(ref(db, `${path}/${entry.id}`), stripUndefinedShallow(entry));
+    await set(ref(db, `${scoped.path}/${entry.id}`), stripUndefinedShallow(entry));
   } catch (err) {
     console.warn("Failed to sync club participant to Firebase", err);
+    if (scoped.scope === "group") {
+      throw new Error("Could not save the group leaderboard. Check your access or connection.");
+    }
   }
+  writeClubLeaderboardLocal(list, scoped);
   return list;
 }
 
@@ -2846,10 +2877,13 @@ export async function updateClubPerformance(
   id: string,
   updates: { rating?: number; performance?: number },
 ): Promise<ClubLeaderboardEntry[]> {
-  if (!admin?.isAdmin) throw new Error("Only admins can update performance.");
-  const scope = resolveScope(admin);
-  const { path } = scopedPath("clubLeaderboard", admin);
-  const existing = readClubLeaderboardLocal(scope);
+  const scoped = resolveClubScope(admin);
+  if (scoped.scope === "group") {
+    if (admin?.groupRole !== "admin") throw new Error("Only group admins can update performance.");
+  } else if (!admin?.isAdmin) {
+    throw new Error("Only admins can update performance.");
+  }
+  const existing = readClubLeaderboardLocal(scoped);
   const nextEntries = existing.map((entry) =>
     entry.id === id
       ? normalizeClubEntry({
@@ -2859,30 +2893,39 @@ export async function updateClubPerformance(
         })
       : entry,
   );
-  writeClubLeaderboardLocal(nextEntries);
   const payload = stripUndefinedShallow({
     rating: updates.rating !== undefined ? Math.max(0, Math.round(updates.rating)) : undefined,
     performance: updates.performance !== undefined ? Math.round(updates.performance) : undefined,
   });
   try {
-    await update(ref(db, `${path}/${id}`), payload);
+    await update(ref(db, `${scoped.path}/${id}`), payload);
   } catch (err) {
     console.warn("Failed to update club performance", err);
+    if (scoped.scope === "group") {
+      throw new Error("Could not update the group leaderboard. Check your access or connection.");
+    }
   }
+  writeClubLeaderboardLocal(nextEntries, scoped);
   return nextEntries;
 }
 
 export async function removeClubParticipant(admin: UserProfile | null, id: string): Promise<ClubLeaderboardEntry[]> {
-  if (!admin?.isAdmin) throw new Error("Only admins can remove participants.");
-  const scope = resolveScope(admin);
-  const { path } = scopedPath("clubLeaderboard", admin);
-  const existing = readClubLeaderboardLocal(scope).filter((entry) => entry.id !== id);
-  writeClubLeaderboardLocal(existing, scope);
+  const scoped = resolveClubScope(admin);
+  if (scoped.scope === "group") {
+    if (admin?.groupRole !== "admin") throw new Error("Only group admins can remove participants.");
+  } else if (!admin?.isAdmin) {
+    throw new Error("Only admins can remove participants.");
+  }
+  const existing = readClubLeaderboardLocal(scoped).filter((entry) => entry.id !== id);
   try {
-    await remove(ref(db, `${path}/${id}`));
+    await remove(ref(db, `${scoped.path}/${id}`));
   } catch (err) {
     console.warn("Failed to remove club participant from Firebase", err);
+    if (scoped.scope === "group") {
+      throw new Error("Could not update the group leaderboard. Check your access or connection.");
+    }
   }
+  writeClubLeaderboardLocal(existing, scoped);
   return existing;
 }
 
