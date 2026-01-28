@@ -116,10 +116,18 @@ export default function Leaderboard() {
   const sortedClubEntries = useMemo(
     () =>
       [...clubEntries].sort((a, b) => {
+        const aPerf = a.performance;
+        const bPerf = b.performance;
+        const aHasPerf = typeof aPerf === "number";
+        const bHasPerf = typeof bPerf === "number";
+        if (aHasPerf && bHasPerf && aPerf !== bPerf) {
+          return aPerf - bPerf;
+        }
+        if (aHasPerf !== bHasPerf) {
+          return aHasPerf ? -1 : 1;
+        }
         const rDiff = (b.rating || 0) - (a.rating || 0);
         if (rDiff !== 0) return rDiff;
-        const pDiff = (b.performance || 0) - (a.performance || 0);
-        if (pDiff !== 0) return pDiff;
         return (a.name || "").localeCompare(b.name || "");
       }),
     [clubEntries],
@@ -148,7 +156,7 @@ export default function Leaderboard() {
     () =>
       sortedClubEntries.map((entry, idx) => ({
         entry,
-        rank: idx + 1,
+        rank: entry.performance ?? idx + 1,
       })),
     [sortedClubEntries],
   );
@@ -161,8 +169,8 @@ export default function Leaderboard() {
 
   const userRankClub = useMemo(() => {
     if (!user) return null;
-    const idx = clubRows.findIndex(({ entry }) => entry.id === user.id);
-    return idx >= 0 ? idx + 1 : null;
+    const row = clubRows.find(({ entry }) => entry.id === user.id);
+    return row ? row.rank : null;
   }, [user, clubRows]);
 
   useEffect(() => {
@@ -506,7 +514,7 @@ export default function Leaderboard() {
                       const isLeader = rank === 1;
                       const isTopThree = rank <= 3;
                       const isCurrentUser = user && (entry.id === user.id || entry.email === user.email);
-                      const performanceSpot = entry.performance !== undefined ? rank : null;
+                      const performanceSpot = entry.performance ?? null;
                       return (
                         <div
                           key={entry.id}
