@@ -506,6 +506,7 @@ export default function Leaderboard() {
                       const isLeader = rank === 1;
                       const isTopThree = rank <= 3;
                       const isCurrentUser = user && (entry.id === user.id || entry.email === user.email);
+                      const performanceSpot = entry.performance !== undefined ? rank : null;
                       return (
                         <div
                           key={entry.id}
@@ -550,7 +551,7 @@ export default function Leaderboard() {
                             </div>
                             <div className="text-xs text-white/60">
                               Rating {entry.rating}
-                              {entry.performance !== undefined ? ` • Performance ${entry.performance}` : ""}
+                              {performanceSpot !== null ? ` • Performance ${performanceSpot}` : ""}
                             </div>
                           </div>
                         </div>
@@ -593,7 +594,7 @@ export default function Leaderboard() {
                           </div>
                         ) : (
                           <div className="text-sm font-semibold text-emerald-200">
-                            Performance {entry.performance ?? "N/A"}
+                            Performance {performanceSpot ?? "N/A"}
                           </div>
                         )}
                       </div>
