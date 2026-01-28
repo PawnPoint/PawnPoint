@@ -332,7 +332,7 @@ function scopedStorageKey(base: string, scope: DataScope) {
 
 function resolveClubScope(user?: UserProfile | null): ScopedResource {
   const active = user || readUser();
-  if (active?.accountType === "group" && active.groupId) {
+  if (active?.groupId) {
     return {
       scope: "group",
       cacheKey: `group-${active.groupId}`,
@@ -1360,7 +1360,7 @@ export async function ensureProfile(
     };
     merged.isAdmin = resolveIsAdmin(merged);
     writeUser(merged);
-    const safePayload = stripUndefinedShallow(merged);
+    const safePayload = stripUndefinedShallow({ ...merged, isAdmin: undefined });
     await update(userNodeRef, safePayload);
     return merged;
   } catch (err) {
@@ -1378,7 +1378,6 @@ export async function setAdminStatus(isAdmin: boolean): Promise<UserProfile | nu
   try {
     await update(ref(db, `users/${user.id}`), {
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to sync admin status", err);
@@ -1738,7 +1737,6 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
         groupCode: updated.groupCode,
         groupName: updated.groupName,
         groupRole: updated.groupRole,
-        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1772,7 +1770,6 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
         groupCode: updated.groupCode,
         groupName: updated.groupName,
         groupRole: updated.groupRole,
-        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1818,7 +1815,6 @@ export async function updateSubscriptionStatusFromWebhook(
         groupCode: updated.groupCode,
         groupName: updated.groupName,
         groupRole: updated.groupRole,
-        isAdmin: updated.isAdmin,
       }),
     );
   } catch (err) {
@@ -1967,7 +1963,6 @@ async function restoreOwnedGroupIfNeeded(user: UserProfile): Promise<Partial<Use
           groupName: ownedGroup!.group.name || "Group",
           groupRole: role,
           groupLocked: false,
-          isAdmin: role === "admin",
         });
       } catch (err) {
         console.warn("Failed to restore member after pause", err);
@@ -2007,7 +2002,6 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
       groupRole: null,
       groupLocked: false,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to persist personal account choice", err);
@@ -2063,7 +2057,6 @@ export async function createGroupForUser(
       groupCode: group.code,
       groupName: group.name,
       groupRole: "admin",
-      isAdmin: true,
     });
   } catch (err) {
     console.warn("Failed to sync group details to user profile", err);
@@ -2219,7 +2212,6 @@ export async function leaveGroup(): Promise<UserProfile | null> {
       groupName: null,
       groupRole: null,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to sync group exit", err);
@@ -2369,7 +2361,6 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
       groupName: null,
       groupRole: null,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-      isAdmin: updated.isAdmin,
     });
   } catch (err) {
     console.warn("Failed to sync profile after deleting group", err);
@@ -2854,7 +2845,7 @@ export async function addClubParticipant(
 ): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (admin?.groupRole !== "admin") throw new Error("Only group admins can add participants.");
+    if (!admin?.isAdmin) throw new Error("Only group admins can add participants.");
   } else if (!admin?.isAdmin) {
     throw new Error("Only admins can add participants.");
   }
@@ -2879,7 +2870,7 @@ export async function updateClubPerformance(
 ): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (admin?.groupRole !== "admin") throw new Error("Only group admins can update performance.");
+    if (!admin?.isAdmin) throw new Error("Only group admins can update performance.");
   } else if (!admin?.isAdmin) {
     throw new Error("Only admins can update performance.");
   }
@@ -2912,7 +2903,7 @@ export async function updateClubPerformance(
 export async function removeClubParticipant(admin: UserProfile | null, id: string): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (admin?.groupRole !== "admin") throw new Error("Only group admins can remove participants.");
+    if (!admin?.isAdmin) throw new Error("Only group admins can remove participants.");
   } else if (!admin?.isAdmin) {
     throw new Error("Only admins can remove participants.");
   }

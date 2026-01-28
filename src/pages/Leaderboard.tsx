@@ -30,8 +30,9 @@ const getDisplayName = (entry: UserProfile) =>
 
 export default function Leaderboard() {
   const { user } = useAuth();
-  const inGroup = user?.accountType === "group" && !!user?.groupId;
-  const isGroupAdmin = inGroup && user?.groupRole === "admin";
+  const groupId = user?.groupId ?? null;
+  const inGroup = !!groupId;
+  const isGroupAdmin = inGroup && !!user?.isAdmin;
   const [entries, setEntries] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"xp" | "club">("xp");
@@ -47,7 +48,7 @@ export default function Leaderboard() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [xpSearch, setXpSearch] = useState("");
   const [clubSearch, setClubSearch] = useState("");
-  const clubPath = inGroup && user?.groupId ? `groups/${user.groupId}/clubLeaderboard` : null;
+  const clubPath = inGroup && groupId ? `groups/${groupId}/clubLeaderboard` : null;
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [rankChangeXp, setRankChangeXp] = useState<number | null>(null);
   const [xpDeltaToday, setXpDeltaToday] = useState(0);
@@ -67,7 +68,10 @@ export default function Leaderboard() {
       leaderboardRef,
       (snap) => {
         const val = (snap.val() || {}) as Record<string, UserProfile>;
-        const list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
+        let list = Object.values(val || {}).filter((entry) => typeof entry?.totalXp === "number");
+        if (inGroup && groupId) {
+          list = list.filter((entry) => entry?.groupId === groupId);
+        }
         const sorted = list.sort((a, b) => {
           const diff = (b.totalXp || 0) - (a.totalXp || 0);
           if (diff !== 0) return diff;
@@ -81,7 +85,7 @@ export default function Leaderboard() {
       () => setLoading(false),
     );
     return () => unsubscribe();
-  }, [user, mode]);
+  }, [user, mode, inGroup, groupId]);
 
   useEffect(() => {
     if (!user || mode !== "club") return;

@@ -43,6 +43,9 @@
         "groupRole": {
           ".validate": "newData.val() == null || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('members').child($uid).child('role').val()"
         },
+        "adminKeyUnlocked": {
+          ".validate": "newData.isBoolean()"
+        },
         "groupLocked": {
           ".validate": "auth.token.admin == true || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
         },
@@ -447,7 +450,7 @@
         },
         "clubLeaderboard": {
           ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
-          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
+          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && (root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('adminKeyUnlocked').val() == true)",
           "$entryId": {
             ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && true"
           }
