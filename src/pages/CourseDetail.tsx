@@ -43,6 +43,7 @@ type OrderedChapter = Chapter & { subsections: Record<string, Subsection> };
 
 export default function CourseDetail({ id }: { id: string }) {
   const { user } = useAuth();
+  const isAdmin = !!user?.isAdmin;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [openChapterId, setOpenChapterId] = useState<string | null>(null);
@@ -239,12 +240,14 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   };
 
   const handleDeleteSubsection = async (chapterId: string, subsectionId: string) => {
+    if (!isAdmin) return;
     await deleteSubsection(course.id, chapterId, subsectionId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
+    if (!isAdmin) return;
     await deleteChapter(course.id, chapterId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
@@ -328,16 +331,18 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                       </div>
                       <Progress value={pct} />
                     </div>
-                    <button
-                      className="p-1 rounded-full hover:bg-white/10 text-white/70"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChapter(chapter.id);
-                      }}
-                      aria-label="Delete chapter"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        className="p-1 rounded-full hover:bg-white/10 text-white/70"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChapter(chapter.id);
+                        }}
+                        aria-label="Delete chapter"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                     {open ? <ChevronUp className="h-4 w-4 text-white/70" /> : <ChevronDown className="h-4 w-4 text-white/70" />}
                   </button>
                   {open && (
@@ -381,13 +386,15 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                       {study?.title || "Lesson"}
                                     </div>
                                   </div>
-                                  <button
-                                    className="text-white/60 hover:text-red-300 ml-2"
-                                    onClick={() => study && handleDeleteSubsection(chapter.id, study.id)}
-                                    aria-label="Delete study"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
+                                  {isAdmin && (
+                                    <button
+                                      className="text-white/60 hover:text-red-300 ml-2"
+                                      onClick={() => study && handleDeleteSubsection(chapter.id, study.id)}
+                                      aria-label="Delete study"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="space-y-3 text-sm text-white/80">
                                   <div className="flex flex-wrap justify-center gap-3">
@@ -412,13 +419,15 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                             <BookOpen className="h-5 w-5 text-white" />
                                             <span className="text-white">{pgn.title}</span>
                                           </button>
-                                          <button
-                                            className="text-white/60 hover:text-red-300"
-                                            onClick={() => handleDeleteSubsection(chapter.id, pgn.id)}
-                                            aria-label="Delete PGN"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </button>
+                                          {isAdmin && (
+                                            <button
+                                              className="text-white/60 hover:text-red-300"
+                                              onClick={() => handleDeleteSubsection(chapter.id, pgn.id)}
+                                              aria-label="Delete PGN"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          )}
                                           {done && <span className="text-xs text-emerald-300">✓</span>}
                                         </div>
                                       );
@@ -437,13 +446,15 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                             <Icon className="h-5 w-5 text-white" />
                                             <span className="text-white">{quiz.title}</span>
                                           </button>
-                                          <button
-                                            className="text-white/60 hover:text-red-300"
-                                            onClick={() => handleDeleteSubsection(chapter.id, quiz.id)}
-                                            aria-label="Delete quiz"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </button>
+                                          {isAdmin && (
+                                            <button
+                                              className="text-white/60 hover:text-red-300"
+                                              onClick={() => handleDeleteSubsection(chapter.id, quiz.id)}
+                                              aria-label="Delete quiz"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          )}
                                           {done && <span className="text-xs text-emerald-300">✓</span>}
                                         </div>
                                       );
