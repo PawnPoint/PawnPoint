@@ -32,22 +32,22 @@
           ".validate": "newData.val() == null || newData.val() == 'personal' || newData.val() == 'group'"
         },
         "groupId": {
-          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 60 && root.child('groups').child(newData.val()).child('members').child($uid).exists())"
+          ".validate": "newData.val() == null || newData.val() == data.val() || (newData.isString() && newData.val().length <= 60 && root.child('groups').child(newData.val()).child('members').child($uid).exists())"
         },
         "groupCode": {
-          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 10 && root.child('groups').child(newData.parent().child('groupId').val()).child('code').val() == newData.val())"
+          ".validate": "newData.val() == null || newData.val() == data.val() || (newData.isString() && newData.val().length <= 10 && root.child('groups').child(newData.parent().child('groupId').val()).child('code').val() == newData.val())"
         },
         "groupName": {
-          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 80 && root.child('groups').child(newData.parent().child('groupId').val()).child('name').val() == newData.val())"
+          ".validate": "newData.val() == null || newData.val() == data.val() || (newData.isString() && newData.val().length <= 80 && root.child('groups').child(newData.parent().child('groupId').val()).child('name').val() == newData.val())"
         },
         "groupRole": {
-          ".validate": "newData.val() == null || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('members').child($uid).child('role').val()"
+          ".validate": "newData.val() == null || newData.val() == data.val() || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('members').child($uid).child('role').val()"
         },
         "adminKeyUnlocked": {
           ".validate": "newData.isBoolean()"
         },
         "groupLocked": {
-          ".validate": "auth.token.admin == true || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
+          ".validate": "auth.token.admin == true || (!newData.parent().child('groupId').exists() && (newData.val() == null || newData.val() == false)) || newData.val() == data.val() || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
         },
         "isAdmin": {
           ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == false) || (data.exists() && newData.val() == data.val())"
@@ -450,7 +450,7 @@
         },
         "clubLeaderboard": {
           ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
-          ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists() && (root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('adminKeyUnlocked').val() == true)",
+          ".write": "auth != null && (root.child('groups').child($groupId).child('members').child(auth.uid).exists() || root.child('groups').child($groupId).child('createdBy').val() == auth.uid) && (root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin' || root.child('groups').child($groupId).child('createdBy').val() == auth.uid || root.child('users').child(auth.uid).child('adminKeyUnlocked').val() == true)",
           "$entryId": {
             ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && true"
           }

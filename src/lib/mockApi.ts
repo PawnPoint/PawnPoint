@@ -1316,7 +1316,7 @@ export async function ensureProfile(
       remote?.accountType ??
       baseProfile.accountType ??
       (remote?.groupId || baseProfile.groupId ? "group" : undefined);
-    const merged: UserProfile = {
+    let merged: UserProfile = {
       ...baseProfile,
       ...(remote || {}),
       email: baseProfile.email,
@@ -1358,9 +1358,59 @@ export async function ensureProfile(
       avatarUrl: remote?.avatarUrl ?? baseProfile.avatarUrl,
       isAdmin: false,
     };
+    const dropGroup = () => {
+      merged = {
+        ...merged,
+        accountType: "personal",
+        groupId: null,
+        groupCode: null,
+        groupName: null,
+        groupRole: null,
+        groupLocked: false,
+      };
+    };
+    if (merged.groupId) {
+      try {
+        const groupSnap = await get(ref(db, `groups/${merged.groupId}`));
+        if (!groupSnap.exists()) {
+          dropGroup();
+        } else {
+          const groupData = groupSnap.val() as Group;
+          merged = {
+            ...merged,
+            groupCode: groupData.code || merged.groupCode || null,
+            groupName: groupData.name || merged.groupName || null,
+            groupLocked: typeof groupData.locked === "boolean" ? groupData.locked : merged.groupLocked,
+          };
+          try {
+            const memberSnap = await get(ref(db, `groups/${merged.groupId}/members/${merged.id}`));
+            if (memberSnap.exists()) {
+              const member = memberSnap.val() as GroupMember;
+              merged = {
+                ...merged,
+                groupRole: member?.role === "admin" ? "admin" : "member",
+              };
+            } else {
+              dropGroup();
+            }
+          } catch (err: any) {
+            const message = String(err?.code || err?.message || "").toLowerCase();
+            if (message.includes("permission_denied")) {
+              dropGroup();
+            }
+          }
+        }
+      } catch {
+        // If group lookup fails, keep the merged data unchanged.
+      }
+    }
     merged.isAdmin = resolveIsAdmin(merged);
     writeUser(merged);
-    const safePayload = stripUndefinedShallow({ ...merged, isAdmin: undefined });
+    const safePayload = stripUndefinedShallow({
+      ...merged,
+      isAdmin: undefined,
+      groupLocked: merged.groupId ? merged.groupLocked : null,
+    });
     await update(userNodeRef, safePayload);
     return merged;
   } catch (err) {
@@ -1731,7 +1781,7 @@ export async function attachPaypalSubscription(subscriptionId: string): Promise<
         paypalSubscriptionId: subscriptionId,
         subscriptionStatus: "active",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
-        groupLocked: updated.groupLocked,
+        groupLocked: updated.groupId ? updated.groupLocked : null,
         accountType: updated.accountType,
         groupId: updated.groupId,
         groupCode: updated.groupCode,
@@ -1764,7 +1814,7 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
         premiumAccess: false,
         subscriptionStatus: "cancelled",
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
-        groupLocked: true,
+        groupLocked: updated.groupId ? true : null,
         accountType: updated.accountType,
         groupId: updated.groupId,
         groupCode: updated.groupCode,
@@ -1809,7 +1859,7 @@ export async function updateSubscriptionStatusFromWebhook(
         premiumAccess,
         subscriptionStatus: status,
         subscriptionUpdatedAt: updated.subscriptionUpdatedAt,
-        groupLocked: updated.groupLocked,
+        groupLocked: updated.groupId ? updated.groupLocked : null,
         accountType: updated.accountType,
         groupId: updated.groupId,
         groupCode: updated.groupCode,
@@ -1898,7 +1948,7 @@ async function pauseOwnedGroupIfNeeded(
             groupCode: null,
             groupName: null,
             groupRole: null,
-            groupLocked: false,
+            groupLocked: null,
           });
         } catch (err) {
           console.warn("Failed to remove member during pause", err);
@@ -2000,7 +2050,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
       groupCode: null,
       groupName: null,
       groupRole: null,
-      groupLocked: false,
+      groupLocked: null,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
     });
   } catch (err) {
@@ -2211,6 +2261,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
       groupCode: null,
       groupName: null,
       groupRole: null,
+      groupLocked: null,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
     });
   } catch (err) {
@@ -2289,6 +2340,7 @@ export async function removeGroupMember(
       groupCode: null,
       groupName: null,
       groupRole: null,
+      groupLocked: null,
     });
   } catch (err) {
     console.warn("Failed to reset member profile after removal", err);
@@ -2338,6 +2390,7 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
           groupCode: null,
           groupName: null,
           groupRole: null,
+          groupLocked: null,
         });
       } catch (err) {
         console.warn("Failed to reset member after deletion", err);
@@ -2360,6 +2413,7 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
       groupCode: null,
       groupName: null,
       groupRole: null,
+      groupLocked: null,
       adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
     });
   } catch (err) {

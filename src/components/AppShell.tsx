@@ -32,15 +32,16 @@ import {
 } from "../lib/mockApi";
 import { PodiumBarsIcon } from "./icons/PodiumBars";
 
-const links = [
+const baseLinks = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "Courses", href: "/courses", icon: Archive },
   { label: "Global Ranks", href: "/ranks", icon: Crown },
   { label: "Practice", href: "/practice", icon: Dumbbell },
 ];
 
-const mobileLinks = [
-  ...links,
+const standingsLink = { label: "Standings", href: "/leaderboard", icon: PodiumBarsIcon };
+
+const mobileLinkTail = [
   { label: "Puzzles", href: "/puzzles", icon: Puzzle },
   { label: "Profile", href: "/profile", icon: UserRound },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -87,6 +88,19 @@ export function AppShell({
   const xp = user?.totalXp ?? 0;
   const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
+  const isSouthKnightGroup = user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
+  const navLinks = (() => {
+    if (!isSouthKnightGroup) return baseLinks;
+    const next = [...baseLinks];
+    const insertIndex = next.findIndex((link) => link.label === "Practice");
+    if (insertIndex >= 0) {
+      next.splice(insertIndex, 0, standingsLink);
+    } else {
+      next.push(standingsLink);
+    }
+    return next;
+  })();
+  const mobileLinks = [...navLinks, ...mobileLinkTail];
 
   const emotions = [
     { label: "Angry", emoji: "😠" },
@@ -255,7 +269,7 @@ export function AppShell({
           </div>
 
           <nav className={`hidden md:flex items-center gap-4 text-base font-semibold ${navText}`}>
-            {links.map(({ href, label, icon: Icon }) => {
+            {navLinks.map(({ href, label, icon: Icon }) => {
               const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
               if (label === "Practice") {
                 return (
