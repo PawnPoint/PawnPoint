@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
+import { Button } from "../components/ui/Button";
 import { Sparkles, Crown } from "lucide-react";
 
 const pageBackground = {
@@ -35,7 +37,51 @@ const standingsNames = [
   "Joshua",
 ];
 
+const midStandingsNames = [
+  "Ian",
+  "Ethan",
+  "Caydence",
+  "Alexander(bear)",
+  "Elandre",
+  "Charlize",
+  "Nelita",
+  "Mila-ne",
+  "Arina",
+  "johan",
+  "Markie",
+  "LXR",
+  "Anicka",
+  "Lienke",
+  "Kabir",
+  "Rachael",
+  "Darius(1)",
+  "Carson",
+  "keagan",
+  "Alexander",
+  "Emily",
+  "Liam",
+  "Seyan",
+  "Liam(twin)",
+  "Milan (twin)",
+  "kevin",
+  "Arno",
+  "Zai",
+  "Maxinmus",
+  "Darius(2)",
+  "Ruben",
+  "Sebastian",
+  "AmarokGJ",
+];
+
+const standingsGroups = [
+  { label: "Group standings", names: standingsNames },
+  { label: "Mid players standings", names: midStandingsNames },
+];
+
 export default function Leaderboard() {
+  const [standingsIndex, setStandingsIndex] = useState(0);
+  const activeStandings = standingsGroups[standingsIndex];
+
   return (
     <AppShell backgroundStyle={pageBackground}>
       <div className="space-y-6">
@@ -57,11 +103,11 @@ export default function Leaderboard() {
                 <Sparkles className="h-5 w-5 text-brand.pink" />
                 Standings
               </CardTitle>
-              <div className="text-xs text-white/60">Group standings</div>
+              <div className="text-xs text-white/60">{activeStandings.label}</div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 standings-scroll">
-                {standingsNames.map((name, index) => {
+                {activeStandings.names.map((name, index) => {
                   const rank = index + 1;
                   const isLeader = rank === 1;
                   const isTopThree = rank <= 3;
@@ -101,6 +147,32 @@ export default function Leaderboard() {
                     </div>
                   );
                 })}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                <div className="text-xs text-white/50">
+                  Leaderboard {standingsIndex + 1} of {standingsGroups.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    className="min-w-[110px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() =>
+                      setStandingsIndex(
+                        (prev) => (prev - 1 + standingsGroups.length) % standingsGroups.length,
+                      )
+                    }
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    className="min-w-[110px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() =>
+                      setStandingsIndex((prev) => (prev + 1) % standingsGroups.length)
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
