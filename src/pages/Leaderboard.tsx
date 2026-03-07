@@ -17,7 +17,6 @@ const standingsNames = [
   "Juan-Louis",
   "Zac",
   "Karli",
-  "Tiaan",
   "Amy",
   "Lillith",
   "Zander",
