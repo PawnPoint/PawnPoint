@@ -1,11 +1,34 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, Mail, Lock, Chrome } from "lucide-react";
+import { ArrowLeft, Mail, Lock } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import loginBg from "../assets/Login screen.png";
 
 type Mode = "login" | "signup";
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 18 18" className="h-6 w-6" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2045c0-.638-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.795 2.716v2.258h2.908c1.702-1.567 2.683-3.874 2.683-6.615z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.467-.806 5.956-2.181l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.037-3.711H.957v2.332C2.438 15.983 5.481 18 9 18z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.963 10.71A5.41 5.41 0 0 1 3.681 9c0-.593.102-1.17.282-1.71V4.958H.957A8.995 8.995 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.006-2.332z"
+      />
+      <path
+        fill="#EA4335"
+        d="M9 3.579c1.321 0 2.507.454 3.44 1.345l2.581-2.581C13.463.891 11.426 0 9 0 5.481 0 2.438 2.017.957 4.958L3.963 7.29C4.672 5.163 6.656 3.579 9 3.579z"
+      />
+    </svg>
+  );
+}
 
 export default function AuthPage({ mode }: { mode: Mode }) {
   const { user, login, loginWithGoogle, loading } = useAuth();
@@ -118,15 +141,15 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         </div>
 
         <div className="space-y-3">
-          <Button
-            variant="outline"
-            className="w-full justify-center"
+          <button
+            type="button"
+            className="w-full h-16 rounded-xl border border-[#d6d9de] bg-white text-[#202124] shadow-[0_1px_2px_rgba(0,0,0,0.15)] hover:bg-[#f8f9fa] hover:shadow-[0_2px_6px_rgba(0,0,0,0.18)] active:bg-[#f1f3f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/35 disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-4 font-medium text-[18px] leading-none transition"
             onClick={handleGoogle}
             disabled={loading || locked}
           >
-            <Chrome className="h-4 w-4 mr-2" />
+            <GoogleIcon />
             {loading ? "Please wait..." : "Continue with Google"}
-          </Button>
+          </button>
 
           <div className="flex items-center gap-3 text-xs text-white/60">
             <span className="h-px flex-1 bg-white/10" />

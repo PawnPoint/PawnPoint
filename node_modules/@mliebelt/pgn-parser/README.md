@@ -39,28 +39,30 @@ It does not have an API, just a JSON structure that has to be read then. You hav
 * `pgn`: Reads only the moves of the game (as array).
 
 A code example to read a complete game then looks like:
+```javascript
+import { parse } from '@mliebelt/pgn-parser'
+let game = parse('[White "Me"] [Black "Magnus"] 1. f4 e5 2. g4 Qh4#', {startRule: "game"})
+console.log(JSON.stringify(game, null, 2))
+```
 
-    import { parse } from '@mliebelt/pgn-parser'
-    let game = parse('[White "Me"] [Black "Magnus"] 1. f4 e5 2. g4 Qh4#', {startRule: "game"})
-    console.log(JSON.stringify(res, null, 2))
-    ==>
-    JSON.stringify(res, null, 2)
+This leads to the following output:
+```json
+{
+  "tags": {
+    "White": "Me",
+    "Black": "Magnus"
+  },
+  "moves": [
     {
-      "tags": {
-        "White": "Me",
-        "Black": "Magnus"
-      },
-      "moves": [
-        {
-          "turn": "w",
-          "moveNumber": 1,
-        ...
-        },
-        {...},
-        ...
-      ]
-    }
-
+      "turn": "w",
+      "moveNumber": 1,
+    ...
+    },
+    {...},
+    ...
+  ]
+}
+```
 See the example `doc/read-sample.js` that can be directly used in the shell: `node doc/read-sample.js`. The directory contains some more examples how to use it.
 
 ## How to use it as an CLI?

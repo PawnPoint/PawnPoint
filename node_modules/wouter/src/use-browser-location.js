@@ -33,6 +33,9 @@ const currentSearch = () => location.search;
 export const useSearch = ({ ssrSearch } = {}) =>
   useLocationProperty(
     currentSearch,
+    // != null checks for both null and undefined, but allows empty string ""
+    // This allows proper hydration: server renders with ssrSearch="?foo",
+    // client hydrates with just <Router /> and reads from location.search
     ssrSearch != null ? () => ssrSearch : currentSearch
   );
 
@@ -41,6 +44,9 @@ const currentPathname = () => location.pathname;
 export const usePathname = ({ ssrPath } = {}) =>
   useLocationProperty(
     currentPathname,
+    // != null checks for both null and undefined, but allows empty string ""
+    // This allows proper hydration: server renders with ssrPath="/foo",
+    // client hydrates with just <Router /> and reads from location.pathname
     ssrPath != null ? () => ssrPath : currentPathname
   );
 

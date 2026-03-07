@@ -36,10 +36,9 @@ const baseLinks = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "Courses", href: "/courses", icon: Archive },
   { label: "Global Ranks", href: "/ranks", icon: Crown },
+  { label: "Standings", href: "/leaderboard", icon: PodiumBarsIcon },
   { label: "Practice", href: "/practice", icon: Dumbbell },
 ];
-
-const standingsLink = { label: "Standings", href: "/leaderboard", icon: PodiumBarsIcon };
 
 const mobileLinkTail = [
   { label: "Puzzles", href: "/puzzles", icon: Puzzle },
@@ -88,18 +87,7 @@ export function AppShell({
   const xp = user?.totalXp ?? 0;
   const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
-  const isSouthKnightGroup = user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
-  const navLinks = (() => {
-    if (!isSouthKnightGroup) return baseLinks;
-    const next = [...baseLinks];
-    const insertIndex = next.findIndex((link) => link.label === "Practice");
-    if (insertIndex >= 0) {
-      next.splice(insertIndex, 0, standingsLink);
-    } else {
-      next.push(standingsLink);
-    }
-    return next;
-  })();
+  const navLinks = baseLinks;
   const mobileLinks = [...navLinks, ...mobileLinkTail];
 
   const emotions = [
@@ -110,9 +98,9 @@ export function AppShell({
     { label: "Excited", emoji: "🤩" },
   ];
 
-  const themeBg = isLight ? "bg-slate-50 text-slate-900" : "bg-[#101319] text-white";
-  const headerBg = isLight ? "border-slate-200 bg-white/90" : "border-white/10 bg-black";
-  const navText = isLight ? "text-slate-700" : "text-white/80";
+  const themeBg = isLight ? "bg-white text-gray-900" : "bg-gray-950 text-white";
+  const headerBg = isLight ? "border-gray-200 bg-white" : "border-gray-800 bg-gray-900";
+  const navText = isLight ? "text-gray-700 hover:text-gray-900" : "text-gray-400 dark:hover:text-white";
   const isMehMood = feedbackMood === "Meh";
   const canSubmitFeedback = feedbackText.trim().length > 0;
 
@@ -259,18 +247,18 @@ export function AppShell({
     <div className={`min-h-screen ${themeBg} relative`} style={backgroundStyle}>
       {backgroundOverlay}
       <div className="relative z-10">
-        <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg} backdrop-blur`}>
-        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg}`}>
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 overflow-hidden">
+            <div className="h-10 w-10 rounded-lg overflow-hidden flex items-center justify-center">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
             </div>
-            <span className="text-2xl font-extrabold tracking-tight">Pawn Point</span>
+            <span className="text-lg font-bold tracking-tight">Pawn Point</span>
           </div>
 
-          <nav className={`hidden md:flex items-center gap-4 text-base font-semibold ${navText}`}>
+          <nav className={`hidden md:flex items-center gap-1 text-sm font-medium ${navText}`}>
             {navLinks.map(({ href, label, icon: Icon }) => {
-              const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
+              const iconSize = Icon === PodiumBarsIcon ? "h-5 w-5" : "h-4 w-4";
               if (label === "Practice") {
                 return (
                   <div key={href} className="relative" ref={practiceRef}>
@@ -279,18 +267,28 @@ export function AppShell({
                         setPracticeOpen((v) => !v);
                         setProfileOpen(false);
                       }}
-                      className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
-                        isLight ? "hover:text-slate-900 hover:bg-slate-200/70" : "hover:text-white hover:bg-white/10"
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${
+                        isLight
+                          ? "hover:text-gray-900 hover:bg-gray-100"
+                          : "hover:text-white hover:bg-gray-800"
                       }`}
                     >
                       <Icon className={iconSize} />
                       {label}
-                      <ChevronDown className={`h-4 w-4 transition ${practiceOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`h-4 w-4 transition-transform ${practiceOpen ? "rotate-180" : ""}`} />
                     </button>
                     {practiceOpen && (
-                      <div className="absolute left-1/2 -translate-x-1/2 top-12 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3 transform">
+                      <div className={`absolute left-1/2 -translate-x-1/2 top-12 w-48 rounded-lg shadow-lg border z-50 ${
+                        isLight
+                          ? "bg-white border-gray-200"
+                          : "bg-gray-800 border-gray-700"
+                      } py-2 transform`}>
                         <button
-                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            isLight
+                              ? "text-gray-700 hover:bg-gray-50"
+                              : "text-gray-200 hover:bg-gray-700"
+                          }`}
                           onClick={() => {
                             navigate("/practice");
                             setPracticeOpen(false);
@@ -300,7 +298,11 @@ export function AppShell({
                           Play AI
                         </button>
                     <button
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                        isLight
+                          ? "text-gray-700 hover:bg-gray-50"
+                          : "text-gray-200 hover:bg-gray-700"
+                      }`}
                       onClick={() => {
                         navigate("/puzzles");
                         setPracticeOpen(false);
@@ -318,8 +320,10 @@ export function AppShell({
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 transition ${
-                    isLight ? "hover:text-slate-900 hover:bg-slate-200/70" : "hover:text-white hover:bg-white/10"
+                  className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${
+                    isLight
+                      ? "hover:text-gray-900 hover:bg-gray-100"
+                      : "hover:text-white hover:bg-gray-800"
                   }`}
                 >
                   <Icon className={iconSize} />
@@ -329,46 +333,62 @@ export function AppShell({
             })}
           </nav>
 
-          <div className="hidden md:flex items-center gap-3 relative">
+          <div className="hidden md:flex items-center gap-2 relative">
             <button
               onClick={() => setProfileOpen((v) => !v)}
-              className={`relative flex items-center gap-3 rounded-full border px-3 py-2 hover:bg-white/10 transition ${
-                isLight ? "border-slate-200 bg-white text-slate-900" : "border-white/10 bg-white/5 text-white"
+              className={`relative flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                isLight
+                  ? "border-gray-200 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                  : "border-gray-700 bg-gray-800 text-white hover:bg-gray-700"
               }`}
               aria-haspopup="menu"
               aria-expanded={profileOpen}
             >
-              <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 bg-white/5">
+              <div className={`h-8 w-8 rounded-full overflow-hidden border ${
+                isLight ? "border-gray-200" : "border-gray-700"
+              }`}>
                 <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
               </div>
               <div className="text-left">
-                <div className="text-xs text-white/60">Level {level}</div>
-                <div className="text-sm font-semibold text-white/90">{xp} XP</div>
+                <div className="text-xs opacity-75">Level {level}</div>
+                <div className="text-sm font-semibold">{xp} XP</div>
               </div>
             </button>
             {profileOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-2xl bg-slate-800 shadow-2xl border border-white/10 py-3 transform">
-                <div className="px-4 pb-3">
+              <div className={`absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-lg shadow-lg border z-50 ${
+                isLight
+                  ? "bg-white border-gray-200"
+                  : "bg-gray-800 border-gray-700"
+              } py-2 transform`}>
+                <div className="px-4 py-2">
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20 bg-white/5">
+                    <div className={`h-8 w-8 rounded-full overflow-hidden border ${
+                      isLight ? "border-gray-200" : "border-gray-700"
+                    }`}>
                       <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white">{nameLabel}</div>
-                      <div className="text-xs text-emerald-300 font-semibold">
+                      <div className="text-sm font-semibold">{nameLabel}</div>
+                      <div className="text-xs text-green-500 font-semibold">
                         LVL {level} | {xp} XP
                       </div>
                       {user?.accountType && (
-                        <div className="text-[10px] uppercase text-white/50">
+                        <div className="text-[10px] opacity-50">
                           {user.accountType === "group" ? "Group account" : "Personal account"}
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="px-2 space-y-1 text-sm text-white/80">
+                <div className={`px-2 space-y-1 text-sm ${
+                  isLight ? "text-gray-700" : "text-gray-300"
+                }`}>
                   <button
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 text-left"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      isLight
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-gray-700"
+                    }`}
                     onClick={() => {
                       navigate("/profile");
                       setProfileOpen(false);
@@ -378,7 +398,11 @@ export function AppShell({
                     My Profile
                   </button>
                   <button
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 text-left"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      isLight
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-gray-700"
+                    }`}
                     onClick={() => {
                       navigate("/settings");
                       setProfileOpen(false);
@@ -388,7 +412,11 @@ export function AppShell({
                     Settings
                   </button>
                   <button
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 text-left"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      isLight
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-gray-700"
+                    }`}
                     onClick={() => {
                       setFeedbackOpen(true);
                       setFeedbackMood("Meh");
@@ -400,7 +428,11 @@ export function AppShell({
                     Feedback
                   </button>
                   <button
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 text-left"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      isLight
+                        ? "hover:bg-gray-100"
+                        : "hover:bg-gray-700"
+                    }`}
                     onClick={() => {
                       logout();
                       navigate("/login");
@@ -415,37 +447,49 @@ export function AppShell({
           </div>
 
           <button
-            className="md:hidden text-white/80 h-11 w-11 flex items-center justify-center"
+            className="md:hidden h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle navigation"
           >
-            {open ? <X /> : <Menu />}
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
         {open && (
-          <div className="pp-mobile-menu md:hidden border-t border-white/10 bg-black backdrop-blur">
+          <div className={`pp-mobile-menu md:hidden border-t ${
+            isLight ? "border-gray-200 bg-gray-50" : "border-gray-800 bg-gray-900"
+          }`}>
             <div className="px-4 py-4 space-y-4">
               {user && (
-                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                  <div className="h-10 w-10 rounded-full overflow-hidden border border-white/15 bg-white/5">
+                <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                  isLight
+                    ? "border-gray-200 bg-white"
+                    : "border-gray-700 bg-gray-800"
+                }`}>
+                  <div className={`h-10 w-10 rounded-lg overflow-hidden border ${
+                    isLight ? "border-gray-200" : "border-gray-700"
+                  }`}>
                     <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold">{nameLabel}</div>
-                    <div className="text-xs text-white/60">
+                    <div className="text-xs opacity-75">
                       LVL {level} • {xp} XP
                     </div>
                   </div>
                 </div>
               )}
-              <div className="pp-mobile-link-grid grid grid-cols-1 sm:grid-cols-2 gap-2 text-base font-semibold">
+              <div className="pp-mobile-link-grid grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-medium">
                 {mobileLinks.map(({ href, label, icon: Icon }) => {
-                  const iconSize = Icon === PodiumBarsIcon ? "h-6 w-6" : "h-4 w-4";
+                  const iconSize = Icon === PodiumBarsIcon ? "h-5 w-5" : "h-4 w-4";
                   return (
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white transition"
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-3 transition-colors ${
+                      isLight
+                        ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    }`}
                     onClick={() => setOpen(false)}
                   >
                     <Icon className={iconSize} />
@@ -456,19 +500,24 @@ export function AppShell({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10"
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    isLight
+                      ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  }`}
                   onClick={() => setIsLight((v) => !v)}
                 >
-                  {isLight ? <Sun className="h-4 w-4 text-amber-300" /> : <Moon className="h-4 w-4 text-amber-300" />}
+                  {isLight ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-amber-400" />}
                   <span>Theme</span>
                 </button>
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={() => {
                     logout();
                     navigate("/login");
                   }}
-                  className="flex-1 min-w-[140px]"
+                  className="flex-1 min-w-[120px]"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Log out
@@ -485,20 +534,30 @@ export function AppShell({
       </div>
 
       {groupModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="pp-modal w-full max-w-lg rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
+          <div className={`pp-modal w-full max-w-lg rounded-lg border p-6 space-y-4 ${
+            isLight
+              ? "bg-white border-gray-200 shadow-lg"
+              : "bg-gray-900 border-gray-800 shadow-xl"
+          }`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-xl font-semibold">
+                <div className="text-lg font-semibold">
                   {forceGroupChoice ? "Choose your account type" : "Switch account"}
                 </div>
-                <div className="text-sm text-white/70">
+                <div className={`text-sm mt-1 ${
+                  isLight ? "text-gray-600" : "text-gray-400"
+                }`}>
                   Pick personal to keep your data private, or join/create a group to share courses and leaderboards only with members.
                 </div>
               </div>
               {!forceGroupChoice && (
                 <button
-                  className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                    isLight
+                      ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  }`}
                   onClick={closeGroupModal}
                   aria-label="Close group dialog"
                 >
@@ -508,7 +567,7 @@ export function AppShell({
             </div>
 
             {groupError && (
-              <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
                 {groupError}
               </div>
             )}
@@ -517,41 +576,44 @@ export function AppShell({
               <div className="space-y-2">
                 <Button
                   variant="outline"
-                  className="w-full !justify-start !items-start text-left px-5"
+                  fullWidth
+                  className="!justify-start !items-start text-left px-4 py-3"
                   onClick={handlePersonalAccount}
                   disabled={groupBusy}
                 >
-                  <div className="text-left flex flex-col items-start">
-                    <div className="font-semibold">Personal Account</div>
-                    <div className="text-xs text-white/80">Only you can see your courses and leaderboard data.</div>
+                  <div className="text-left flex flex-col items-start gap-1">
+                    <div className="font-semibold text-sm">Personal Account</div>
+                    <div className="text-xs opacity-75">Only you can see your courses and leaderboard data.</div>
                   </div>
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full !justify-start !items-start text-left px-5"
+                  fullWidth
+                  className="!justify-start !items-start text-left px-4 py-3"
                   onClick={() => {
                     setGroupMode("join");
                     setGroupError("");
                   }}
                   disabled={groupBusy}
                 >
-                  <div className="text-left flex flex-col items-start">
-                    <div className="font-semibold">Join a Group</div>
-                    <div className="text-xs text-white/80">Use a #1234 code that was shared with you.</div>
+                  <div className="text-left flex flex-col items-start gap-1">
+                    <div className="font-semibold text-sm">Join a Group</div>
+                    <div className="text-xs opacity-75">Use a #1234 code that was shared with you.</div>
                   </div>
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full !justify-start !items-start text-left px-5"
+                  fullWidth
+                  className="!justify-start !items-start text-left px-4 py-3"
                   onClick={() => {
                     setGroupMode("create");
                     setGroupError("");
                   }}
                   disabled={groupBusy}
                 >
-                  <div className="text-left flex flex-col items-start">
-                    <div className="font-semibold">Create a Group</div>
-                    <div className="text-xs text-white/80">Generate a private code and invite teammates.</div>
+                  <div className="text-left flex flex-col items-start gap-1">
+                    <div className="font-semibold text-sm">Create a Group</div>
+                    <div className="text-xs opacity-75">Generate a private code and invite teammates.</div>
                   </div>
                 </Button>
               </div>
@@ -559,23 +621,27 @@ export function AppShell({
 
             {groupMode === "join" && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm text-white/70">
+                <div className="flex items-center justify-between text-sm opacity-75">
                   <span>Enter the group code</span>
                   <button
-                    className="flex items-center gap-1 text-white/70 hover:text-white text-xs"
+                    className="flex items-center gap-1 opacity-75 hover:opacity-100 text-xs"
                     onClick={() => setGroupMode("choose")}
                   >
                     <ArrowLeft className="h-3 w-3" />
-                    Back to options
+                    Back
                   </button>
                 </div>
                 <input
                   value={groupCode}
                   onChange={(e) => setGroupCode(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    isLight
+                      ? "bg-white border-gray-300 text-gray-900"
+                      : "bg-gray-800 border-gray-700 text-white"
+                  }`}
                   placeholder="#1234"
                 />
-                <Button className="w-full justify-center" onClick={handleJoinGroup} disabled={groupBusy}>
+                <Button fullWidth onClick={handleJoinGroup} disabled={groupBusy}>
                   {groupBusy ? "Joining..." : "Join Group"}
                 </Button>
               </div>
@@ -583,23 +649,27 @@ export function AppShell({
 
             {groupMode === "create" && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm text-white/70">
+                <div className="flex items-center justify-between text-sm opacity-75">
                   <span>Name your group</span>
                   <button
-                    className="flex items-center gap-1 text-white/70 hover:text-white text-xs"
+                    className="flex items-center gap-1 opacity-75 hover:opacity-100 text-xs"
                     onClick={() => setGroupMode("choose")}
                   >
                     <ArrowLeft className="h-3 w-3" />
-                    Back to options
+                    Back
                   </button>
                 </div>
                 <input
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    isLight
+                      ? "bg-white border-gray-300 text-gray-900"
+                      : "bg-gray-800 border-gray-700 text-white"
+                  }`}
                   placeholder="Team Knights"
                 />
-                <Button className="w-full justify-center" onClick={handleCreateGroup} disabled={groupBusy}>
+                <Button fullWidth onClick={handleCreateGroup} disabled={groupBusy}>
                   {groupBusy ? "Creating..." : "Create Group"}
                 </Button>
               </div>
@@ -609,16 +679,24 @@ export function AppShell({
       )}
 
       {feedbackOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">
-          <div className="pp-modal w-full max-w-md rounded-2xl bg-slate-800 text-white shadow-2xl border border-white/10 p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Feedback</h2>
-              <button onClick={closeFeedback} className="p-1 rounded-full hover:bg-white/10 text-white/70">
-                <XCircle className="h-5 w-5" />
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4">
+          <div className={`pp-modal w-full max-w-md rounded-lg border p-6 ${
+            isLight
+              ? "bg-white border-gray-200 shadow-lg"
+              : "bg-gray-900 border-gray-800 shadow-xl"
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Feedback</h2>
+              <button onClick={closeFeedback} className={`p-1 rounded-lg ${
+                isLight
+                  ? "hover:bg-gray-100 text-gray-600"
+                  : "hover:bg-gray-800 text-gray-400"
+              }`}>
+                <XCircle className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-4 text-sm text-white/80">How do you feel about Pawn Point?</div>
-            <div className="mt-3 grid grid-cols-5 gap-2">
+            <div className={`text-sm mb-3 ${isLight ? "text-gray-600" : "text-gray-400"}`}>How do you feel about Pawn Point?</div>
+            <div className="grid grid-cols-5 gap-2 mb-4">
               {emotions.map(({ label, emoji }) => {
                 const active = feedbackMood === label;
                 return (
@@ -628,37 +706,42 @@ export function AppShell({
                       setFeedbackMood(label);
                       setFeedbackStatus("");
                     }}
-                    className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-2 text-xs ${
+                    className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-colors ${
                       active
-                        ? "border-blue-400 bg-blue-500/20 text-white"
-                        : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300"
+                        : isLight
+                          ? "border-gray-200 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                          : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
                     }`}
                   >
-                    <span className="text-lg">{emoji}</span>
+                    <span className="text-base">{emoji}</span>
                     <span>{label}</span>
                   </button>
                 );
               })}
             </div>
-            <div className="mt-4 text-sm text-white/80">Tell us why</div>
-            <div className="mt-2">
-              <textarea
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-pink-400"
-                rows={4}
-                placeholder="Share your thoughts..."
-              />
-              <div className="text-right text-xs text-white/60">{feedbackText.length}/500</div>
-            </div>
+            <div className={`text-sm mb-2 ${isLight ? "text-gray-600" : "text-gray-400"}`}>Tell us why</div>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 mb-2 ${
+                isLight
+                  ? "bg-white border-gray-300 text-gray-900"
+                  : "bg-gray-800 border-gray-700 text-white"
+              }`}
+              rows={4}
+              placeholder="Share your thoughts..."
+            />
+            <div className="text-right text-xs opacity-50 mb-4">{feedbackText.length}/500</div>
             <Button
-              className={`w-full mt-4 justify-center ${canSubmitFeedback ? "" : "bg-white/10 text-white/50 shadow-none pointer-events-none"}`}
+              fullWidth
               onClick={handleFeedbackSubmit}
+              disabled={!canSubmitFeedback}
             >
               Submit Feedback
             </Button>
             {feedbackStatus && (
-              <div className="mt-3 text-sm text-emerald-200 bg-emerald-500/10 border border-emerald-300/30 rounded-xl px-3 py-2">
+              <div className="mt-3 text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 dark:bg-green-950/30 dark:border-green-900/50 dark:text-green-300">
                 {feedbackStatus}
               </div>
             )}

@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
+import BlurText from "../components/BlurText";
 import pawnPointIcon from "../assets/App tab icon.png";
 
 const heroHighlights = [
@@ -217,22 +218,25 @@ export default function Landing() {
       <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-12 sm:pt-16 min-h-[calc(100vh-72px)] flex items-center">
         <section className="w-full flex flex-col items-center text-center">
           <div className="w-full max-w-5xl">
-            <h1 className="text-5xl max-[540px]:text-4xl max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-tight tracking-tight font-league-spartan whitespace-nowrap">
-              <span className="block sm:inline-block">
-                <span className="gradient-text">Where Serious Players</span>
-              </span>
-              <span className="block sm:inline-block sm:ml-2">
-                <span className="gradient-text">Get Better</span>
-              </span>
-            </h1>
-            <p
-              className={`mt-6 text-base sm:text-lg md:text-xl leading-relaxed md:whitespace-nowrap ${
+            <BlurText
+              text="Where Serious Players Get Better"
+              delay={100}
+              className="text-5xl max-[540px]:text-4xl max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-tight tracking-tight whitespace-nowrap"
+              direction="top"
+              threshold={0.1}
+              stepDuration={0.35}
+            />
+            <BlurText
+              text="Designed for players who take improvement seriously."
+              delay={50}
+              className={`mt-6 text-base sm:text-lg md:text-xl leading-relaxed block ${
                 isLight ? "text-slate-700" : "text-white/80"
               }`}
-            >
-              Designed for players who take improvement seriously.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
+              direction="top"
+              threshold={0.1}
+              stepDuration={0.35}
+            />
+            <div className="mt-8 fade-in flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
               <button
                 onClick={goToSignup}
                 className="w-full sm:w-auto rounded-full bg-white hover:bg-white/90 text-black px-5 py-3 text-sm font-semibold transition"
@@ -250,7 +254,7 @@ export default function Landing() {
                 I already have an account
               </button>
             </div>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
+            <div className="mt-5 fade-in flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
               {heroHighlights.map((item) => (
                 <div key={item} className="flex items-center gap-2 text-white/65">
                   <CheckCircle2
