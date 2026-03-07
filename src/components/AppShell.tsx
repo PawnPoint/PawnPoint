@@ -46,6 +46,9 @@ const mobileLinkTail = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
+const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
+const SOUTH_KNIGHTS_GROUP_CODE = "0055";
+
 export function AppShell({
   children,
   backgroundStyle,
@@ -87,7 +90,11 @@ export function AppShell({
   const xp = user?.totalXp ?? 0;
   const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
-  const navLinks = baseLinks;
+  const canViewStandings =
+    user?.groupId === SOUTH_KNIGHTS_GROUP_ID || user?.groupCode?.includes(SOUTH_KNIGHTS_GROUP_CODE);
+  const navLinks = canViewStandings
+    ? baseLinks
+    : baseLinks.filter((link) => link.href !== "/leaderboard");
   const mobileLinks = [...navLinks, ...mobileLinkTail];
 
   const emotions = [

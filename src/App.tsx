@@ -23,6 +23,9 @@ import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 
+const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
+const SOUTH_KNIGHTS_GROUP_CODE = "0055";
+
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
@@ -46,6 +49,44 @@ function Protected({ children }: { children: JSX.Element }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
         Redirecting to login...
+      </div>
+    );
+  }
+
+  return children;
+}
+
+function ProtectedStandings({ children }: { children: JSX.Element }) {
+  const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
+  const shouldLoginRedirect = !loading && !user;
+  const canViewStandings =
+    !!user &&
+    (user.groupId === SOUTH_KNIGHTS_GROUP_ID || user.groupCode?.includes(SOUTH_KNIGHTS_GROUP_CODE));
+  const shouldDashboardRedirect = !loading && !!user && !canViewStandings;
+
+  useEffect(() => {
+    if (shouldLoginRedirect) {
+      navigate("/login");
+      return;
+    }
+    if (shouldDashboardRedirect) {
+      navigate("/dashboard");
+    }
+  }, [shouldLoginRedirect, shouldDashboardRedirect, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Loading...
+      </div>
+    );
+  }
+
+  if (shouldLoginRedirect || shouldDashboardRedirect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Redirecting...
       </div>
     );
   }
@@ -96,9 +137,9 @@ function Router() {
       </Route>
       <Route path="/leaderboard">
         {() => (
-          <Protected>
+          <ProtectedStandings>
             <Leaderboard />
-          </Protected>
+          </ProtectedStandings>
         )}
       </Route>
       <Route path="/advent">
