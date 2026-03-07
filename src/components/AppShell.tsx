@@ -244,7 +244,7 @@ export function AppShell({
   };
 
   return (
-    <div className={`min-h-screen ${themeBg} relative`} style={backgroundStyle}>
+    <div className={`min-h-screen ${themeBg} relative overflow-x-hidden`} style={backgroundStyle}>
       {backgroundOverlay}
       <div className="relative z-10">
         <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg}`}>

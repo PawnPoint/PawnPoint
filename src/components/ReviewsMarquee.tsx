@@ -73,9 +73,13 @@ const REVIEWS: Review[] = [
 function Stars({ rating }: { rating: number }) {
   const full = Math.max(0, Math.min(5, Math.round(rating)));
   return (
-    <div className="pp-stars" aria-label={`${full} out of 5 stars`}>
+    <div className="flex items-center gap-0.5 text-sm" aria-label={`${full} out of 5 stars`}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < full ? "pp-star on" : "pp-star"}>
+        <span
+          key={i}
+          className={i < full ? "text-amber-300" : "text-white/30"}
+          aria-hidden="true"
+        >
           *
         </span>
       ))}
@@ -119,27 +123,40 @@ export default function ReviewsMarquee() {
   }, []);
 
   return (
-    <section className="pp-reviews">
-      <div className="pp-marquee" role="region" aria-label="Auto-scrolling player reviews">
-        <div className="pp-track" ref={trackRef}>
+    <section className="relative">
+      <div
+        className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1c]/70 px-2 py-3 sm:px-3"
+        role="region"
+        aria-label="Auto-scrolling player reviews"
+      >
+        <div className="flex w-max items-stretch gap-3 sm:gap-4 will-change-transform" ref={trackRef}>
           {reviews.map((r, idx) => (
-            <article className="pp-card" key={`${r.name}-${idx}`}>
-              <div className="pp-card-top">
+            <article
+              className="w-[290px] sm:w-[320px] shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
+              key={`${r.name}-${idx}`}
+            >
+              <div className="mb-3">
                 <Stars rating={r.rating} />
               </div>
 
-              <p className="pp-card-text">"{r.text}"</p>
+              <p className="text-sm leading-relaxed text-white/85">"{r.text}"</p>
 
-              <div className="pp-card-foot">
-                <div className="pp-card-name">{r.name}</div>
-                {r.role ? <div className="pp-card-role">{r.role}</div> : null}
+              <div className="mt-4">
+                <div className="text-sm font-semibold tracking-tight">{r.name}</div>
+                {r.role ? <div className="mt-1 text-xs text-white/60">{r.role}</div> : null}
               </div>
             </article>
           ))}
         </div>
 
-        <div className="pp-fade left" aria-hidden="true" />
-        <div className="pp-fade right" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-10 sm:w-16 bg-gradient-to-r from-[#0b0f1c] to-transparent"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 sm:w-16 bg-gradient-to-l from-[#0b0f1c] to-transparent"
+          aria-hidden="true"
+        />
       </div>
     </section>
   );
