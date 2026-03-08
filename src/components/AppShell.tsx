@@ -9,8 +9,6 @@ import {
   UserRound,
   Settings,
   MessageCircle,
-  Moon,
-  Sun,
   XCircle,
   Gift,
   ArrowLeft,
@@ -62,10 +60,7 @@ export function AppShell({
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isLight, setIsLight] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("pawnpoint_theme") === "light";
-  });
+  const isLight = false;
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackMood, setFeedbackMood] = useState("Meh");
@@ -122,12 +117,12 @@ export function AppShell({
   }, [forceGroupChoice, user?.groupName]);
 
   useEffect(() => {
-    const themeName = isLight ? "light" : "dark";
-    document.body.classList.toggle("theme-light", isLight);
-    document.body.classList.toggle("theme-dark", !isLight);
-    document.documentElement.style.colorScheme = themeName;
-    localStorage.setItem("pawnpoint_theme", themeName);
-  }, [isLight]);
+    document.body.classList.remove("theme-light");
+    document.body.classList.add("theme-dark");
+    document.documentElement.classList.add("dark");
+    document.documentElement.style.colorScheme = "dark";
+    localStorage.setItem("pawnpoint_theme", "dark");
+  }, []);
 
   const practiceRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -506,17 +501,6 @@ export function AppShell({
                 })}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                    isLight
-                      ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                      : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-                  onClick={() => setIsLight((v) => !v)}
-                >
-                  {isLight ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-amber-400" />}
-                  <span>Theme</span>
-                </button>
                 <Button
                   variant="ghost"
                   size="sm"
