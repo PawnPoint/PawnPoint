@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
 import BlurText from "../components/BlurText";
+import GlassSurface from "../components/GlassSurface";
+import Prism from "../components/Prism";
 import pawnPointIcon from "../assets/App tab icon.png";
 
 const heroHighlights = [
@@ -142,20 +144,27 @@ export default function Landing() {
         isLight ? "bg-[#f7f7fb] text-slate-900" : "bg-[#050608] text-white"
       }`}
     >
-      <div className="pp-landing-bg" aria-hidden="true">
+      <div className="pp-landing-bg absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="w-full h-[600px] relative">
+          <Prism
+            animationType="rotate"
+            timeScale={0.5}
+            height={3.5}
+            baseWidth={5.5}
+            scale={3.6}
+            hueShift={0}
+            colorFrequency={1}
+            noise={0}
+            glow={1}
+          />
+        </div>
         <div className="pp-landing-radial" />
         <div className="pp-landing-dots" />
         <div className="pp-landing-vignette" />
       </div>
 
       <div className="relative z-10">
-      <div
-        className={`relative ${
-          isLight
-            ? "bg-white/90 border-b border-slate-200"
-            : "bg-black/30 border-b border-white/5 backdrop-blur-xl"
-        }`}
-      >
+      <div className="relative">
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 h-16 md:h-[72px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden flex items-center justify-center">
@@ -163,44 +172,52 @@ export default function Landing() {
             </div>
             <span className="text-2xl font-extrabold tracking-tight">Pawn Point</span>
           </div>
-          <nav
-            className={`hidden md:flex items-center gap-6 text-sm font-semibold ${
-              isLight ? "text-slate-600" : "text-white/70"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={scrollToFeatures}
-              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
+          <div className="hidden md:flex items-center gap-3 text-sm font-semibold">
+            <GlassSurface
+              borderRadius={999}
+              className="inline-flex items-center gap-0.5 px-1 py-1"
+              displace={0.5}
+              distortionScale={-180}
+              redOffset={0}
+              greenOffset={10}
+              blueOffset={20}
+              brightness={50}
+              opacity={0.94}
             >
-              Features
-            </button>
-            <button
-              type="button"
-              onClick={goToPricing}
-              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
-            >
-              Pricing
-            </button>
-            <button
-              type="button"
-              onClick={scrollToFaqs}
-              className={`transition ${isLight ? "hover:text-slate-900" : "hover:text-white"}`}
-            >
-              FAQs
-            </button>
-          </nav>
+              <button
+                type="button"
+                onClick={scrollToFeatures}
+                className={`rounded-full px-4 py-1.5 transition ${isLight ? "text-slate-700 hover:text-slate-900 hover:bg-black/5" : "text-white/90 hover:text-white hover:bg-white/10"}`}
+              >
+                Features
+              </button>
+              <button
+                type="button"
+                onClick={goToPricing}
+                className={`rounded-full px-4 py-1.5 transition ${isLight ? "text-slate-700 hover:text-slate-900 hover:bg-black/5" : "text-white/90 hover:text-white hover:bg-white/10"}`}
+              >
+                Pricing
+              </button>
+              <button
+                type="button"
+                onClick={scrollToFaqs}
+                className={`rounded-full px-4 py-1.5 transition ${isLight ? "text-slate-700 hover:text-slate-900 hover:bg-black/5" : "text-white/90 hover:text-white hover:bg-white/10"}`}
+              >
+                FAQs
+              </button>
+            </GlassSurface>
+          </div>
           <div className="flex items-center justify-end gap-2 md:gap-3">
-            <button
-              onClick={goToLogin}
-              className={`hidden sm:inline-flex rounded-full px-3 py-2 text-sm font-semibold border transition ${
-                isLight
-                  ? "border-slate-200 bg-white text-slate-900 hover:bg-slate-100"
-                  : "border-white/10 bg-white/5 text-white hover:bg-white/10"
-              }`}
-            >
-              Log in
-            </button>
+            <GlassSurface borderRadius={999} className="hidden sm:inline-flex" opacity={0.95}>
+              <button
+                onClick={goToLogin}
+                className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                  isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                Log in
+              </button>
+            </GlassSurface>
             <button
               onClick={goToSignup}
               className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
@@ -243,16 +260,16 @@ export default function Landing() {
               >
                 Get Started Free
               </button>
-              <button
-                onClick={goToLogin}
-                className={`w-full sm:w-auto rounded-full px-5 py-3 text-sm font-semibold border transition ${
-                  isLight
-                    ? "border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
-                    : "border-white/15 bg-white/5 text-white hover:bg-white/10"
-                }`}
-              >
-                I already have an account
-              </button>
+              <GlassSurface borderRadius={999} className="w-full sm:w-auto inline-flex" opacity={0.95}>
+                <button
+                  onClick={goToLogin}
+                  className={`w-full rounded-full px-5 py-3 text-sm font-semibold transition ${
+                    isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  I already have an account
+                </button>
+              </GlassSurface>
             </div>
             <div className="mt-5 fade-in flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
               {heroHighlights.map((item) => (
