@@ -123,9 +123,9 @@ export default function ReviewsMarquee() {
   }, []);
 
   return (
-    <section className="relative">
+    <section className="relative w-full">
       <div
-        className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1c]/70 px-2 py-3 sm:px-3"
+        className="relative overflow-hidden py-3"
         role="region"
         aria-label="Auto-scrolling player reviews"
       >

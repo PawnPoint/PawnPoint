@@ -17,7 +17,7 @@ import {
 import ReviewsMarquee from "../components/ReviewsMarquee";
 import BlurText from "../components/BlurText";
 import GlassSurface from "../components/GlassSurface";
-import Prism from "../components/Prism";
+import FloatingLines from "../components/FloatingLines";
 import pawnPointIcon from "../assets/App tab icon.png";
 
 const heroHighlights = [
@@ -145,17 +145,16 @@ export default function Landing() {
       }`}
     >
       <div className="pp-landing-bg absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="w-full h-[600px] relative">
-          <Prism
-            animationType="rotate"
-            timeScale={0.5}
-            height={3.5}
-            baseWidth={5.5}
-            scale={3.6}
-            hueShift={0}
-            colorFrequency={1}
-            noise={0}
-            glow={1}
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+          <FloatingLines
+            linesGradient={["#E945F5", "#2F4BC0", "#775ed9"]}
+            animationSpeed={1}
+            interactive={false}
+            bendRadius={6}
+            bendStrength={-0.7}
+            mouseDamping={0.05}
+            parallax={false}
+            parallaxStrength={0.9}
           />
         </div>
         <div className="pp-landing-radial" />
@@ -377,7 +376,7 @@ export default function Landing() {
           </div>
         </div>
       </section>
-      <div className="w-full px-4 sm:px-6 pb-24">
+      <div className="relative w-screen left-1/2 -translate-x-1/2 pb-24">
         <ReviewsMarquee />
       </div>
       <footer
