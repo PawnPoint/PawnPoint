@@ -154,6 +154,14 @@ export type ClubLeaderboardEntry = {
   createdAt?: number;
 };
 
+export type StandingsBoard = {
+  id: string;
+  label: string;
+  names: string[];
+  updatedAt?: number;
+  updatedBy?: string;
+};
+
 export type SquareBaseBook = {
   id: string;
   title: string;
@@ -215,6 +223,7 @@ const STORAGE_KEYS = {
   suggestions: "pawnpoint_suggestions",
   xpHistory: "pawnpoint_xp_history",
   clubLeaderboard: "pawnpoint_club_leaderboard",
+  standingsBoards: "pawnpoint_standings_boards",
   squareBase: "pawnpoint_square_base",
 };
 
@@ -224,11 +233,82 @@ const COURSES_PATH = "courses";
 const XP_HISTORY_PATH = "xpHistory";
 const STREAKS_PATH = "streaks";
 const SQUARE_BASE_PATH = "squareBaseBooks";
+const STANDINGS_BOARDS_PATH = "standingsBoards";
 const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", "/pieces/bK.png"];
 const DEFAULT_GROUP_NAME = "My Group";
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
 const GROUP_REJOIN_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const REQUIRED_DAILY_XP = 10;
+const DEFAULT_STANDINGS_BOARDS: StandingsBoard[] = [
+  {
+    id: "group-standings",
+    label: "Group standings",
+    names: [
+      "Juan-Louis",
+      "Zac",
+      "Karli",
+      "Amy",
+      "Lillith",
+      "Zander",
+      "Wayde",
+      "Chris",
+      "Jonny",
+      "KG",
+      "Tayla",
+      "Mia",
+      "Rosty",
+      "Ruan",
+      "Sakelish",
+      "Zenzo",
+      "Nano",
+      "Khanya",
+      "Ryan",
+      "Emilio",
+      "Joshua",
+    ],
+  },
+  {
+    id: "mid-players-standings",
+    label: "Mid players standings",
+    names: [
+      "Ian",
+      "Ethan",
+      "Caydence",
+      "Tiaan",
+      "Alexander(bear)",
+      "Elandre",
+      "Charlize",
+      "Nelita",
+      "Mila-ne",
+      "Markie",
+      "johan",
+      "LXR",
+      "Arina",
+      "Anicka",
+      "Lienke",
+      "Kabir",
+      "Rachael",
+      "Darius(1)",
+      "Carson",
+      "keagan",
+      "Cathri Botha",
+      "Alexander",
+      "Emily",
+      "Liam",
+      "Seyan",
+      "Liam(twin)",
+      "Milan (twin)",
+      "kevin",
+      "Arno",
+      "Zai",
+      "Maxinmus",
+      "Darius(2)",
+      "Ruben",
+      "Sebastian",
+      "AmarokGJ",
+    ],
+  },
+];
 
 type DataScope = {
   scope: "group" | "personal" | "public";
@@ -350,6 +430,28 @@ function resolveClubScope(user?: UserProfile | null): ScopedResource {
     };
   }
   return { scope: "public", cacheKey: "public", path: "clubLeaderboard" };
+}
+
+function resolveStandingsBoardsScope(user?: UserProfile | null): ScopedResource {
+  const active = user || readUser();
+  if (active?.groupId) {
+    return {
+      scope: "group",
+      cacheKey: `group-${active.groupId}`,
+      groupId: active.groupId,
+      userId: active.id,
+      path: `groups/${active.groupId}/${STANDINGS_BOARDS_PATH}`,
+    };
+  }
+  if (active?.id) {
+    return {
+      scope: "personal",
+      cacheKey: `user-${active.id}`,
+      userId: active.id,
+      path: `users/${active.id}/${STANDINGS_BOARDS_PATH}`,
+    };
+  }
+  return { scope: "public", cacheKey: "public", path: STANDINGS_BOARDS_PATH };
 }
 
 function resolveIsAdmin(profile: UserProfile): boolean {
@@ -495,6 +597,48 @@ function normalizeClubEntry(raw: Partial<ClubLeaderboardEntry>): ClubLeaderboard
   };
 }
 
+function cloneDefaultStandingsBoards(): StandingsBoard[] {
+  return DEFAULT_STANDINGS_BOARDS.map((board) => ({
+    ...board,
+    names: [...board.names],
+  }));
+}
+
+function normalizeStandingsNames(boardId: string | undefined, names: string[]): string[] {
+  const cleaned = names.map((name) => (name === "Saklesh" ? "Sakelish" : name));
+  if (boardId !== "group-standings") return cleaned;
+  const desiredOrder = ["Ruan", "Sakelish", "Zenzo", "Nano", "Khanya", "Ryan", "Emilio"];
+  const desiredSet = new Set(desiredOrder);
+  const present = new Set(cleaned.filter((name) => desiredSet.has(name)));
+  let index = 0;
+  const replacements = desiredOrder.filter((name) => present.has(name));
+  return cleaned.map((name) => (desiredSet.has(name) ? replacements[index++] : name));
+}
+
+function normalizeStandingsBoard(raw: Partial<StandingsBoard>, fallback?: StandingsBoard): StandingsBoard {
+  const namesSource = Array.isArray(raw.names) ? raw.names : fallback?.names || [];
+  const boardId = raw.id || fallback?.id;
+  return {
+    id: boardId || nanoid(),
+    label: (raw.label || fallback?.label || "Standings").trim() || "Standings",
+    names: normalizeStandingsNames(
+      boardId,
+      namesSource.map((name) => (typeof name === "string" ? name.trim() : "")).filter(Boolean),
+    ),
+    updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : fallback?.updatedAt,
+    updatedBy: typeof raw.updatedBy === "string" ? raw.updatedBy : fallback?.updatedBy,
+  };
+}
+
+function mergeStandingsBoards(rawBoards?: Partial<StandingsBoard>[]): StandingsBoard[] {
+  const incoming = new Map(
+    (rawBoards || [])
+      .filter((board): board is Partial<StandingsBoard> & { id: string } => typeof board?.id === "string")
+      .map((board) => [board.id, board]),
+  );
+  return cloneDefaultStandingsBoards().map((board) => normalizeStandingsBoard(incoming.get(board.id) || board, board));
+}
+
 function readClubLeaderboardLocal(scope?: DataScope): ClubLeaderboardEntry[] {
   const resolved = scope || resolveScope();
   try {
@@ -512,6 +656,28 @@ function writeClubLeaderboardLocal(entries: ClubLeaderboardEntry[], scope?: Data
   const resolved = scope || resolveScope();
   try {
     localStorage.setItem(scopedStorageKey(STORAGE_KEYS.clubLeaderboard, resolved), JSON.stringify(entries));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readStandingsBoardsLocal(scope?: DataScope): StandingsBoard[] {
+  const resolved = scope || resolveScope();
+  try {
+    const raw = localStorage.getItem(scopedStorageKey(STORAGE_KEYS.standingsBoards, resolved));
+    if (!raw) return cloneDefaultStandingsBoards();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return cloneDefaultStandingsBoards();
+    return mergeStandingsBoards(parsed);
+  } catch {
+    return cloneDefaultStandingsBoards();
+  }
+}
+
+function writeStandingsBoardsLocal(boards: StandingsBoard[], scope?: DataScope) {
+  const resolved = scope || resolveScope();
+  try {
+    localStorage.setItem(scopedStorageKey(STORAGE_KEYS.standingsBoards, resolved), JSON.stringify(boards));
   } catch {
     // ignore storage errors
   }
@@ -2972,6 +3138,80 @@ export async function removeClubParticipant(admin: UserProfile | null, id: strin
   }
   writeClubLeaderboardLocal(existing, scoped);
   return existing;
+}
+
+export async function getStandingsBoards(user?: UserProfile | null): Promise<StandingsBoard[]> {
+  const scoped = resolveStandingsBoardsScope(user);
+  const fallback = () => readStandingsBoardsLocal(scoped);
+  if (scoped.scope !== "group") {
+    return fallback();
+  }
+  try {
+    const snap = await get(ref(db, scoped.path));
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, StandingsBoard>;
+      const boards = mergeStandingsBoards(Object.values(val || {}));
+      writeStandingsBoardsLocal(boards, scoped);
+      return boards;
+    }
+    const defaults = fallback();
+    writeStandingsBoardsLocal(defaults, scoped);
+    return defaults;
+  } catch (err) {
+    console.warn("Failed to load standings boards from Firebase", err);
+    return fallback();
+  }
+}
+
+export async function updateStandingsBoard(
+  admin: UserProfile | null,
+  boardId: string,
+  names: string[],
+): Promise<{ boards: StandingsBoard[]; localOnly: boolean }> {
+  if (!admin?.isAdmin) throw new Error("Only admins can edit the standings.");
+  const scoped = resolveStandingsBoardsScope(admin);
+  if (scoped.scope !== "group") {
+    throw new Error("Standings editing is only available inside a group.");
+  }
+  const current = mergeStandingsBoards(readStandingsBoardsLocal(scoped));
+  const target = current.find((board) => board.id === boardId);
+  if (!target) throw new Error("That leaderboard could not be found.");
+  const trimmedNames = names.map((name) => name.trim()).filter(Boolean);
+  const nextBoards = current.map((board) =>
+    board.id === boardId
+      ? normalizeStandingsBoard(
+          {
+            ...board,
+            names: trimmedNames,
+            updatedAt: Date.now(),
+            updatedBy: admin.id,
+          },
+          board,
+        )
+      : board,
+  );
+  const payload = nextBoards.reduce<Record<string, ReturnType<typeof stripUndefinedShallow>>>((acc, board) => {
+    acc[board.id] = stripUndefinedShallow({
+      id: board.id,
+      label: board.label,
+      names: board.names,
+      updatedAt: board.updatedAt,
+      updatedBy: board.updatedBy,
+    });
+    return acc;
+  }, {});
+  writeStandingsBoardsLocal(nextBoards, scoped);
+  try {
+    await set(ref(db, scoped.path), payload);
+  } catch (err) {
+    console.warn("Failed to save standings boards to Firebase", err);
+    const message = String((err as { code?: string; message?: string } | null)?.code || (err as { message?: string } | null)?.message || "").toLowerCase();
+    if (message.includes("permission_denied") || message.includes("permission denied")) {
+      return { boards: nextBoards, localOnly: true };
+    }
+    throw new Error("Could not save the leaderboard. Your changes were kept on this device.");
+  }
+  return { boards: nextBoards, localOnly: false };
 }
 
 export async function getSquareBaseBooks(user?: UserProfile | null): Promise<SquareBaseBook[]> {

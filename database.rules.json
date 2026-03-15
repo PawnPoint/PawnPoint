@@ -455,6 +455,31 @@
             ".validate": "newData.child('id').exists() && newData.child('name').exists() && newData.child('rating').exists() && true"
           }
         },
+        "standingsBoards": {
+          ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && (root.child('groups').child($groupId).child('members').child(auth.uid).exists() || root.child('groups').child($groupId).child('createdBy').val() == auth.uid) && (root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin' || root.child('groups').child($groupId).child('createdBy').val() == auth.uid || root.child('users').child(auth.uid).child('adminKeyUnlocked').val() == true)",
+          "$boardId": {
+            ".validate": "newData.child('id').exists() && newData.child('label').exists() && newData.child('names').exists() && true",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $boardId"
+            },
+            "label": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "names": {
+              ".validate": "true",
+              "$idx": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              }
+            },
+            "updatedAt": {
+              ".validate": "newData.val() == null || (newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000)"
+            },
+            "updatedBy": {
+              ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 80)"
+            }
+          }
+        },
         "squareBaseBooks": {
           ".read": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).exists()",
           ".write": "auth != null && root.child('groups').child($groupId).child('members').child(auth.uid).child('role').val() == 'admin'",
