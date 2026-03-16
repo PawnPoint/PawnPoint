@@ -259,10 +259,10 @@ export default function Landing() {
               >
                 Get Started Free
               </button>
-              <GlassSurface borderRadius={999} className="w-full sm:w-auto inline-flex" opacity={0.95}>
+              <GlassSurface borderRadius={999} className="block w-full sm:inline-flex sm:w-auto" opacity={0.95}>
                 <button
                   onClick={goToLogin}
-                  className={`inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
+                  className={`block w-full rounded-full px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
                     isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
                   }`}
                 >
