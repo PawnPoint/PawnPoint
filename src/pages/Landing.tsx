@@ -237,7 +237,7 @@ export default function Landing() {
             <BlurText
               text="Where Serious Players Get Better"
               delay={100}
-              className="text-5xl max-[540px]:text-4xl max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-tight tracking-tight whitespace-nowrap"
+              className="mx-auto text-5xl max-[540px]:text-4xl max-[480px]:max-w-[9ch] max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-[0.95] tracking-tight"
               direction="top"
               threshold={0.1}
               stepDuration={0.35}
@@ -262,7 +262,7 @@ export default function Landing() {
               <GlassSurface borderRadius={999} className="w-full sm:w-auto inline-flex" opacity={0.95}>
                 <button
                   onClick={goToLogin}
-                  className={`w-full rounded-full px-5 py-3 text-sm font-semibold transition ${
+                  className={`inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
                     isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
                   }`}
                 >
