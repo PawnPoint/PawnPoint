@@ -2813,7 +2813,7 @@ export function PracticeBoard({
                     <div className="mt-1 text-white/60">Awaiting moves...</div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <Button variant="outline" className="w-full gap-2" onClick={() => setBotModalOpen(true)}>
                     <Play className="h-4 w-4 text-white" />
                     Choose Bot
@@ -3024,6 +3024,5 @@ export function PracticeBoard({
 export default function Practice() {
   return <PracticeBoard />;
 }
-
 
 

@@ -821,6 +821,43 @@ function stripUndefinedShallow<T extends Record<string, unknown>>(input: T): T {
   return next as T;
 }
 
+function buildUserSyncPayload(profile: UserProfile) {
+  return stripUndefinedShallow({
+    id: profile.id,
+    email: profile.email,
+    displayName: profile.displayName,
+    avatarUrl: typeof profile.avatarUrl === "string" && profile.avatarUrl.trim() ? profile.avatarUrl : undefined,
+    accountType: profile.accountType ?? "personal",
+    groupId: profile.groupId ?? null,
+    groupCode: profile.groupCode ?? null,
+    groupName: profile.groupName ?? null,
+    groupRole: profile.groupRole ?? null,
+    adminKeyUnlocked: profile.adminKeyUnlocked ?? false,
+    createdAt: profile.createdAt ?? Date.now(),
+    xpReachedAt: profile.xpReachedAt ?? profile.createdAt ?? Date.now(),
+    totalXp: Math.max(0, profile.totalXp ?? 0),
+    level: Math.max(1, profile.level ?? 1),
+    streak: Math.max(0, profile.streak ?? 0),
+    bestStreak: Math.max(0, profile.bestStreak ?? profile.streak ?? 0),
+    dailyXp: Math.max(0, profile.dailyXp ?? 0),
+    dailyDate: profile.dailyDate ?? toLocalDateKey(new Date()),
+    lastQualifiedDate: profile.lastQualifiedDate ?? null,
+    lastStreakAt: profile.lastStreakAt ?? startOfDayMs(new Date()),
+    pawns: Math.max(0, profile.pawns ?? 0),
+    chessUsername: profile.chessUsername || profile.displayName || profile.email.split("@")[0],
+    onlineRating: typeof profile.onlineRating === "number" ? profile.onlineRating : 1000,
+    boardTheme: resolveBoardTheme(profile.boardTheme).key,
+    pieceTheme: resolvePieceTheme(profile.pieceTheme).key,
+    selectedTagline: profile.selectedTagline ?? "",
+    taglinesEnabled: profile.taglinesEnabled ?? true,
+    unlockedPfps: profile.unlockedPfps || [],
+    unlockedTaglines: profile.unlockedTaglines || [],
+    unlockedVideos: profile.unlockedVideos || [],
+    unlockedSets: profile.unlockedSets || [],
+    groupLocked: profile.groupId ? profile.groupLocked ?? false : null,
+  });
+}
+
 const REMOVED_COURSE_IDS = new Set([
   "course-trompowsky",
   "course-pieces",
@@ -1405,10 +1442,14 @@ export async function ensureProfile(
   idOverride?: string,
 ): Promise<UserProfile> {
   const localUser = readUser();
+  const resolvedUserId = idOverride || localUser?.id || nanoid();
+  const legacyLocalId =
+    localUser && localUser.email === email && localUser.id !== resolvedUserId ? localUser.id : null;
   const baseProfile: UserProfile =
     localUser && localUser.email === email
       ? {
           ...localUser,
+          id: resolvedUserId,
           accountType: localUser.accountType ?? (localUser.groupId ? "group" : undefined),
           groupId: localUser.groupId ?? null,
           groupCode: localUser.groupCode ?? null,
@@ -1435,7 +1476,7 @@ export async function ensureProfile(
           pieceTheme: resolvePieceTheme(localUser.pieceTheme).key,
         }
       : {
-          id: idOverride || nanoid(),
+          id: resolvedUserId,
           email,
           displayName: displayName || email.split("@")[0],
           chessUsername: displayName || email.split("@")[0],
@@ -1478,50 +1519,78 @@ export async function ensureProfile(
   try {
     const snap = await get(userNodeRef);
     const remote = snap.val() as UserProfile | null;
+    let legacyRemote: UserProfile | null = null;
+    if (legacyLocalId) {
+      try {
+        const legacySnap = await get(ref(db, `users/${legacyLocalId}`));
+        legacyRemote = legacySnap.val() as UserProfile | null;
+      } catch {
+        legacyRemote = null;
+      }
+    }
+    const remoteProfile = {
+      ...(legacyRemote || {}),
+      ...(remote || {}),
+    } as Partial<UserProfile>;
     const inferredAccountType =
-      remote?.accountType ??
+      remoteProfile.accountType ??
       baseProfile.accountType ??
-      (remote?.groupId || baseProfile.groupId ? "group" : undefined);
+      (remoteProfile.groupId || baseProfile.groupId ? "group" : undefined);
     let merged: UserProfile = {
       ...baseProfile,
-      ...(remote || {}),
+      ...remoteProfile,
       email: baseProfile.email,
-      displayName: baseProfile.displayName || remote?.displayName || baseProfile.email.split("@")[0],
+      id: baseProfile.id,
+      displayName: baseProfile.displayName || remoteProfile.displayName || baseProfile.email.split("@")[0],
       chessUsername:
-        remote?.chessUsername || baseProfile.chessUsername || baseProfile.displayName || baseProfile.email.split("@")[0],
-      createdAt: remote?.createdAt ?? baseProfile.createdAt,
-      xpReachedAt: remote?.xpReachedAt ?? baseProfile.xpReachedAt ?? baseProfile.createdAt ?? Date.now(),
-      pawns: remote?.pawns ?? baseProfile.pawns ?? 0,
-      onlineRating: remote?.onlineRating ?? baseProfile.onlineRating ?? 1000,
-        totalXp: remote?.totalXp ?? baseProfile.totalXp,
-        level: remote?.level ?? baseProfile.level,
-        streak: remote?.streak ?? baseProfile.streak ?? 0,
-        bestStreak: remote?.bestStreak ?? baseProfile.bestStreak ?? remote?.streak ?? baseProfile.streak ?? 0,
-        dailyXp: remote?.dailyXp ?? baseProfile.dailyXp ?? 0,
-        dailyDate: remote?.dailyDate ?? baseProfile.dailyDate ?? toLocalDateKey(new Date()),
-        lastQualifiedDate: remote?.lastQualifiedDate ?? baseProfile.lastQualifiedDate ?? null,
+        remoteProfile.chessUsername ||
+        baseProfile.chessUsername ||
+        baseProfile.displayName ||
+        baseProfile.email.split("@")[0],
+      createdAt: remoteProfile.createdAt ?? baseProfile.createdAt,
+      xpReachedAt: remoteProfile.xpReachedAt ?? baseProfile.xpReachedAt ?? baseProfile.createdAt ?? Date.now(),
+      pawns: remoteProfile.pawns ?? baseProfile.pawns ?? 0,
+      onlineRating: remoteProfile.onlineRating ?? baseProfile.onlineRating ?? 1000,
+      totalXp: remoteProfile.totalXp ?? baseProfile.totalXp,
+      level: remoteProfile.level ?? baseProfile.level,
+      streak: remoteProfile.streak ?? baseProfile.streak ?? 0,
+      bestStreak:
+        remoteProfile.bestStreak ??
+        baseProfile.bestStreak ??
+        remoteProfile.streak ??
+        baseProfile.streak ??
+        0,
+      dailyXp: remoteProfile.dailyXp ?? baseProfile.dailyXp ?? 0,
+      dailyDate: remoteProfile.dailyDate ?? baseProfile.dailyDate ?? toLocalDateKey(new Date()),
+      lastQualifiedDate: remoteProfile.lastQualifiedDate ?? baseProfile.lastQualifiedDate ?? null,
       // group/account scope
       accountType: inferredAccountType,
-      groupId: remote?.groupId ?? baseProfile.groupId ?? null,
-      groupCode: remote?.groupCode ?? baseProfile.groupCode ?? null,
-      groupName: remote?.groupName ?? baseProfile.groupName ?? null,
-      groupRole: remote?.groupRole ?? baseProfile.groupRole ?? (remote?.groupId || baseProfile.groupId ? "member" : null),
-      adminKeyUnlocked: remote?.adminKeyUnlocked ?? baseProfile.adminKeyUnlocked ?? false,
-      unlockedPfps: remote?.unlockedPfps || baseProfile.unlockedPfps || [],
-      unlockedTaglines: remote?.unlockedTaglines || baseProfile.unlockedTaglines || [],
-      unlockedVideos: remote?.unlockedVideos || baseProfile.unlockedVideos || [],
-      unlockedSets: remote?.unlockedSets || baseProfile.unlockedSets || [],
-      selectedTagline: remote?.selectedTagline ?? baseProfile.selectedTagline ?? "",
-      taglinesEnabled: remote?.taglinesEnabled ?? baseProfile.taglinesEnabled ?? true,
-      lastStreakAt: remote?.lastStreakAt ?? baseProfile.lastStreakAt ?? startOfDayMs(new Date()),
-      boardTheme: resolveBoardTheme(remote?.boardTheme || baseProfile.boardTheme).key,
-      pieceTheme: resolvePieceTheme(remote?.pieceTheme || baseProfile.pieceTheme).key,
-      premiumAccess: remote?.premiumAccess ?? baseProfile.premiumAccess ?? false,
-      paypalSubscriptionId: remote?.paypalSubscriptionId ?? baseProfile.paypalSubscriptionId ?? null,
-      subscriptionStatus: remote?.subscriptionStatus ?? baseProfile.subscriptionStatus ?? (remote?.premiumAccess ? "active" : undefined),
-      subscriptionUpdatedAt: remote?.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
-      groupLocked: remote?.groupLocked ?? baseProfile.groupLocked ?? false,
-      avatarUrl: remote?.avatarUrl ?? baseProfile.avatarUrl,
+      groupId: remoteProfile.groupId ?? baseProfile.groupId ?? null,
+      groupCode: remoteProfile.groupCode ?? baseProfile.groupCode ?? null,
+      groupName: remoteProfile.groupName ?? baseProfile.groupName ?? null,
+      groupRole:
+        remoteProfile.groupRole ??
+        baseProfile.groupRole ??
+        (remoteProfile.groupId || baseProfile.groupId ? "member" : null),
+      adminKeyUnlocked: remoteProfile.adminKeyUnlocked ?? baseProfile.adminKeyUnlocked ?? false,
+      unlockedPfps: remoteProfile.unlockedPfps || baseProfile.unlockedPfps || [],
+      unlockedTaglines: remoteProfile.unlockedTaglines || baseProfile.unlockedTaglines || [],
+      unlockedVideos: remoteProfile.unlockedVideos || baseProfile.unlockedVideos || [],
+      unlockedSets: remoteProfile.unlockedSets || baseProfile.unlockedSets || [],
+      selectedTagline: remoteProfile.selectedTagline ?? baseProfile.selectedTagline ?? "",
+      taglinesEnabled: remoteProfile.taglinesEnabled ?? baseProfile.taglinesEnabled ?? true,
+      lastStreakAt: remoteProfile.lastStreakAt ?? baseProfile.lastStreakAt ?? startOfDayMs(new Date()),
+      boardTheme: resolveBoardTheme(remoteProfile.boardTheme || baseProfile.boardTheme).key,
+      pieceTheme: resolvePieceTheme(remoteProfile.pieceTheme || baseProfile.pieceTheme).key,
+      premiumAccess: remoteProfile.premiumAccess ?? baseProfile.premiumAccess ?? false,
+      paypalSubscriptionId: remoteProfile.paypalSubscriptionId ?? baseProfile.paypalSubscriptionId ?? null,
+      subscriptionStatus:
+        remoteProfile.subscriptionStatus ??
+        baseProfile.subscriptionStatus ??
+        (remoteProfile.premiumAccess ? "active" : undefined),
+      subscriptionUpdatedAt: remoteProfile.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
+      groupLocked: remoteProfile.groupLocked ?? baseProfile.groupLocked ?? false,
+      avatarUrl: remoteProfile.avatarUrl ?? baseProfile.avatarUrl,
       isAdmin: false,
     };
     const dropGroup = () => {
@@ -1541,29 +1610,54 @@ export async function ensureProfile(
         if (!groupSnap.exists()) {
           dropGroup();
         } else {
-          const groupData = groupSnap.val() as Group;
+          const groupData = groupSnap.val() as Group & { members?: Record<string, GroupMember> };
+          const members = groupData.members || {};
+          let member = members[merged.id] ?? null;
+          const legacyMember = legacyLocalId ? members[legacyLocalId] ?? null : null;
+          let preservedLegacyAdmin = false;
           merged = {
             ...merged,
             groupCode: groupData.code || merged.groupCode || null,
             groupName: groupData.name || merged.groupName || null,
             groupLocked: typeof groupData.locked === "boolean" ? groupData.locked : merged.groupLocked,
           };
-          try {
-            const memberSnap = await get(ref(db, `groups/${merged.groupId}/members/${merged.id}`));
-            if (memberSnap.exists()) {
-              const member = memberSnap.val() as GroupMember;
-              merged = {
-                ...merged,
-                groupRole: member?.role === "admin" ? "admin" : "member",
-              };
-            } else {
-              dropGroup();
+
+          if (!member && legacyLocalId) {
+            preservedLegacyAdmin =
+              legacyMember?.role === "admin" ||
+              groupData.createdBy === legacyLocalId ||
+              merged.adminKeyUnlocked === true;
+            const migratedMember: GroupMember = {
+              id: merged.id,
+              displayName: legacyMember?.displayName || merged.displayName,
+              email: legacyMember?.email || merged.email,
+              role: preservedLegacyAdmin ? "admin" : "member",
+              joinedAt: legacyMember?.joinedAt || Date.now(),
+            };
+            try {
+              await set(ref(db, `groups/${merged.groupId}/members/${merged.id}`), migratedMember);
+              member = migratedMember;
+            } catch (err) {
+              if (preservedLegacyAdmin) {
+                try {
+                  const fallbackMember: GroupMember = { ...migratedMember, role: "member" };
+                  await set(ref(db, `groups/${merged.groupId}/members/${merged.id}`), fallbackMember);
+                  member = fallbackMember;
+                } catch {
+                  member = null;
+                }
+              }
             }
-          } catch (err: any) {
-            const message = String(err?.code || err?.message || "").toLowerCase();
-            if (message.includes("permission_denied")) {
-              dropGroup();
-            }
+          }
+
+          if (member) {
+            merged = {
+              ...merged,
+              groupRole: member.role === "admin" ? "admin" : "member",
+              adminKeyUnlocked: merged.adminKeyUnlocked === true || (member.role !== "admin" && preservedLegacyAdmin),
+            };
+          } else {
+            dropGroup();
           }
         }
       } catch {
@@ -1572,12 +1666,12 @@ export async function ensureProfile(
     }
     merged.isAdmin = resolveIsAdmin(merged);
     writeUser(merged);
-    const safePayload = stripUndefinedShallow({
-      ...merged,
-      isAdmin: undefined,
-      groupLocked: merged.groupId ? merged.groupLocked : null,
-    });
-    await update(userNodeRef, safePayload);
+    const safePayload = buildUserSyncPayload(merged);
+    try {
+      await update(userNodeRef, safePayload);
+    } catch (err) {
+      console.warn("Failed to sync profile with Firebase, using local only", err);
+    }
     return merged;
   } catch (err) {
     console.warn("Failed to sync profile with Firebase, using local only", err);
