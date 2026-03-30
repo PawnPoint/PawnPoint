@@ -47,7 +47,7 @@
           ".validate": "newData.isBoolean()"
         },
         "groupLocked": {
-          ".validate": "auth.token.admin == true || (!newData.parent().child('groupId').exists() && (newData.val() == null || newData.val() == false)) || newData.val() == data.val() || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
+          ".validate": "auth.token.admin == true || (!newData.parent().child('groupId').exists() && (newData.val() == null || newData.val() == false)) || newData.val() == data.val() || (!root.child('groups').child(newData.parent().child('groupId').val()).child('locked').exists() && (newData.val() == null || newData.val() == false)) || newData.val() == root.child('groups').child(newData.parent().child('groupId').val()).child('locked').val()"
         },
         "isAdmin": {
           ".validate": "auth.token.admin == true || (!data.exists() && newData.val() == false) || (data.exists() && newData.val() == data.val())"

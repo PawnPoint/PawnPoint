@@ -12,7 +12,13 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { ensureProfile, logout as mockLogout, type UserProfile } from "../lib/mockApi";
+import {
+  ensureProfile,
+  logout as mockLogout,
+  syncStreakStatus,
+  USER_UPDATED_EVENT,
+  type UserProfile,
+} from "../lib/mockApi";
 
 type AuthContextValue = {
   user: UserProfile | null;
@@ -62,7 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fbUser.displayName || fbUser.email.split("@")[0],
           fbUser.uid,
         );
-        const withStreak = bumpStreak(profile);
+        const syncedProfile = await syncStreakStatus(profile.id).catch(() => profile);
+        const withStreak = bumpStreak(syncedProfile || profile);
         setUser(withStreak);
       } else {
         setUser(null);
@@ -71,6 +78,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     return () => unsub();
   }, [todayKey]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const sync = async () => {
+      try {
+        const nextProfile = await syncStreakStatus(user.id);
+        if (nextProfile) {
+          setUser(nextProfile);
+        }
+      } catch (err) {
+        console.warn("Failed to refresh streak status", err);
+      }
+    };
+
+    void sync();
+    const interval = window.setInterval(sync, 60_000);
+    return () => window.clearInterval(interval);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleUserUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<UserProfile | null>).detail;
+      if (!detail) return;
+      setUser((current) => {
+        if (!current) return detail;
+        if (current.id !== detail.id) return current;
+        return detail;
+      });
+    };
+
+    window.addEventListener(USER_UPDATED_EVENT, handleUserUpdated as EventListener);
+    return () => {
+      window.removeEventListener(USER_UPDATED_EVENT, handleUserUpdated as EventListener);
+    };
+  }, []);
 
   const loginHandler = async (
     email: string,

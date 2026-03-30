@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
 import BlurText from "../components/BlurText";
-import GlassSurface from "../components/GlassSurface";
-import FloatingLines from "../components/FloatingLines";
+import Aurora from "../components/Aurora";
 import pawnPointIcon from "../assets/App tab icon.png";
 
 const heroHighlights = [
@@ -144,45 +143,33 @@ export default function Landing() {
         isLight ? "bg-[#f7f7fb] text-slate-900" : "bg-[#050608] text-white"
       }`}
     >
-      <div className="pp-landing-bg absolute inset-0 pointer-events-none" aria-hidden="true">
+      <div className="pp-landing-bg absolute inset-x-0 top-0 h-screen pointer-events-none" aria-hidden="true">
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
-          <FloatingLines
-            linesGradient={["#E945F5", "#2F4BC0", "#775ed9"]}
-            animationSpeed={1}
-            interactive={false}
-            bendRadius={6}
-            bendStrength={-0.7}
-            mouseDamping={0.05}
-            parallax={false}
-            parallaxStrength={0.9}
-          />
+          <Aurora colorStops={["#5227FF", "#7cff67", "#5227FF"]} amplitude={1} blend={0.5} />
         </div>
         <div className="pp-landing-radial" />
         <div className="pp-landing-dots" />
         <div className="pp-landing-vignette" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#050608]" />
       </div>
 
       <div className="relative z-10">
-      <div className="relative">
-        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 h-16 md:h-[72px] grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="relative px-4 pt-4 sm:px-6">
+        <div
+          className={`mx-auto grid h-16 w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-4 rounded-[22px] border px-4 sm:px-5 md:h-[72px] md:grid-cols-[1fr_auto_1fr] ${
+            isLight
+              ? "border-slate-300/80 bg-white/80 text-slate-900"
+              : "border-white/14 bg-black/12 text-white backdrop-blur-xl"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 overflow-hidden flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/12">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
             </div>
             <span className="text-2xl font-extrabold tracking-tight">Pawn Point</span>
           </div>
           <div className="hidden md:flex items-center gap-3 text-sm font-semibold">
-            <GlassSurface
-              borderRadius={999}
-              className="inline-flex items-center gap-0.5 px-1 py-1"
-              displace={0.5}
-              distortionScale={-180}
-              redOffset={0}
-              greenOffset={10}
-              blueOffset={20}
-              brightness={50}
-              opacity={0.94}
-            >
+            <div className="inline-flex items-center gap-1 rounded-full px-1 py-1">
               <button
                 type="button"
                 onClick={scrollToFeatures}
@@ -204,19 +191,17 @@ export default function Landing() {
               >
                 FAQs
               </button>
-            </GlassSurface>
+            </div>
           </div>
           <div className="flex items-center justify-end gap-2 md:gap-3">
-            <GlassSurface borderRadius={999} className="hidden sm:inline-flex" opacity={0.95}>
-              <button
-                onClick={goToLogin}
-                className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
-                  isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                Log in
-              </button>
-            </GlassSurface>
+            <button
+              onClick={goToLogin}
+              className={`hidden rounded-full px-3 py-2 text-sm font-semibold transition sm:inline-flex ${
+                isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              Log in
+            </button>
             <button
               onClick={goToSignup}
               className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
@@ -237,7 +222,7 @@ export default function Landing() {
             <BlurText
               text="Where Serious Players Get Better"
               delay={100}
-              className="mx-auto text-5xl max-[540px]:text-4xl max-[480px]:max-w-[9ch] max-[480px]:text-3xl sm:text-6xl md:text-7xl font-semibold leading-[0.95] tracking-tight"
+              className="mx-auto text-4xl max-[540px]:text-3xl max-[480px]:max-w-[10ch] max-[480px]:text-[1.75rem] sm:text-5xl md:text-6xl font-semibold leading-[0.95] tracking-tight"
               direction="top"
               threshold={0.1}
               stepDuration={0.35}
@@ -259,7 +244,7 @@ export default function Landing() {
               >
                 Get Started Free
               </button>
-              <GlassSurface borderRadius={999} className="block w-full sm:inline-flex sm:w-auto" opacity={0.95}>
+              <div className="block w-full rounded-full border border-white/12 bg-white/4 backdrop-blur-sm sm:inline-flex sm:w-auto">
                 <button
                   onClick={goToLogin}
                   className={`block w-full rounded-full px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
@@ -268,7 +253,7 @@ export default function Landing() {
                 >
                   I already have an account
                 </button>
-              </GlassSurface>
+              </div>
             </div>
             <div className="mt-5 fade-in flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
               {heroHighlights.map((item) => (
@@ -320,7 +305,7 @@ export default function Landing() {
                   }`}
                 >
                   <div
-                    className={`h-10 w-10 rounded-xl border flex items-center justify-center bg-transparent ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border bg-transparent ${
                       isLight ? "border-slate-200" : "border-white/10"
                     } ${feature.tone}`}
                   >
@@ -379,19 +364,18 @@ export default function Landing() {
       <div className="relative w-screen left-1/2 -translate-x-1/2 pb-24">
         <ReviewsMarquee />
       </div>
-      <footer
-        className={`w-full border-t ${
-          isLight ? "border-slate-200 bg-white/90 text-slate-900" : "border-white/10 bg-[#0b0f1c] text-white"
-        }`}
-      >
+      <footer className={`relative w-full overflow-hidden ${isLight ? "text-slate-900" : "text-white"}`}>
+        <div
+          className={`pointer-events-none absolute inset-x-0 top-0 h-px ${
+            isLight
+              ? "bg-gradient-to-r from-transparent via-slate-300/90 to-transparent"
+              : "bg-gradient-to-r from-transparent via-white/18 to-transparent"
+          }`}
+        />
         <div className="w-full px-6 sm:px-10 py-12">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={`h-10 w-10 rounded-xl overflow-hidden border ${
-                  isLight ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"
-                }`}
-              >
+            <div className="flex items-center gap-3 drop-shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
+              <div className="h-10 w-10 overflow-hidden rounded-xl">
                 <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
               </div>
               <div className="text-xl font-bold tracking-tight">Pawn Point</div>
@@ -400,7 +384,7 @@ export default function Landing() {
             <div className="flex flex-wrap gap-5 text-sm font-semibold">
               <a
                 href="/checkout"
-                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+                className={`transition ${isLight ? "text-slate-600 hover:text-slate-900" : "text-white/72 hover:text-white"}`}
               >
                 Membership Plans
               </a>
@@ -410,7 +394,7 @@ export default function Landing() {
                   setContactOpen(true);
                   setFaqOpen(false);
                 }}
-                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+                className={`transition ${isLight ? "text-slate-600 hover:text-slate-900" : "text-white/72 hover:text-white"}`}
               >
                 Contact Us
               </button>
@@ -421,7 +405,7 @@ export default function Landing() {
                   setFaqOpenIdx(null);
                   setContactOpen(false);
                 }}
-                className={isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"}
+                className={`transition ${isLight ? "text-slate-600 hover:text-slate-900" : "text-white/72 hover:text-white"}`}
               >
                 FAQ
               </button>
@@ -430,8 +414,8 @@ export default function Landing() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Pawn Point YouTube"
-                className={`inline-flex items-center justify-center ${
-                  isLight ? "text-slate-600 hover:text-slate-900" : "text-white/70 hover:text-white"
+                className={`inline-flex items-center justify-center transition ${
+                  isLight ? "text-slate-600 hover:text-slate-900" : "text-white/72 hover:text-white"
                 }`}
               >
                 <Youtube className="h-4 w-4" />
@@ -442,7 +426,7 @@ export default function Landing() {
 
           <div
             className={`mt-6 flex flex-col gap-3 text-xs md:flex-row md:items-center md:justify-between ${
-              isLight ? "text-slate-500" : "text-white/60"
+              isLight ? "text-slate-500" : "text-white/58"
             }`}
           >
             <div>(c) {year} Pawn Point. All rights reserved.</div>

@@ -3,6 +3,9 @@ import { auth, db } from "./firebase";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
 import { DEFAULT_BOARD_THEME, resolveBoardTheme } from "./boardThemes";
 import { DEFAULT_PIECE_THEME, resolvePieceTheme } from "./pieceThemes";
+import avatarFallback from "../assets/Easter Default.png";
+
+export type DailyPuzzleType = "easy" | "medium" | "hard";
 
 export type UserProfile = {
   id: string;
@@ -23,9 +26,12 @@ export type UserProfile = {
   streak?: number;
   bestStreak?: number;
   dailyXp?: number;
+  dailyPuzzleCount?: number;
+  dailyPuzzleTypes?: DailyPuzzleType[];
   dailyDate?: string;
   lastQualifiedDate?: string | null;
   lastStreakAt?: number;
+  streakDeadlineAt?: number;
   pawns?: number;
   chessUsername?: string;
   onlineRating?: number;
@@ -238,7 +244,7 @@ const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", 
 const DEFAULT_GROUP_NAME = "My Group";
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
 const GROUP_REJOIN_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-const REQUIRED_DAILY_XP = 10;
+export const USER_UPDATED_EVENT = "pawnpoint:user-updated";
 const DEFAULT_STANDINGS_BOARDS: StandingsBoard[] = [
   {
     id: "group-standings",
@@ -458,6 +464,23 @@ function resolveIsAdmin(profile: UserProfile): boolean {
   return profile.adminKeyUnlocked === true || profile.groupRole === "admin";
 }
 
+const DAILY_PUZZLE_TYPE_ORDER: DailyPuzzleType[] = ["easy", "medium", "hard"];
+
+function normalizeDailyPuzzleTypes(value: unknown): DailyPuzzleType[] {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set<DailyPuzzleType>();
+  value.forEach((entry) => {
+    if (entry === "easy" || entry === "medium" || entry === "hard") {
+      unique.add(entry);
+    }
+  });
+  return DAILY_PUZZLE_TYPE_ORDER.filter((entry) => unique.has(entry));
+}
+
+function normalizeAvatarUrl(value: string | null | undefined) {
+  return typeof value === "string" && value.trim().length ? value : avatarFallback;
+}
+
 function readUser(): UserProfile | null {
   const raw = localStorage.getItem(STORAGE_KEYS.user);
   if (!raw) return null;
@@ -492,8 +515,20 @@ function readUser(): UserProfile | null {
       parsed.dailyXp = 0;
       writeUser(parsed);
     }
+    if (parsed.dailyPuzzleCount === undefined) {
+      parsed.dailyPuzzleCount = 0;
+      writeUser(parsed);
+    }
+    if (parsed.dailyPuzzleTypes === undefined) {
+      parsed.dailyPuzzleTypes = [];
+      writeUser(parsed);
+    }
     if (parsed.lastQualifiedDate === undefined) {
       parsed.lastQualifiedDate = parsed.lastStreakAt ? toLocalDateKey(new Date(parsed.lastStreakAt)) : null;
+      writeUser(parsed);
+    }
+    if (parsed.streakDeadlineAt === undefined) {
+      parsed.streakDeadlineAt = nextDayDeadlineMs(new Date());
       writeUser(parsed);
     }
     if (parsed.pawns === undefined) {
@@ -520,21 +555,24 @@ function readUser(): UserProfile | null {
       parsed.subscriptionUpdatedAt = null;
       writeUser(parsed);
     }
-    if (parsed.groupLocked === undefined) {
-      parsed.groupLocked = false;
-      writeUser(parsed);
-    }
     parsed.groupId = parsed.groupId ?? null;
     parsed.groupCode = parsed.groupCode ?? null;
     parsed.groupName = parsed.groupName ?? null;
     parsed.groupRole = parsed.groupRole ?? null;
+    parsed.accountType = parsed.groupId ? "group" : parsed.accountType ?? "personal";
+    parsed.groupLocked = parsed.groupId ? parsed.groupLocked : parsed.groupLocked ?? false;
+    if (!parsed.groupId) {
+      parsed.groupRole = null;
+    }
     parsed.unlockedPfps = parsed.unlockedPfps || [];
     parsed.unlockedTaglines = parsed.unlockedTaglines || [];
     parsed.unlockedVideos = parsed.unlockedVideos || [];
     parsed.unlockedSets = parsed.unlockedSets || [];
     parsed.taglinesEnabled = parsed.taglinesEnabled ?? true;
     parsed.selectedTagline = parsed.selectedTagline ?? "";
+    parsed.avatarUrl = normalizeAvatarUrl(parsed.avatarUrl);
     parsed.onlineRating = typeof parsed.onlineRating === "number" ? parsed.onlineRating : 1000;
+    parsed.dailyPuzzleTypes = normalizeDailyPuzzleTypes(parsed.dailyPuzzleTypes);
     parsed.boardTheme = resolveBoardTheme(parsed.boardTheme).key;
     parsed.pieceTheme = resolvePieceTheme(parsed.pieceTheme).key;
     const nextIsAdmin = resolveIsAdmin(parsed);
@@ -553,7 +591,16 @@ function readUser(): UserProfile | null {
 }
 
 function writeUser(user: UserProfile) {
-  localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+  const nextValue = JSON.stringify(user);
+  const previousValue = localStorage.getItem(STORAGE_KEYS.user);
+  localStorage.setItem(STORAGE_KEYS.user, nextValue);
+  if (previousValue !== nextValue && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(USER_UPDATED_EVENT, {
+        detail: user,
+      }),
+    );
+  }
 }
 
 function readSuggestions(): { courseIds: string[]; source?: string } | null {
@@ -822,16 +869,17 @@ function stripUndefinedShallow<T extends Record<string, unknown>>(input: T): T {
 }
 
 function buildUserSyncPayload(profile: UserProfile) {
+  const hasGroup = !!profile.groupId;
   return stripUndefinedShallow({
     id: profile.id,
     email: profile.email,
     displayName: profile.displayName,
-    avatarUrl: typeof profile.avatarUrl === "string" && profile.avatarUrl.trim() ? profile.avatarUrl : undefined,
-    accountType: profile.accountType ?? "personal",
-    groupId: profile.groupId ?? null,
-    groupCode: profile.groupCode ?? null,
-    groupName: profile.groupName ?? null,
-    groupRole: profile.groupRole ?? null,
+    avatarUrl: normalizeAvatarUrl(profile.avatarUrl),
+    accountType: hasGroup ? "group" : profile.accountType ?? "personal",
+    groupId: hasGroup ? profile.groupId : null,
+    groupCode: hasGroup ? profile.groupCode ?? null : null,
+    groupName: hasGroup ? profile.groupName ?? null : null,
+    groupRole: hasGroup ? profile.groupRole ?? "member" : null,
     adminKeyUnlocked: profile.adminKeyUnlocked ?? false,
     createdAt: profile.createdAt ?? Date.now(),
     xpReachedAt: profile.xpReachedAt ?? profile.createdAt ?? Date.now(),
@@ -840,9 +888,11 @@ function buildUserSyncPayload(profile: UserProfile) {
     streak: Math.max(0, profile.streak ?? 0),
     bestStreak: Math.max(0, profile.bestStreak ?? profile.streak ?? 0),
     dailyXp: Math.max(0, profile.dailyXp ?? 0),
+    dailyPuzzleCount: Math.max(0, profile.dailyPuzzleCount ?? 0),
     dailyDate: profile.dailyDate ?? toLocalDateKey(new Date()),
     lastQualifiedDate: profile.lastQualifiedDate ?? null,
     lastStreakAt: profile.lastStreakAt ?? startOfDayMs(new Date()),
+    streakDeadlineAt: profile.streakDeadlineAt ?? nextDayDeadlineMs(new Date()),
     pawns: Math.max(0, profile.pawns ?? 0),
     chessUsername: profile.chessUsername || profile.displayName || profile.email.split("@")[0],
     onlineRating: typeof profile.onlineRating === "number" ? profile.onlineRating : 1000,
@@ -854,7 +904,7 @@ function buildUserSyncPayload(profile: UserProfile) {
     unlockedTaglines: profile.unlockedTaglines || [],
     unlockedVideos: profile.unlockedVideos || [],
     unlockedSets: profile.unlockedSets || [],
-    groupLocked: profile.groupId ? profile.groupLocked ?? false : null,
+    groupLocked: hasGroup ? (typeof profile.groupLocked === "boolean" ? profile.groupLocked : null) : null,
   });
 }
 
@@ -1038,6 +1088,62 @@ type ProgressRecord = {
   lastUpdated?: number;
 };
 
+function listTrackableSubsections(course: Course | null): Subsection[] {
+  if (!course?.chapters) return [];
+
+  const subsections = Object.values(course.chapters).flatMap((chapter) => Object.values(chapter.subsections || {}));
+  const parentStudyIds = new Set(
+    subsections
+      .map((subsection) => ("parentStudyId" in subsection ? subsection.parentStudyId : undefined))
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+  );
+
+  return subsections.filter((subsection) => subsection.type !== "study" || !parentStudyIds.has(subsection.id));
+}
+
+function normalizeStreakRow(base: Partial<StreakRow> | null | undefined, userId: string, today = toLocalDateKey()): StreakRow {
+  const now = Date.now();
+  return {
+    user_id: userId,
+    current_streak: Math.max(0, Number(base?.current_streak) || 0),
+    best_streak: Math.max(0, Number(base?.best_streak) || 0),
+    daily_xp: Math.max(0, Number(base?.daily_xp) || 0),
+    daily_puzzles: Math.max(0, Number(base?.daily_puzzles) || 0),
+    daily_date: base?.daily_date || today,
+    last_qualified_date:
+      typeof base?.last_qualified_date === "string" && base.last_qualified_date.trim().length
+        ? base.last_qualified_date
+        : null,
+    deadline_at:
+      Number.isFinite(Number(base?.deadline_at)) && Number(base?.deadline_at) > 0
+        ? Number(base?.deadline_at)
+        : nextDayDeadlineMs(new Date(now)),
+  };
+}
+
+function rollStreakDayIfNeeded(row: StreakRow, today = toLocalDateKey()): { row: StreakRow; changed: boolean } {
+  const next = normalizeStreakRow(row, row.user_id, today);
+  let changed = false;
+
+  if (next.daily_date !== today) {
+    const previousDate = next.daily_date;
+    const previousWasYesterday = isYesterday(today, previousDate);
+    if (!previousWasYesterday || next.daily_puzzles < REQUIRED_DAILY_PUZZLES) {
+      next.current_streak = 0;
+    }
+    next.daily_xp = 0;
+    next.daily_puzzles = 0;
+    next.daily_date = today;
+    next.deadline_at = nextDayDeadlineMs();
+    changed = true;
+  } else if (!Number.isFinite(next.deadline_at) || next.deadline_at <= 0) {
+    next.deadline_at = nextDayDeadlineMs();
+    changed = true;
+  }
+
+  return { row: next, changed };
+}
+
 type XpEvent = {
   id?: string;
   ts: number;
@@ -1053,15 +1159,24 @@ type StreakRow = {
   current_streak: number;
   best_streak: number;
   daily_xp: number;
+  daily_puzzles: number;
   daily_date: string;
   last_qualified_date: string | null;
+  deadline_at: number;
 };
 
 const XP_HISTORY_RETENTION_DAYS = 7;
+const REQUIRED_DAILY_PUZZLES = 1;
 
 function startOfDayMs(date: Date): number {
   const copy = new Date(date);
   copy.setHours(0, 0, 0, 0);
+  return copy.getTime();
+}
+
+function nextDayDeadlineMs(date = new Date()): number {
+  const copy = new Date(date);
+  copy.setHours(24, 0, 0, 0);
   return copy.getTime();
 }
 
@@ -1150,7 +1265,13 @@ async function persistTotalXp(userId: string, newTotal: number, extra?: Partial<
 export async function awardXp(
   userId: string,
   amount: number,
-  options?: { source?: string; courseId?: string; subsectionId?: string; type?: Subsection["type"] },
+  options?: {
+    source?: string;
+    courseId?: string;
+    subsectionId?: string;
+    type?: Subsection["type"];
+    puzzleType?: DailyPuzzleType;
+  },
 ): Promise<{ streak: StreakRow; totalXp: number } | null> {
   const xpGain = Math.max(0, amount);
   if (!xpGain) return null;
@@ -1163,6 +1284,7 @@ export async function awardXp(
   const today = toLocalDateKey();
   const userNodeRef = ref(db, `users/${userId}`);
   const streakNodeRef = ref(db, `${STREAKS_PATH}/${userId}`);
+  const isPuzzleSolve = (options?.source || "").toLowerCase() === "puzzle";
 
   try {
     await recordXpEvent(userId, {
@@ -1191,44 +1313,46 @@ export async function awardXp(
 
   const localUser = readUser();
   const baseUser = existingUser || (localUser && localUser.id === userId ? localUser : null);
-  const fallbackRow: StreakRow = {
-    user_id: userId,
-    current_streak: baseUser?.streak ?? 0,
-    best_streak: baseUser?.bestStreak ?? baseUser?.streak ?? 0,
-    daily_xp: baseUser?.dailyXp ?? 0,
-    daily_date: baseUser?.dailyDate ?? today,
-    last_qualified_date: baseUser?.lastQualifiedDate ?? null,
-  };
+  const fallbackRow = normalizeStreakRow(
+    {
+      user_id: userId,
+      current_streak: baseUser?.streak ?? 0,
+      best_streak: baseUser?.bestStreak ?? baseUser?.streak ?? 0,
+      daily_xp: baseUser?.dailyXp ?? 0,
+      daily_puzzles: baseUser?.dailyPuzzleCount ?? 0,
+      daily_date: baseUser?.dailyDate ?? today,
+      last_qualified_date: baseUser?.lastQualifiedDate ?? null,
+      deadline_at: baseUser?.streakDeadlineAt ?? nextDayDeadlineMs(),
+    },
+    userId,
+    today,
+  );
 
-  const resolvedRow: StreakRow = {
-    user_id: userId,
-    current_streak: Number.isFinite(Number(streakRow?.current_streak))
-      ? Number(streakRow?.current_streak)
-      : fallbackRow.current_streak,
-    best_streak: Number.isFinite(Number(streakRow?.best_streak))
-      ? Number(streakRow?.best_streak)
-      : fallbackRow.best_streak,
-    daily_xp: Number.isFinite(Number(streakRow?.daily_xp)) ? Number(streakRow?.daily_xp) : fallbackRow.daily_xp,
-    daily_date: streakRow?.daily_date || fallbackRow.daily_date,
-    last_qualified_date:
-      streakRow && typeof streakRow.last_qualified_date === "string"
-        ? streakRow.last_qualified_date
-        : fallbackRow.last_qualified_date,
-  };
+  const normalizedStreak = normalizeStreakRow(streakRow || fallbackRow, userId, today);
+  const { row: resolvedRow } = rollStreakDayIfNeeded(
+    {
+      ...fallbackRow,
+      ...normalizedStreak,
+    },
+    today,
+  );
 
-  if (resolvedRow.daily_date !== today) {
-    if (resolvedRow.daily_xp < REQUIRED_DAILY_XP) {
-      resolvedRow.current_streak = 0;
-    }
-    resolvedRow.daily_xp = 0;
-    resolvedRow.daily_date = today;
-  }
+  let nextDailyPuzzleTypes =
+    resolvedRow.daily_date === (baseUser?.dailyDate ?? today)
+      ? normalizeDailyPuzzleTypes(baseUser?.dailyPuzzleTypes)
+      : [];
 
   resolvedRow.daily_xp += xpGain;
+  if (isPuzzleSolve) {
+    resolvedRow.daily_puzzles += 1;
+    if (options?.puzzleType && !nextDailyPuzzleTypes.includes(options.puzzleType)) {
+      nextDailyPuzzleTypes = normalizeDailyPuzzleTypes([...nextDailyPuzzleTypes, options.puzzleType]);
+    }
+  }
 
   let qualifiedNow = false;
   const alreadyQualifiedToday = resolvedRow.last_qualified_date === today;
-  if (!alreadyQualifiedToday && resolvedRow.daily_xp >= REQUIRED_DAILY_XP) {
+  if (!alreadyQualifiedToday && resolvedRow.daily_puzzles >= REQUIRED_DAILY_PUZZLES) {
     if (resolvedRow.last_qualified_date && isYesterday(today, resolvedRow.last_qualified_date)) {
       resolvedRow.current_streak += 1;
     } else {
@@ -1253,9 +1377,12 @@ export async function awardXp(
     streak: resolvedRow.current_streak,
     bestStreak: resolvedRow.best_streak,
     dailyXp: resolvedRow.daily_xp,
+    dailyPuzzleCount: resolvedRow.daily_puzzles,
+    dailyPuzzleTypes: nextDailyPuzzleTypes,
     dailyDate: resolvedRow.daily_date,
     lastQualifiedDate: resolvedRow.last_qualified_date,
     lastStreakAt: nextLastStreakAt,
+    streakDeadlineAt: resolvedRow.deadline_at,
   });
 
   try {
@@ -1264,6 +1391,81 @@ export async function awardXp(
     console.warn("Failed to persist streak row", err);
   }
   return { streak: resolvedRow, totalXp: nextTotal };
+}
+
+export async function syncStreakStatus(userId: string): Promise<UserProfile | null> {
+  const today = toLocalDateKey();
+  const userNodeRef = ref(db, `users/${userId}`);
+  const streakNodeRef = ref(db, `${STREAKS_PATH}/${userId}`);
+
+  let existingUser: UserProfile | null = null;
+  let streakRow: StreakRow | null = null;
+
+  try {
+    const [userSnap, streakSnap] = await Promise.all([get(userNodeRef), get(streakNodeRef)]);
+    existingUser = (userSnap.val() as UserProfile) || null;
+    if (streakSnap.exists()) {
+      streakRow = streakSnap.val() as StreakRow;
+    }
+  } catch (err) {
+    console.warn("Failed to sync streak status from Firebase, using local fallback", err);
+  }
+
+  const localUser = readUser();
+  const baseUser = existingUser || (localUser && localUser.id === userId ? localUser : null);
+  if (!baseUser) return null;
+
+  const fallbackRow = normalizeStreakRow(
+    {
+      user_id: userId,
+      current_streak: baseUser.streak ?? 0,
+      best_streak: baseUser.bestStreak ?? baseUser.streak ?? 0,
+      daily_xp: baseUser.dailyXp ?? 0,
+      daily_puzzles: baseUser.dailyPuzzleCount ?? 0,
+      daily_date: baseUser.dailyDate ?? today,
+      last_qualified_date: baseUser.lastQualifiedDate ?? null,
+      deadline_at: baseUser.streakDeadlineAt ?? nextDayDeadlineMs(),
+    },
+    userId,
+    today,
+  );
+
+  const { row: resolvedRow, changed } = rollStreakDayIfNeeded(
+    {
+      ...fallbackRow,
+      ...normalizeStreakRow(streakRow || fallbackRow, userId, today),
+    },
+    today,
+  );
+
+  const nextDailyPuzzleTypes =
+    resolvedRow.daily_date === (baseUser.dailyDate ?? today)
+      ? normalizeDailyPuzzleTypes(baseUser.dailyPuzzleTypes)
+      : [];
+
+  const profileUpdates: Partial<UserProfile> = {
+    streak: resolvedRow.current_streak,
+    bestStreak: resolvedRow.best_streak,
+    dailyXp: resolvedRow.daily_xp,
+    dailyPuzzleCount: resolvedRow.daily_puzzles,
+    dailyPuzzleTypes: nextDailyPuzzleTypes,
+    dailyDate: resolvedRow.daily_date,
+    lastQualifiedDate: resolvedRow.last_qualified_date,
+    streakDeadlineAt: resolvedRow.deadline_at,
+  };
+
+  const nextProfile = normalizeUser({ ...baseUser, ...profileUpdates });
+  writeUser(nextProfile);
+
+  if (changed) {
+    try {
+      await Promise.all([set(streakNodeRef, resolvedRow), update(userNodeRef, profileUpdates)]);
+    } catch (err) {
+      console.warn("Failed to persist streak rollover", err);
+    }
+  }
+
+  return nextProfile;
 }
 
 export async function claimXpForPawns(userId: string): Promise<{ pawnsAdded: number; remainingXp: number } | null> {
@@ -1421,13 +1623,11 @@ async function writeProgressForUser(userId: string, progress: Record<string, Pro
 }
 
 function countTotalSubsections(course: Course | null): number {
-  if (!course?.chapters) return 0;
-  return Object.values(course.chapters).reduce((sum, ch) => sum + Object.keys(ch.subsections || {}).length, 0);
+  return listTrackableSubsections(course).length;
 }
 
 function courseSubsectionIds(course: Course | null): string[] {
-  if (!course?.chapters) return [];
-  return Object.values(course.chapters).flatMap((ch) => Object.keys(ch.subsections || {}));
+  return listTrackableSubsections(course).map((subsection) => subsection.id);
 }
 
 function xpForSubsection(type: Subsection["type"]): number {
@@ -1532,10 +1732,10 @@ export async function ensureProfile(
       ...(legacyRemote || {}),
       ...(remote || {}),
     } as Partial<UserProfile>;
-    const inferredAccountType =
-      remoteProfile.accountType ??
-      baseProfile.accountType ??
-      (remoteProfile.groupId || baseProfile.groupId ? "group" : undefined);
+    const inferredGroupId = remoteProfile.groupId ?? baseProfile.groupId ?? null;
+    const inferredAccountType = inferredGroupId
+      ? "group"
+      : remoteProfile.accountType ?? baseProfile.accountType ?? "personal";
     let merged: UserProfile = {
       ...baseProfile,
       ...remoteProfile,
@@ -1565,7 +1765,7 @@ export async function ensureProfile(
       lastQualifiedDate: remoteProfile.lastQualifiedDate ?? baseProfile.lastQualifiedDate ?? null,
       // group/account scope
       accountType: inferredAccountType,
-      groupId: remoteProfile.groupId ?? baseProfile.groupId ?? null,
+      groupId: inferredGroupId,
       groupCode: remoteProfile.groupCode ?? baseProfile.groupCode ?? null,
       groupName: remoteProfile.groupName ?? baseProfile.groupName ?? null,
       groupRole:
@@ -1653,16 +1853,44 @@ export async function ensureProfile(
           if (member) {
             merged = {
               ...merged,
+              accountType: "group",
               groupRole: member.role === "admin" ? "admin" : "member",
               adminKeyUnlocked: merged.adminKeyUnlocked === true || (member.role !== "admin" && preservedLegacyAdmin),
             };
-          } else {
+          } else if (groupData.removedMembers?.[merged.id]?.reason === "kicked") {
             dropGroup();
+          } else {
+            const restoredRole: GroupMember["role"] =
+              groupData.createdBy === merged.id || merged.groupRole === "admin" ? "admin" : "member";
+            const restoredMember: GroupMember = {
+              id: merged.id,
+              displayName: merged.displayName,
+              email: merged.email,
+              role: restoredRole,
+              joinedAt: Date.now(),
+            };
+
+            try {
+              await set(ref(db, `groups/${merged.groupId}/members/${merged.id}`), restoredMember);
+            } catch (err) {
+              console.warn("Failed to restore missing group membership record", err);
+            }
+
+            merged = {
+              ...merged,
+              accountType: "group",
+              groupRole: restoredRole,
+              groupLocked: typeof groupData.locked === "boolean" ? groupData.locked : merged.groupLocked,
+            };
           }
         }
       } catch {
         // If group lookup fails, keep the merged data unchanged.
       }
+    }
+    if (!merged.groupId) {
+      merged.accountType = "personal";
+      merged.groupRole = null;
     }
     merged.isAdmin = resolveIsAdmin(merged);
     writeUser(merged);
@@ -2304,15 +2532,7 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
   });
   writeUser(updated);
   try {
-    await update(ref(db, `users/${user.id}`), {
-      accountType: "personal",
-      groupId: null,
-      groupCode: null,
-      groupName: null,
-      groupRole: null,
-      groupLocked: null,
-      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-    });
+    await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to persist personal account choice", err);
   }
@@ -2361,13 +2581,7 @@ export async function createGroupForUser(
   };
   writeUser(updated);
   try {
-    await update(ref(db, `users/${user.id}`), {
-      accountType: "group",
-      groupId,
-      groupCode: group.code,
-      groupName: group.name,
-      groupRole: "admin",
-    });
+    await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to sync group details to user profile", err);
   }
@@ -2470,6 +2684,7 @@ export async function joinGroupWithCode(
   } catch (err) {
     console.warn("Failed to record membership in Firebase", err);
   }
+  const resolvedGroupLocked = typeof groupData.locked === "boolean" ? groupData.locked : undefined;
   const updated: UserProfile = {
     ...user,
     accountType: "group",
@@ -2477,18 +2692,11 @@ export async function joinGroupWithCode(
     groupCode: group.code,
     groupName: group.name,
     groupRole: "member",
-    groupLocked: !!group.locked,
+    groupLocked: resolvedGroupLocked,
   };
   writeUser(updated);
   try {
-    await update(ref(db, `users/${user.id}`), {
-      accountType: "group",
-      groupId,
-      groupCode: group.code,
-      groupName: group.name,
-      groupRole: "member",
-      groupLocked: !!group.locked,
-    });
+    await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to sync group join to user profile", err);
   }
@@ -2515,15 +2723,7 @@ export async function leaveGroup(): Promise<UserProfile | null> {
   });
   writeUser(updated);
   try {
-    await update(ref(db, `users/${user.id}`), {
-      accountType: "personal",
-      groupId: null,
-      groupCode: null,
-      groupName: null,
-      groupRole: null,
-      groupLocked: null,
-      adminKeyUnlocked: updated.adminKeyUnlocked ?? false,
-    });
+    await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to sync group exit", err);
   }
@@ -2918,10 +3118,16 @@ type GiftConfig =
 function normalizeUser(u: UserProfile): UserProfile {
   const adminKeyUnlocked = u.adminKeyUnlocked ?? false;
   const isAdmin = resolveIsAdmin({ ...u, adminKeyUnlocked });
+  const hasGroup = !!u.groupId;
   return {
     ...u,
+    avatarUrl: normalizeAvatarUrl(u.avatarUrl),
     adminKeyUnlocked,
     isAdmin,
+    accountType: hasGroup ? "group" : u.accountType ?? "personal",
+    groupCode: hasGroup ? u.groupCode ?? null : null,
+    groupName: hasGroup ? u.groupName ?? null : null,
+    groupRole: hasGroup ? u.groupRole ?? "member" : null,
     unlockedPfps: u.unlockedPfps || [],
     unlockedTaglines: u.unlockedTaglines || [],
     unlockedVideos: u.unlockedVideos || [],
@@ -2933,11 +3139,14 @@ function normalizeUser(u: UserProfile): UserProfile {
     paypalSubscriptionId: u.paypalSubscriptionId ?? null,
     subscriptionStatus: u.subscriptionStatus ?? (u.premiumAccess ? "active" : undefined),
     subscriptionUpdatedAt: u.subscriptionUpdatedAt ?? null,
-    groupLocked: u.groupLocked ?? false,
+    groupLocked: hasGroup ? u.groupLocked : false,
     bestStreak: u.bestStreak ?? u.streak ?? 0,
     dailyXp: u.dailyXp ?? 0,
+    dailyPuzzleCount: u.dailyPuzzleCount ?? 0,
+    dailyPuzzleTypes: normalizeDailyPuzzleTypes(u.dailyPuzzleTypes),
     dailyDate: u.dailyDate ?? toLocalDateKey(new Date()),
     lastQualifiedDate: u.lastQualifiedDate ?? null,
+    streakDeadlineAt: u.streakDeadlineAt ?? nextDayDeadlineMs(new Date()),
     pieceTheme: resolvePieceTheme(u.pieceTheme).key,
     boardTheme: resolveBoardTheme(u.boardTheme).key,
   };
@@ -3001,7 +3210,7 @@ export async function updateLessonProgress(
 
 export async function getDashboard(user: UserProfile) {
   const xpEvents = await fetchXpEvents(user.id);
-  const history = buildXpHistory(xpEvents, { startFrom: user.createdAt });
+  const history = buildXpHistory(xpEvents);
   const distribution = buildXpDistribution(xpEvents);
 
   const courses = await getCourses(undefined, undefined, user);
@@ -3028,6 +3237,7 @@ export async function getDashboard(user: UserProfile) {
   }
   return {
     profile: user,
+    courses,
     xpHistory: history,
     xpDistribution: distribution,
     suggested,

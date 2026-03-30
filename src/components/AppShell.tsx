@@ -21,7 +21,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
 import pawnPointIcon from "../assets/App tab icon.png";
-import avatarFallback from "../assets/Avatar 1.png";
+import avatarFallback from "../assets/Easter Default.png";
 import {
   choosePersonalAccount,
   createGroupForUser,
@@ -40,6 +40,7 @@ const baseLinks = [
 
 const mobileLinkTail = [
   { label: "Puzzles", href: "/puzzles", icon: Puzzle },
+  { label: "SquareBase", href: "/squarebase", icon: Clipboard },
   { label: "Profile", href: "/profile", icon: UserRound },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
@@ -299,24 +300,38 @@ export function AppShell({
                           <Dumbbell className="h-4 w-4" />
                           Play AI
                         </button>
-                    <button
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                        isLight
-                          ? "text-gray-700 hover:bg-gray-50"
-                          : "text-gray-200 hover:bg-gray-700"
-                      }`}
-                      onClick={() => {
-                        navigate("/puzzles");
-                        setPracticeOpen(false);
-                      }}
-                    >
-                      <Puzzle className="h-4 w-4" />
-                      Puzzles
-                    </button>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            isLight
+                              ? "text-gray-700 hover:bg-gray-50"
+                              : "text-gray-200 hover:bg-gray-700"
+                          }`}
+                          onClick={() => {
+                            navigate("/puzzles");
+                            setPracticeOpen(false);
+                          }}
+                        >
+                          <Puzzle className="h-4 w-4" />
+                          Puzzles
+                        </button>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            isLight
+                              ? "text-gray-700 hover:bg-gray-50"
+                              : "text-gray-200 hover:bg-gray-700"
+                          }`}
+                          onClick={() => {
+                            navigate("/squarebase");
+                            setPracticeOpen(false);
+                          }}
+                        >
+                          <Clipboard className="h-4 w-4" />
+                          SquareBase
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
+                );
               }
               return (
                 <Link
@@ -349,7 +364,14 @@ export function AppShell({
               <div className={`h-8 w-8 rounded-full overflow-hidden border ${
                 isLight ? "border-gray-200" : "border-gray-700"
               }`}>
-                <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                <img
+                  src={avatarSrc}
+                  alt="Profile avatar"
+                  className="h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = avatarFallback;
+                  }}
+                />
               </div>
               <div className="text-left">
                 <div className="text-xs opacity-75">Level {level}</div>
@@ -367,7 +389,14 @@ export function AppShell({
                     <div className={`h-8 w-8 rounded-full overflow-hidden border ${
                       isLight ? "border-gray-200" : "border-gray-700"
                     }`}>
-                      <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                      <img
+                        src={avatarSrc}
+                        alt="Profile avatar"
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = avatarFallback;
+                        }}
+                      />
                     </div>
                     <div>
                       <div className="text-sm font-semibold">{nameLabel}</div>
@@ -470,7 +499,14 @@ export function AppShell({
                   <div className={`h-10 w-10 rounded-lg overflow-hidden border ${
                     isLight ? "border-gray-200" : "border-gray-700"
                   }`}>
-                    <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                    <img
+                      src={avatarSrc}
+                      alt="Profile avatar"
+                      className="h-full w-full object-cover"
+                      onError={(event) => {
+                        event.currentTarget.src = avatarFallback;
+                      }}
+                    />
                   </div>
                   <div>
                     <div className="text-sm font-semibold">{nameLabel}</div>

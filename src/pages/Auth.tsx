@@ -9,7 +9,7 @@ type Mode = "login" | "signup";
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 18 18" className="h-6 w-6" aria-hidden="true">
+    <svg viewBox="0 0 18 18" className="h-5 w-5" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M17.64 9.2045c0-.638-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.795 2.716v2.258h2.908c1.702-1.567 2.683-3.874 2.683-6.615z"
@@ -143,7 +143,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         <div className="space-y-3">
           <button
             type="button"
-            className="w-full h-16 rounded-xl border border-[#d6d9de] bg-white text-[#202124] shadow-[0_1px_2px_rgba(0,0,0,0.15)] hover:bg-[#f8f9fa] hover:shadow-[0_2px_6px_rgba(0,0,0,0.18)] active:bg-[#f1f3f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/35 disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-4 font-medium text-[18px] leading-none transition"
+            className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d6d9de] bg-white px-4 text-[15px] font-medium leading-none text-[#202124] shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_6px_rgba(0,0,0,0.18)] active:bg-[#f1f3f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/35 disabled:cursor-not-allowed disabled:opacity-70"
             onClick={handleGoogle}
             disabled={loading || locked}
           >

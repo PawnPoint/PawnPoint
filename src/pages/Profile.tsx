@@ -5,6 +5,7 @@ import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
 import { getDashboard, updateTaglineSettings } from "../lib/mockApi";
+import defaultAvatar from "../assets/Easter Default.png";
 import southKnight from "../assets/The South Knight.png";
 import avatar1 from "../assets/Avatar 1.png";
 import avatar2 from "../assets/Avatar 2.png";
@@ -28,7 +29,7 @@ export default function Profile() {
   const { user, setUser } = useAuth();
   const [, navigate] = useLocation();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || southKnight);
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || defaultAvatar);
 
   const { data } = useQuery({
     queryKey: ["profile", user?.id],
@@ -66,6 +67,7 @@ export default function Profile() {
   // XP distribution removed per request
 
   const avatars = [
+    { id: "default", label: "Easter Default", url: defaultAvatar },
     { id: "south", label: "South Knight", url: southKnight },
     { id: "avatar1", label: "Avatar 1", url: avatar1 },
     { id: "avatar2", label: "Avatar 2", url: avatar2 },
@@ -99,9 +101,7 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    if (user?.avatarUrl) {
-      setAvatarUrl(user.avatarUrl);
-    }
+    setAvatarUrl(user?.avatarUrl || defaultAvatar);
     setTaglineEnabled(user?.taglinesEnabled ?? true);
     setSelectedTagline(user?.selectedTagline || "");
   }, [user?.avatarUrl, user?.taglinesEnabled, user?.selectedTagline]);
@@ -127,7 +127,14 @@ export default function Profile() {
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6 p-6">
             <div className="flex items-center gap-4">
               <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white/40 shadow-lg">
-                <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                <img
+                  src={avatarUrl || defaultAvatar}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = defaultAvatar;
+                  }}
+                />
                 <button
                   onClick={() => setPickerOpen(true)}
                   className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-white/80 text-slate-900 flex items-center justify-center shadow-lg hover:bg-white transition"

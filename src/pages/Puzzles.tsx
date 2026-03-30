@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
@@ -20,17 +21,25 @@ const pageBackground = {
 } as const;
 
 type PuzzleCategory = "endgame" | "middlegame" | "opening";
+type PuzzleDifficulty = "easy" | "intermediate" | "advanced";
 type Puzzle = { id: string; fen: string; moves: string[]; rating: number | null; themes?: string; gameUrl?: string; openingTags?: string };
+
+function trackerDifficultyFor(selection: PuzzleDifficulty): "easy" | "medium" | "hard" {
+  if (selection === "intermediate") return "medium";
+  if (selection === "advanced") return "hard";
+  return "easy";
+}
 
 export default function Puzzles() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState<PuzzleCategory | null>(null);
   const [current, setCurrent] = useState<Puzzle | null>(null);
   const [fen, setFen] = useState("");
   const [orientation, setOrientation] = useState<Color>("w");
   const [selected, setSelected] = useState<Square | null>(null);
   const [status, setStatus] = useState("Select a category to start.");
-  const [difficulty, setDifficulty] = useState<"easy" | "intermediate" | "advanced">("easy");
+  const [difficulty, setDifficulty] = useState<PuzzleDifficulty>("easy");
   const [userColor, setUserColor] = useState<Color>("w");
   const [solved, setSolved] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
@@ -269,11 +278,21 @@ export default function Puzzles() {
   };
 
   const handleSolved = (puzzle: Puzzle) => {
+    const puzzleType = trackerDifficultyFor(difficulty);
+    const solvedLabel =
+      puzzleType === "medium" ? "Medium puzzle solved! +100 XP" : `${puzzleType[0].toUpperCase()}${puzzleType.slice(1)} puzzle solved! +100 XP`;
     setSolved(true);
-    setStatus("Puzzle solved! +100 XP");
-    setToast({ message: "Puzzle solved! +100 XP", tone: "success" });
+    setStatus(solvedLabel);
+    setToast({ message: solvedLabel, tone: "success" });
     if (user?.id) {
-      awardXp(user.id, 100, { source: "puzzle", subsectionId: puzzle.id });
+      void awardXp(user.id, 100, {
+        source: "puzzle",
+        subsectionId: puzzle.id,
+        puzzleType,
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-global-ranks"] });
+      });
     }
     // brief delay so the user can see the toast before loading the next puzzle
     setTimeout(() => {

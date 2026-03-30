@@ -139,13 +139,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
     return map;
   }, [chapterItems, completed, orderedChapters]);
 
-  const chapterPercents = Object.values(chapterPercentById);
-  const courseProgress =
-    chapterPercents.length === 0
-      ? 0
-      : chapterPercents.length === 1
-        ? chapterPercents[0]
-        : Math.round(chapterPercents.reduce((sum, pct) => sum + pct, 0) / chapterPercents.length);
+  const courseProgress = progress?.progressPercent ?? 0;
 
   const chapterProgress = (ch: OrderedChapter) => chapterPercentById[ch.id] ?? 0;
 

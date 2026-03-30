@@ -3,50 +3,40 @@ import { Button } from "../components/ui/Button";
 import loginBg from "../assets/Login screen.png";
 import pawnPointIcon from "../assets/App tab icon.png";
 import { useLocation } from "wouter";
-import { CheckCircle2, Key } from "lucide-react";
+import { Check, RotateCcw, ShieldCheck, Sparkles, Trophy, Users, Zap } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { auth } from "../lib/firebase";
 import { loadPaypalSdk } from "../lib/paypal";
 
 export default function Checkout() {
   const [, navigate] = useLocation();
-  const { user, setUser } = useAuth();
+  const { setUser } = useAuth();
   const [showSummary, setShowSummary] = useState(false);
   const [paypalError, setPaypalError] = useState<string | null>(null);
   const [paypalLoading, setPaypalLoading] = useState(false);
   const paypalButtonsRef = useRef<any>(null);
-  const features = useMemo(
+
+  const planFeatures = useMemo(
     () => [
-      "Unlimited Courses",
-      "Our AI bots",
-      "XP Gains",
-      "Leaderboards and Ranks",
-      "SquareBase",
+      "Elite Opening & Middlegame Library",
+      "Global Rankings & Standings",
+      "SquareBase AI Training",
+      "Private Training Groups",
+      "Premium XP & Rewards System",
+      "Future Features Included",
     ],
     [],
   );
-  const gradientShiftKeyframes = `
-    @keyframes checkoutGradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-  `;
-  const typewriterKeyframes = `
-    @keyframes checkoutType {
-      from { max-width: 0ch; }
-      to { max-width: 32ch; }
-    }
-  `;
-  const gradientTextStyle = {
-    color: "#ffffff",
-    display: "inline-block",
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-    fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    maxWidth: "0ch",
-    animation: "checkoutType 2.4s steps(32, end) forwards",
-  } as const;
+
+  const promisePoints = useMemo(
+    () => [
+      { icon: RotateCcw, label: "Cancel anytime" },
+      { icon: Zap, label: "Instant access" },
+      { icon: Check, label: "No hidden fees" },
+      { icon: ShieldCheck, label: "7-day guarantee" },
+    ],
+    [],
+  );
 
   const nextBilling = useMemo(() => {
     const date = new Date();
@@ -158,119 +148,155 @@ export default function Checkout() {
   }, [APP_ENV, PAYPAL_CLIENT_ID, PAYPAL_BUTTON_CONTAINER_ID, PAYPAL_PLAN_ID, handleSubscriptionSuccess, showSummary]);
 
   return (
-    <>
-      <style>{`${gradientShiftKeyframes}\n${typewriterKeyframes}`}</style>
-      <div className="min-h-screen relative bg-slate-950 text-white flex flex-col items-center justify-center px-4 py-10">
+    <div className="relative min-h-screen overflow-hidden bg-[#030712] text-white">
       <div
-        className="absolute inset-0 bg-cover bg-center opacity-40"
+        className="absolute inset-0 bg-cover bg-center opacity-20"
         style={{ backgroundImage: `url(${loginBg})` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-950/50 to-black/60" />
-      <div className="relative z-10 w-full max-w-5xl space-y-8">
-        <div
-          className="flex items-center justify-center gap-3 absolute left-1/2 -translate-x-1/2 z-20"
-          style={{ top: "-200px" }}
-        >
-          <img src={pawnPointIcon} alt="Pawn Point logo" className="h-16 w-16 object-contain" />
-          <div className="text-3xl font-semibold">Pawn Point</div>
-        </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_30%),radial-gradient(circle_at_bottom,rgba(29,78,216,0.18),transparent_28%),linear-gradient(180deg,#050816_0%,#030712_100%)]" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute left-[8%] top-[14%] h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute right-[10%] top-[24%] h-72 w-72 rounded-full bg-blue-400/10 blur-3xl" />
+        <div className="absolute bottom-[10%] left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-400/8 blur-3xl" />
+      </div>
 
-        <div
-          className="rounded-3xl border border-white/10 backdrop-blur-xl p-8 shadow-2xl space-y-6 max-w-4xl mx-auto"
-          style={{ backgroundColor: "#2d3749" }}
-        >
-          <div className="flex items-center justify-center gap-2 text-brand.pink">
-            <span className="h-1 w-12 rounded-full bg-brand.pink" />
-            <span className="h-1 w-12 rounded-full bg-brand.pink" />
-            <span className="h-1 w-12 rounded-full bg-brand.pink" />
-            <span className="h-1 w-12 rounded-full bg-brand.pink" />
-          </div>
+      <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 py-12 md:py-20">
+        {!showSummary ? (
+          <>
+            <header className="mb-16 text-center md:mb-20">
+              <div className="mb-3 inline-flex items-center justify-center">
+                <img src={pawnPointIcon} alt="Pawn Point logo" className="mr-3 h-9 w-9 object-contain" />
+                <h1 className="text-3xl font-semibold tracking-tight text-white">Pawn Point</h1>
+              </div>
+              <p className="text-sm text-blue-200/70">Used by competitive chess players</p>
+            </header>
 
-          {!showSummary ? (
-            <>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4 text-white">
-                  <div className="flex items-center gap-3 text-2xl font-bold" style={{ fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-                    <Key className="h-7 w-7 text-amber-300" />
-                    <span style={gradientTextStyle} className="text-white">
-                      Unlock your competitive edge
-                    </span>
-                  </div>
-                  <ul className="space-y-3 text-xl text-white">
-                    {[
-                      "Elite Opening & Middlegame Library",
-                      "Global Rankings & Standings",
-                      "SquareBase™",
-                      "Training Groups",
-                    ].map((item) => (
-                      <li key={item} className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-brand.pink" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+            <div className="mb-12 text-center md:mb-16">
+              <h2 className="mx-auto mb-4 max-w-[600px] text-4xl font-semibold tracking-tight text-white md:text-5xl">
+                Train Like a Competitive Player
+              </h2>
+              <p className="mx-auto max-w-[500px] text-base text-blue-100/80 md:text-lg">
+                Structured improvement. Private groups. Elite tools.
+              </p>
+            </div>
+
+            <div className="mx-auto mb-16 max-w-[520px]">
+              <div className="mb-6 flex justify-center">
+                <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-gradient-to-r from-blue-500/20 to-blue-600/20 px-4 py-2 backdrop-blur-sm">
+                  <Sparkles className="h-4 w-4 text-blue-300" />
+                  <span className="text-sm text-blue-100">Most Popular Choice</span>
                 </div>
+              </div>
 
-                <div className="bg-slate-800/80 rounded-2xl border border-white/10 p-6 flex flex-col gap-6">
-                  <div className="flex items-start justify-between w-full">
-                    <div className="text-2xl font-bold">Monthly Plan</div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-brand.pink">$25.00</div>
-                      <div className="text-sm text-white/70">/ Month</div>
+              <div className="group relative">
+                <div className="absolute inset-0 rounded-[28px] bg-gradient-to-r from-blue-500/30 to-blue-600/30 blur-xl opacity-70 transition-opacity duration-500 group-hover:opacity-90" />
+                <div className="relative rounded-[28px] border border-white/[0.15] bg-white/[0.07] p-8 shadow-2xl backdrop-blur-xl md:p-10">
+                  <div className="mb-8 text-center">
+                    <h3 className="mb-3 text-2xl font-semibold text-white">Pawn Point Pro</h3>
+                    <div className="flex items-end justify-center gap-2">
+                      <span className="text-5xl tracking-tight text-white">$25</span>
+                      <span className="mb-2 text-blue-200/70">/ month</span>
                     </div>
                   </div>
-                  <div className="flex-1 flex items-center justify-center">
-                    <Button
-                      className="px-8 bg-emerald-500 hover:bg-emerald-600 text-white shadow-none border-0"
-                      onClick={() => setShowSummary(true)}
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex justify-end">
+                  <div className="mb-8 space-y-4">
+                    {planFeatures.map((item) => (
+                      <div key={item} className="flex items-start gap-3">
+                        <Check className="mt-0.5 h-6 w-6 flex-shrink-0 text-blue-400" strokeWidth={2.5} />
+                        <span className="text-blue-50">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/50 active:scale-[0.98]"
+                    onClick={() => setShowSummary(true)}
+                  >
+                    Unlock My Competitive Edge
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mx-auto mb-16 max-w-[520px]">
+              <div className="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
+                {promisePoints.map(({ icon: Icon, label }) => (
+                  <div key={label} className="flex flex-col items-center gap-2">
+                    <Icon className="h-6 w-6 text-blue-400" />
+                    <p className="text-sm text-blue-100/70">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-8 text-center">
+              <p className="text-sm text-blue-200/60">Early adopter price. May increase later.</p>
+            </div>
+
+            <div className="text-center">
+              <Button
+                className="rounded-xl border-0 bg-gradient-to-r from-blue-500 to-blue-600 px-12 py-5 text-white shadow-xl shadow-blue-500/40 transition-all duration-300 hover:scale-[1.03] hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/60 active:scale-[0.98]"
+                onClick={() => setShowSummary(true)}
+              >
+                Start Improving Today
+              </Button>
+              <div className="mt-6">
                 <Button variant="outline" className="px-6" onClick={() => navigate("/dashboard")}>
-                  Back to App
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="p-0 space-y-4 max-w-md mx-auto">
-              <div className="rounded-2xl bg-slate-900/80 border border-white/10 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/70">Selected plan:</span>
-                  <span className="font-semibold text-emerald-300">Monthly Plan</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/70">Price:</span>
-                  <span className="font-semibold">USD 25.00</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/70">Next billing date:</span>
-                  <span className="font-semibold">{nextBilling}</span>
-                </div>
-              </div>
-              <div className="text-center text-xl font-semibold">Total: USD 25.00</div>
-              <div className="text-center text-sm text-white/70">Pay with:</div>
-              <div className="space-y-3">
-                <div className="w-full">
-                  <div id={PAYPAL_BUTTON_CONTAINER_ID} className="min-h-[52px] flex items-center justify-center" />
-                  {paypalLoading && <div className="text-xs text-white/70 text-center py-2">Loading PayPal...</div>}
-                  {paypalError && <div className="text-xs text-rose-200 text-center py-2">{paypalError}</div>}
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline" className="px-6" onClick={() => setShowSummary(false)}>
-                  Back
+                  Continue losing Rating
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="mx-auto max-w-md space-y-5">
+            <div className="text-center">
+              <div className="mb-3 inline-flex items-center gap-3">
+                <img src={pawnPointIcon} alt="Pawn Point logo" className="h-9 w-9 object-contain" />
+                <span className="text-2xl font-semibold tracking-tight text-white">Pawn Point</span>
+              </div>
+              <p className="text-sm text-blue-200/70">Complete your subscription to unlock Pro access.</p>
+            </div>
+
+            <div className="rounded-[28px] border border-white/12 bg-white/[0.07] p-6 shadow-2xl backdrop-blur-xl">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/70">Selected plan:</span>
+                    <span className="font-semibold text-emerald-300">Pawn Point Pro</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-white/70">Price:</span>
+                    <span className="font-semibold">USD 25.00</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-white/70">Next billing date:</span>
+                    <span className="font-semibold">{nextBilling}</span>
+                  </div>
+                </div>
+
+                <div className="text-center text-xl font-semibold">Total: USD 25.00</div>
+                <div className="text-center text-sm text-white/70">Pay with PayPal</div>
+
+                <div className="w-full">
+                  <div id={PAYPAL_BUTTON_CONTAINER_ID} className="flex min-h-[52px] items-center justify-center" />
+                  {paypalLoading && <div className="py-2 text-center text-xs text-white/70">Loading PayPal...</div>}
+                  {paypalError && <div className="py-2 text-center text-xs text-rose-200">{paypalError}</div>}
+                </div>
+
+                <div className="flex justify-between">
+                  <Button variant="outline" className="px-6" onClick={() => setShowSummary(false)}>
+                    Back
+                  </Button>
+                  <Button variant="outline" className="px-6" onClick={() => navigate("/dashboard")}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-    </>
   );
 }

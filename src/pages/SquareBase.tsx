@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { get, ref, remove, set } from "firebase/database";
 import southKnight from "../assets/The South Knight.png";
+import avatarFallback from "../assets/Easter Default.png";
 import { PracticeBoard } from "./Practice";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "../lib/firebase";
@@ -1697,11 +1698,13 @@ export default function SquareBase() {
             <button className="sb-shellReturn" type="button" onClick={() => setLocation("/dashboard")}>
               <span className="sb-shellReturnLabel">PawnPoint</span>
               <span className="sb-shellReturnAvatar" aria-hidden="true">
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt={displayName} />
-                ) : (
-                  <span>{firstName.slice(0, 1).toUpperCase()}</span>
-                )}
+                <img
+                  src={user?.avatarUrl || avatarFallback}
+                  alt={displayName}
+                  onError={(event) => {
+                    event.currentTarget.src = avatarFallback;
+                  }}
+                />
               </span>
             </button>
             <button
@@ -1809,11 +1812,13 @@ export default function SquareBase() {
                   <div className="sb-profileOrb">
                     <div className="sb-profileGlow" aria-hidden="true" />
                     <div className="sb-profilePhotoWrap">
-                      {user?.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={displayName} />
-                      ) : (
-                        <span className="sb-profileFallback">{firstName.slice(0, 1).toUpperCase()}</span>
-                      )}
+                      <img
+                        src={user?.avatarUrl || avatarFallback}
+                        alt={displayName}
+                        onError={(event) => {
+                          event.currentTarget.src = avatarFallback;
+                        }}
+                      />
                     </div>
                   </div>
                   <h3 className="sb-profileName">{displayName}</h3>
