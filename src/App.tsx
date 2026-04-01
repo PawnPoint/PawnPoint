@@ -1,5 +1,6 @@
 import { Route, Switch, useLocation } from "wouter";
 import { useEffect } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import Landing from "./pages/Landing";
 import AuthPage from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -206,6 +207,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Router />
+      <Analytics />
     </AuthProvider>
   );
 }
