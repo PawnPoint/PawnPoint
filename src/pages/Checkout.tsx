@@ -10,11 +10,12 @@ import { loadPaypalSdk } from "../lib/paypal";
 
 export default function Checkout() {
   const [, navigate] = useLocation();
-  const { setUser } = useAuth();
+  const { user, loading, setUser } = useAuth();
   const [showSummary, setShowSummary] = useState(false);
   const [paypalError, setPaypalError] = useState<string | null>(null);
   const [paypalLoading, setPaypalLoading] = useState(false);
   const paypalButtonsRef = useRef<any>(null);
+  const canCheckout = !!user;
 
   const planFeatures = useMemo(
     () => [
@@ -80,7 +81,13 @@ export default function Checkout() {
   );
 
   useEffect(() => {
-    if (!showSummary) {
+    if (!loading && !user) {
+      setShowSummary(false);
+    }
+  }, [loading, user]);
+
+  useEffect(() => {
+    if (!showSummary || !user) {
       if (paypalButtonsRef.current?.close) {
         try {
           paypalButtonsRef.current.close();
@@ -145,7 +152,25 @@ export default function Checkout() {
       }
       paypalButtonsRef.current = null;
     };
-  }, [APP_ENV, PAYPAL_CLIENT_ID, PAYPAL_BUTTON_CONTAINER_ID, PAYPAL_PLAN_ID, handleSubscriptionSuccess, showSummary]);
+  }, [APP_ENV, PAYPAL_CLIENT_ID, PAYPAL_BUTTON_CONTAINER_ID, PAYPAL_PLAN_ID, handleSubscriptionSuccess, showSummary, user]);
+
+  const handlePrimaryAction = () => {
+    if (loading) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    setShowSummary(true);
+  };
+
+  const handleSecondaryAction = () => {
+    if (loading) return;
+    if (!user) {
+      navigate("/");
+      return;
+    }
+    navigate("/dashboard");
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030712] text-white">
@@ -172,7 +197,7 @@ export default function Checkout() {
             </header>
 
             <div className="mb-12 text-center md:mb-16">
-              <h2 className="mx-auto mb-4 max-w-[600px] text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              <h2 className="mx-auto mb-4 whitespace-nowrap text-[clamp(1.8rem,5vw,3rem)] font-semibold tracking-tight text-white">
                 Train Like a Competitive Player
               </h2>
               <p className="mx-auto max-w-[500px] text-base text-blue-100/80 md:text-lg">
@@ -211,7 +236,7 @@ export default function Checkout() {
                   <button
                     type="button"
                     className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/50 active:scale-[0.98]"
-                    onClick={() => setShowSummary(true)}
+                    onClick={handlePrimaryAction}
                   >
                     Unlock My Competitive Edge
                   </button>
@@ -232,17 +257,22 @@ export default function Checkout() {
 
             <div className="mb-8 text-center">
               <p className="text-sm text-blue-200/60">Early adopter price. May increase later.</p>
+              {!loading && !canCheckout && (
+                <p className="mt-3 text-sm text-amber-200/80">
+                  Sign in inside the app to continue with checkout.
+                </p>
+              )}
             </div>
 
             <div className="text-center">
               <Button
                 className="rounded-xl border-0 bg-gradient-to-r from-blue-500 to-blue-600 px-12 py-5 text-white shadow-xl shadow-blue-500/40 transition-all duration-300 hover:scale-[1.03] hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/60 active:scale-[0.98]"
-                onClick={() => setShowSummary(true)}
+                onClick={handlePrimaryAction}
               >
                 Start Improving Today
               </Button>
               <div className="mt-6">
-                <Button variant="outline" className="px-6" onClick={() => navigate("/dashboard")}>
+                <Button variant="outline" className="px-6" onClick={handleSecondaryAction}>
                   Continue losing Rating
                 </Button>
               </div>

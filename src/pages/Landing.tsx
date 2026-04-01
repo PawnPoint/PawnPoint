@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
+  BadgeDollarSign,
   Bot,
   BookOpen,
+  CircleHelp,
   CheckCircle2,
   ChevronDown,
   Flame,
   GraduationCap,
+  Headset,
   Puzzle,
   Sparkles,
+  ShieldCheck,
   Trophy,
   Users,
+  WalletCards,
+  ArrowRight,
   Youtube,
   X,
 } from "lucide-react";
@@ -18,6 +24,7 @@ import ReviewsMarquee from "../components/ReviewsMarquee";
 import BlurText from "../components/BlurText";
 import Aurora from "../components/Aurora";
 import pawnPointIcon from "../assets/App tab icon.png";
+import pawnPointAdVideo from "../assets/PawnPointAD.mp4";
 
 const heroHighlights = [
   "No credit card required",
@@ -82,14 +89,14 @@ export default function Landing() {
   const [contactOpen, setContactOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
-  const [landingFaqOpenIdx, setLandingFaqOpenIdx] = useState<number | null>(0);
   const featuresRef = useRef<HTMLDivElement | null>(null);
   const faqSectionRef = useRef<HTMLDivElement | null>(null);
+  const landingVideoRef = useRef<HTMLVideoElement | null>(null);
   const year = useMemo(() => new Date().getFullYear(), []);
 
   const goToLogin = () => navigate("/login");
   const goToSignup = () => navigate("/signup");
-  const goToPricing = () => navigate("/pricing");
+  const goToPricing = () => navigate("/checkout");
   const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const scrollToFaqs = () => faqSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -115,23 +122,47 @@ export default function Landing() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const video = landingVideoRef.current;
+    if (!video) return;
+
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+  }, []);
+
   const faqItems = useMemo(
     () => [
       {
+        icon: CircleHelp,
         question: "What is Pawn Point?",
-        answer: "Pawn Point is a premium chess training platform built to help you improve solo or with your friends simultaneously.",
+        answer: "Pawn Point is a premium chess training platform built to help you improve solo or alongside your group with focused study tools.",
       },
       {
+        icon: WalletCards,
         question: "How does membership work?",
-        answer: "Membership unlocks full access to courses, SquareBase, Groups, and rankings with monthly billing.",
+        answer: "Membership unlocks full access to courses, SquareBase, training groups, rankings, and the rest of the platform with monthly billing.",
       },
       {
+        icon: ShieldCheck,
         question: "Can I cancel anytime?",
-        answer: "Yes. You can cancel in account settings but will lose access upon cancellation.",
+        answer: "Yes. You can cancel from account settings at any time.",
       },
       {
+        icon: Users,
         question: "Do you offer group training?",
-        answer: "Yes. You can join or create training groups to share curated content and progress together.",
+        answer: "Yes. You can join or create private training groups to share curated material, track progress, and improve together.",
+      },
+      {
+        icon: BadgeDollarSign,
+        question: "How much does Pawn Point Pro cost?",
+        answer: "The current plan is $25 per month. Visit the checkout page for the latest pricing.",
+      },
+      {
+        icon: Headset,
+        question: "How can I reach support?",
+        answer: "Use the contact option on the site and we will help with billing, access, or any other question about your account.",
       },
     ],
     [],
@@ -321,43 +352,81 @@ export default function Landing() {
           </div>
         </div>
       </section>
+      <section className="relative w-full px-4 sm:px-6 pb-20">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="fade-in text-center text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+            See Pawn Point in motion.
+          </h2>
+          <div className="fade-in mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-black/30 shadow-[0_30px_120px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_48%)]" />
+              <video
+                ref={landingVideoRef}
+                src={pawnPointAdVideo}
+                className="aspect-video w-full bg-black object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
       <section ref={faqSectionRef} className="relative w-full px-4 sm:px-6 pb-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-semibold text-white font-league-spartan">
-                Questions, answered clearly.
-              </h2>
-            </div>
-            <div className="divide-y divide-white/15">
-              {faqItems.map((item, idx) => {
-                const isOpen = landingFaqOpenIdx === idx;
-                return (
-                  <div key={item.question} className="py-4">
-                    <button
-                      type="button"
-                      onClick={() => setLandingFaqOpenIdx((prev) => (prev === idx ? null : idx))}
-                      className="w-full flex items-center justify-between gap-4 text-left"
-                      aria-expanded={isOpen}
-                      aria-controls={`landing-faq-${idx}`}
-                    >
-                      <span className="text-sm sm:text-base font-semibold text-white">
-                        {item.question}
-                      </span>
-                      <ChevronDown
-                        className={`h-4 w-4 text-white/70 transition ${isOpen ? "rotate-180" : ""}`}
-                        aria-hidden="true"
-                      />
-                    </button>
-                    {isOpen && (
-                      <p id={`landing-faq-${idx}`} className="mt-3 text-sm text-white/70">
-                        {item.answer}
-                      </p>
-                    )}
+        <div className="mx-auto max-w-6xl px-1 py-2 text-white sm:px-0">
+          <div className="fade-in">
+            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+              Frequently Asked Questions
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/70 sm:text-base">
+              Here are the most asked questions based from our users.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-x-8 gap-y-10 md:grid-cols-2 xl:grid-cols-3">
+            {faqItems.map((item, idx) => {
+              const Icon = item.icon;
+              const delayClass = idx % 3 === 1 ? "delay-1" : idx % 3 === 2 ? "delay-2" : "";
+
+              return (
+                <article
+                  key={item.question}
+                  className={`fade-in ${delayClass} rounded-2xl border border-white/10 bg-transparent p-5 transition hover:border-white/20`}
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/90">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
                   </div>
-                );
-              })}
-            </div>
+                  <h3 className="mt-5 text-lg font-semibold tracking-tight text-white">
+                    {item.question}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-white/65 sm:text-[15px]">
+                    {item.answer}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="fade-in delay-2 mt-12 rounded-[30px] border border-white/10 bg-white/[0.03] px-6 py-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:px-8 sm:py-10">
+            <h3 className="text-2xl font-semibold tracking-tight text-white">
+              Get in touch
+            </h3>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-white/65 sm:text-base">
+              Why not send us a message
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setContactOpen(true);
+                setFaqOpen(false);
+              }}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-[0_14px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
+            >
+              Get In Touch
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         </div>
       </section>

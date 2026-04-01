@@ -1,162 +1,77 @@
-import { useEffect, useMemo, useRef } from "react";
-
 type Review = {
   name: string;
   role?: string;
-  rating: number;
   text: string;
 };
 
-const REVIEWS: Review[] = [
+const FEATURED_REVIEWS: Review[] = [
   {
     name: "Ethan J.",
     role: "Rapid - 1580",
-    rating: 5,
     text: "The puzzles actually relate to my games. It feels like the platform knows what I struggle with.",
   },
   {
     name: "Sofia L.",
     role: "Club Player",
-    rating: 5,
-    text: "Everything feels intentional. No wasted time, no clutter--just focused training.",
-  },
-  {
-    name: "Daniel K.",
-    role: "Weekend Tournament Player",
-    rating: 4,
-    text: "The structure is what impressed me most. I finally know what to work on each day.",
-  },
-  {
-    name: "Ryan T.",
-    role: "Blitz - 1800",
-    rating: 5,
-    text: "The opening drills exposed holes in my openings I didn't even realize were there.",
-  },
-  {
-    name: "Priya S.",
-    role: "Student Player",
-    rating: 5,
-    text: "I like that progress is tracked. Seeing XP makes me want to keep going.",
-  },
-  {
-    name: "Marco D.",
-    role: "Online Grinder",
-    rating: 4,
-    text: "It feels more serious than other platforms. Less noise, more improvement.",
+    text: "Everything feels intentional. No wasted time, no clutter, just focused training.",
   },
   {
     name: "Alex W.",
     role: "Coach - 2000+",
-    rating: 5,
     text: "This encourages the right habits. Consistency, feedback, and accountability.",
-  },
-  {
-    name: "Leah B.",
-    role: "High School Team Player",
-    rating: 5,
-    text: "Group training makes a big difference. It feels like you're part of something.",
-  },
-  {
-    name: "Tomas P.",
-    role: "Rapid & Classical",
-    rating: 4,
-    text: "The UI alone makes training less draining. Everything is clear and smooth.",
-  },
-  {
-    name: "Josh N.",
-    role: "Returning Player",
-    rating: 5,
-    text: "I stopped burning out. The system tells me what to do instead of guessing.",
   },
 ];
 
-function Stars({ rating }: { rating: number }) {
-  const full = Math.max(0, Math.min(5, Math.round(rating)));
-  return (
-    <div className="flex items-center gap-0.5 text-sm" aria-label={`${full} out of 5 stars`}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <span
-          key={i}
-          className={i < full ? "text-amber-300" : "text-white/30"}
-          aria-hidden="true"
-        >
-          *
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export default function ReviewsMarquee() {
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  const reviews = useMemo(() => [...REVIEWS, ...REVIEWS], []);
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    let x = 0;
-    let last = performance.now();
-    const speedPxPerSec = 45;
-
-    const step = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-
-      x -= speedPxPerSec * dt;
-
-      const halfWidth = track.scrollWidth / 2;
-      if (Math.abs(x) >= halfWidth) x = 0;
-
-      track.style.transform = `translate3d(${x}px, 0, 0)`;
-
-      rafRef.current = requestAnimationFrame(step);
-    };
-
-    rafRef.current = requestAnimationFrame(step);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
   return (
-    <section className="relative w-full">
+    <section className="relative w-full overflow-hidden px-5 py-14 sm:px-8 sm:py-16 lg:px-12">
       <div
-        className="relative overflow-hidden py-3"
-        role="region"
-        aria-label="Auto-scrolling player reviews"
-      >
-        <div className="flex w-max items-stretch gap-3 sm:gap-4 will-change-transform" ref={trackRef}>
-          {reviews.map((r, idx) => (
-            <article
-              className="w-[290px] sm:w-[320px] shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
-              key={`${r.name}-${idx}`}
-            >
-              <div className="mb-3">
-                <Stars rating={r.rating} />
-              </div>
+        className="pointer-events-none absolute inset-y-0 left-0 w-28 bg-[radial-gradient(circle_at_left,rgba(196,255,52,0.4),transparent_68%)] blur-2xl sm:w-40"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 w-28 bg-[radial-gradient(circle_at_right,rgba(196,255,52,0.32),transparent_68%)] blur-2xl sm:w-40"
+        aria-hidden="true"
+      />
 
-              <p className="text-sm leading-relaxed text-white/85">"{r.text}"</p>
-
-              <div className="mt-4">
-                <div className="text-sm font-semibold tracking-tight">{r.name}</div>
-                {r.role ? <div className="mt-1 text-xs text-white/60">{r.role}</div> : null}
-              </div>
-            </article>
-          ))}
+      <div className="relative mx-auto max-w-5xl">
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+            What our users are saying
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/60 sm:text-base">
+            Focused feedback from players using Pawn Point to train with more structure and consistency.
+          </p>
         </div>
 
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 w-10 sm:w-16 bg-gradient-to-r from-[#0b0f1c] to-transparent"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 w-10 sm:w-16 bg-gradient-to-l from-[#0b0f1c] to-transparent"
-          aria-hidden="true"
-        />
+        <div className="mt-12 grid gap-5 md:grid-cols-3 md:items-end">
+          {FEATURED_REVIEWS.map((review, index) => {
+            const isCenter = index === 1;
+
+            return (
+              <article
+                key={review.name}
+                className={`relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-white shadow-[0_18px_50px_rgba(0,0,0,0.28)] ${
+                  isCenter ? "md:min-h-[420px] md:-translate-y-4" : "md:min-h-[360px]"
+                }`}
+              >
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_36%,rgba(255,255,255,0.02))]" aria-hidden="true" />
+                <div className="relative flex h-full flex-col">
+                  <div className="flex-1">
+                    <p className={`text-center leading-7 text-white/84 ${isCenter ? "text-base" : "text-sm sm:text-base"}`}>
+                      {review.text}
+                    </p>
+                  </div>
+
+                  <div className="mt-8 border-t border-white/10 pt-4 text-center">
+                    <div className="text-sm font-semibold tracking-tight text-white">{review.name}</div>
+                    {review.role ? <div className="mt-1 text-xs uppercase tracking-[0.18em] text-white/42">{review.role}</div> : null}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

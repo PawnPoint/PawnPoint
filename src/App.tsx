@@ -192,13 +192,7 @@ function Router() {
           </Protected>
         )}
       </Route>
-      <Route path="/checkout">
-        {() => (
-          <Protected>
-            <Checkout />
-          </Protected>
-        )}
-      </Route>
+      <Route path="/checkout" component={Checkout} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/terms-of-use" component={TermsOfUse} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
