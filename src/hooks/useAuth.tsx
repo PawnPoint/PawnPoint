@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  getAdditionalUserInfo,
   signOut,
   updateProfile,
   GoogleAuthProvider,
@@ -44,6 +45,31 @@ const fallbackAuthContext: AuthContextValue = {
   logout: async () => undefined,
   setUser: () => undefined,
 };
+
+async function subscribeNewUserToMailchimp(email: string, displayName?: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  try {
+    const response = await fetch("/api/mailchimp/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        displayName: displayName?.trim() || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(payload.error || "Mailchimp signup sync failed");
+    }
+  } catch (err) {
+    console.warn("Failed to subscribe new user to Mailchimp", err);
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -135,6 +161,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         const withStreak = bumpStreak(profile);
         setUser(withStreak);
+        void subscribeNewUserToMailchimp(
+          cred.user.email || email,
+          displayName || cred.user.displayName || email.split("@")[0],
+        );
       } else {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         const profile = await ensureProfile(
@@ -155,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Force popup resolver to avoid redirect flows that fail in WebViews/partitioned storage.
       const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      const additionalInfo = getAdditionalUserInfo(cred);
       const email = cred.user.email || "";
       const profile = await ensureProfile(
         email,
@@ -163,6 +194,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       const withStreak = bumpStreak(profile);
       setUser(withStreak);
+      if (additionalInfo?.isNewUser && email) {
+        void subscribeNewUserToMailchimp(email, cred.user.displayName || email.split("@")[0]);
+      }
     } finally {
       setLoading(false);
     }

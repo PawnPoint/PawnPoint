@@ -586,6 +586,34 @@ export function installApiMocks() {
         },
       );
     }
+    if (url === "/api/mailchimp/subscribe") {
+      const resolvedEnv =
+        (import.meta as any).env?.VITE_APP_ENV ||
+        (import.meta as any).env?.MODE ||
+        "sandbox";
+      const appEnv = String(resolvedEnv).toLowerCase();
+      if (appEnv === "live" || appEnv === "production") {
+        return originalFetch(input as any, init as any);
+      }
+      if (init?.method && init.method.toUpperCase() !== "POST") {
+        return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+          status: 405,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const payload = (await parseJsonBody()) as { email?: string };
+      const email = typeof payload?.email === "string" ? payload.email.trim() : "";
+      if (!email) {
+        return new Response(JSON.stringify({ error: "A valid email is required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, mocked: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     return originalFetch(input as any, init as any);
   };

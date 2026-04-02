@@ -3,7 +3,7 @@ import { Button } from "../components/ui/Button";
 import loginBg from "../assets/Login screen.png";
 import pawnPointIcon from "../assets/App tab icon.png";
 import { useLocation } from "wouter";
-import { Check, RotateCcw, ShieldCheck, Sparkles, Trophy, Users, Zap } from "lucide-react";
+import { ArrowLeft, Check, RotateCcw, ShieldCheck, Sparkles, Trophy, Users, Zap } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { auth } from "../lib/firebase";
 import { loadPaypalSdk } from "../lib/paypal";
@@ -163,14 +163,13 @@ export default function Checkout() {
     setShowSummary(true);
   };
 
-  const handleSecondaryAction = () => {
-    if (loading) return;
-    if (!user) {
-      navigate("/");
+  const handlePageBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
       return;
     }
-    navigate("/dashboard");
-  };
+    navigate("/");
+  }, [navigate]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030712] text-white">
@@ -185,6 +184,15 @@ export default function Checkout() {
         <div className="absolute bottom-[10%] left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-400/8 blur-3xl" />
       </div>
 
+      <button
+        type="button"
+        aria-label="Go back"
+        onClick={handlePageBack}
+        className="absolute left-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 text-white backdrop-blur transition hover:border-blue-300/40 hover:bg-slate-900/80 md:left-6 md:top-6"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </button>
+
       <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 py-12 md:py-20">
         {!showSummary ? (
           <>
@@ -198,7 +206,8 @@ export default function Checkout() {
 
             <div className="mb-12 text-center md:mb-16">
               <h2 className="mx-auto mb-4 whitespace-nowrap text-[clamp(1.8rem,5vw,3rem)] font-semibold tracking-tight text-white">
-                Train Like a Competitive Player
+                <span className="md:hidden">Train like a GM</span>
+                <span className="hidden md:inline">Train Like a Competitive Player</span>
               </h2>
               <p className="mx-auto max-w-[500px] text-base text-blue-100/80 md:text-lg">
                 Structured improvement. Private groups. Elite tools.
@@ -222,6 +231,7 @@ export default function Checkout() {
                       <span className="text-5xl tracking-tight text-white">$25</span>
                       <span className="mb-2 text-blue-200/70">/ month</span>
                     </div>
+                    <p className="mt-2 text-xs text-blue-100/70 md:hidden">Less than $1 per day</p>
                   </div>
 
                   <div className="mb-8 space-y-4">
@@ -271,11 +281,6 @@ export default function Checkout() {
               >
                 Start Improving Today
               </Button>
-              <div className="mt-6">
-                <Button variant="outline" className="px-6" onClick={handleSecondaryAction}>
-                  Continue losing Rating
-                </Button>
-              </div>
             </div>
           </>
         ) : (
