@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft, Check, ChevronDown, ChevronUp, Copy, PencilLine, Plus, Trash2 } from "lucide-react";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
+import { useAuth } from "../hooks/useAuth";
 import { auth, db } from "../lib/firebase";
 import { nanoid } from "../lib/nanoid";
 import type { Group, GroupMember, UserProfile } from "../lib/mockApi";
@@ -10,6 +11,7 @@ import "./zac-only.css";
 const PRICE_PER_SUBSCRIBER = 25;
 const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
 const SOUTH_KNIGHTS_GROUP_CODE = "0055";
+const ZAC_ONLY_UID = "FeXOccEwugQBmJtcFgydgAnrlUA3";
 
 type ClubStatus = "active" | "free" | "locked";
 
@@ -218,6 +220,7 @@ async function generateUniqueJoinCode() {
 }
 
 export default function ZacOnly() {
+  const { user, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const [rawUsers, setRawUsers] = useState<Record<string, RawUserRecord>>({});
   const [rawGroups, setRawGroups] = useState<Record<string, RawGroupRecord>>({});
@@ -236,8 +239,29 @@ export default function ZacOnly() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const firebaseUid = auth.currentUser?.uid || null;
+  const isAuthorized = !!user && user.id === ZAC_ONLY_UID && firebaseUid === ZAC_ONLY_UID;
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user || !firebaseUid) {
+      navigate("/login");
+      return;
+    }
+    if (!isAuthorized) {
+      navigate("/");
+    }
+  }, [authLoading, firebaseUid, isAuthorized, navigate, user]);
+
+  useEffect(() => {
+    if (!isAuthorized) {
+      setRawUsers({});
+      setRawGroups({});
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     let usersReady = false;
     let groupsReady = false;
 
@@ -276,7 +300,7 @@ export default function ZacOnly() {
       unsubscribeUsers();
       unsubscribeGroups();
     };
-  }, []);
+  }, [isAuthorized]);
 
   const users = useMemo(() => Object.entries(rawUsers).map(([id, raw]) => normalizeUserRecord(id, raw)), [rawUsers]);
 
@@ -571,6 +595,30 @@ export default function ZacOnly() {
   };
 
   const statusMessage = actionError || loadError;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user || !firebaseUid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Redirecting to login...
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Redirecting...
+      </div>
+    );
+  }
 
   return (
     <div className="zac-only-shell">

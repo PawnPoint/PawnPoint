@@ -24,7 +24,6 @@ import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import ZacOnly from "./pages/ZacOnly";
-import { auth } from "./lib/firebase";
 
 const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
 const SOUTH_KNIGHTS_GROUP_CODE = "0055";
@@ -99,16 +98,20 @@ function ProtectedStandings({ children }: { children: JSX.Element }) {
 }
 
 function ProtectedZacOnly({ children }: { children: JSX.Element }) {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
   const [, navigate] = useLocation();
-  const currentUid = auth.currentUser?.uid || null;
-  const shouldRedirect = !loading && currentUid !== ZAC_ONLY_UID;
+  const shouldLoginRedirect = !loading && !user;
+  const shouldHomeRedirect = !loading && !!user && user.id !== ZAC_ONLY_UID;
 
   useEffect(() => {
-    if (shouldRedirect) {
+    if (shouldLoginRedirect) {
+      navigate("/login");
+      return;
+    }
+    if (shouldHomeRedirect) {
       navigate("/");
     }
-  }, [navigate, shouldRedirect]);
+  }, [navigate, shouldHomeRedirect, shouldLoginRedirect]);
 
   if (loading) {
     return (
@@ -118,7 +121,15 @@ function ProtectedZacOnly({ children }: { children: JSX.Element }) {
     );
   }
 
-  if (shouldRedirect) {
+  if (shouldLoginRedirect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Redirecting to login...
+      </div>
+    );
+  }
+
+  if (shouldHomeRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
         Redirecting...
