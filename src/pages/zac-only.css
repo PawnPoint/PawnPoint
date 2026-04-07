@@ -1,0 +1,641 @@
+.zac-only-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(72, 93, 255, 0.1), transparent 28%),
+    linear-gradient(180deg, #07070c 0%, #06060a 46%, #040408 100%);
+  color: #d8d8f6;
+  font-family: "Geist Variable", "Courier New", monospace;
+}
+
+.zac-only-page {
+  width: 100%;
+  max-width: 1460px;
+  margin: 0 auto;
+  padding: 40px 28px 72px;
+}
+
+.zac-command {
+  border: 1px solid #181829;
+  border-radius: 28px;
+  background: rgba(10, 10, 15, 0.92);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  padding: 34px;
+}
+
+.zac-topbar,
+.zac-section-row,
+.zac-club-top,
+.zac-member-row,
+.zac-modal-actions,
+.zac-code-box,
+.zac-club-name-row,
+.zac-club-left,
+.zac-club-right,
+.zac-brand,
+.zac-topbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.zac-topbar,
+.zac-section-row,
+.zac-club-top,
+.zac-member-row {
+  justify-content: space-between;
+}
+
+.zac-topbar {
+  gap: 18px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #171726;
+}
+
+.zac-brand {
+  gap: 14px;
+}
+
+.zac-back,
+.zac-brand-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #31315b;
+  background: #121220;
+  color: #7f77dd;
+}
+
+.zac-back {
+  cursor: pointer;
+}
+
+.zac-brand-icon {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.zac-brand-name,
+.zac-brand-sub,
+.zac-section-label,
+.zac-metric-label,
+.zac-stat-label,
+.zac-classified,
+.zac-live,
+.zac-roster-toggle,
+.zac-inline-btn,
+.zac-destroy-btn,
+.zac-copy-btn,
+.zac-modal-cancel,
+.zac-modal-confirm,
+.zac-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+}
+
+.zac-brand-name {
+  font-size: 14px;
+  color: #f0efff;
+}
+
+.zac-brand-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #424277;
+}
+
+.zac-topbar-right {
+  gap: 18px;
+}
+
+.zac-live {
+  font-size: 11px;
+  color: #4d4d80;
+  gap: 8px;
+}
+
+.zac-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #00ff88;
+  box-shadow: 0 0 14px rgba(0, 255, 136, 0.65);
+  animation: zacPulse 2s infinite;
+}
+
+@keyframes zacPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+}
+
+.zac-classified {
+  font-size: 11px;
+  color: #ff5959;
+  border: 1px solid rgba(255, 89, 89, 0.35);
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.zac-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin: 28px 0 34px;
+}
+
+.zac-metric-card,
+.zac-stat-box,
+.zac-code-box {
+  border: 1px solid #1d1d30;
+  border-radius: 18px;
+  background: #11111a;
+}
+
+.zac-metric-card {
+  padding: 22px 24px;
+}
+
+.zac-metric-label {
+  font-size: 11px;
+  color: #4b4b80;
+  margin-bottom: 14px;
+}
+
+.zac-metric-value {
+  font-size: 54px;
+  line-height: 1;
+  color: #eeedff;
+}
+
+.zac-metric-sub {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #4b4b71;
+}
+
+.zac-accent {
+  color: #00ff88;
+}
+
+.zac-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 255, 136, 0.08), rgba(255, 255, 255, 0.02), rgba(0, 255, 136, 0.08));
+  margin: 18px 0 34px;
+}
+
+.zac-section-row {
+  margin-bottom: 18px;
+}
+
+.zac-section-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.zac-section-label {
+  font-size: 11px;
+  color: #4b4b80;
+}
+
+.zac-search-input {
+  min-width: 240px;
+  border-radius: 14px;
+  border: 1px solid #2f2f4f;
+  background: #11111a;
+  color: #f0efff;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.zac-search-input::placeholder {
+  color: #67679a;
+}
+
+.zac-deploy-btn,
+.zac-inline-btn,
+.zac-destroy-btn,
+.zac-copy-btn,
+.zac-modal-cancel,
+.zac-modal-confirm {
+  cursor: pointer;
+}
+
+.zac-deploy-btn,
+.zac-destroy-btn,
+.zac-inline-btn,
+.zac-copy-btn,
+.zac-modal-cancel {
+  border: 1px solid #434359;
+  background: transparent;
+  color: #efeffc;
+}
+
+.zac-deploy-btn {
+  gap: 12px;
+  border-radius: 16px;
+  padding: 18px 24px;
+  font-size: 18px;
+}
+
+.zac-clubs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.zac-status-banner,
+.zac-empty-state {
+  border: 1px solid #232344;
+  border-radius: 18px;
+  background: rgba(17, 17, 26, 0.92);
+  color: #8181b5;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  font-size: 14px;
+}
+
+.zac-status-banner.is-error {
+  border-color: rgba(255, 82, 82, 0.3);
+  color: #ff8f8f;
+}
+
+.zac-club-card {
+  border-radius: 24px;
+  border: 1px solid #21213a;
+  background: #11111b;
+  padding: 28px 26px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.01);
+}
+
+.zac-status-active {
+  border-left: 6px solid #1ef8aa;
+}
+
+.zac-status-free {
+  border-left: 6px solid #5858aa;
+}
+
+.zac-status-locked {
+  border-left: 6px solid #ff5252;
+}
+
+.zac-club-top {
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.zac-club-left,
+.zac-club-right,
+.zac-club-name-row {
+  gap: 14px;
+}
+
+.zac-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  border: 1px solid #32325a;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.zac-club-name {
+  font-size: 24px;
+  color: #d6d4fa;
+}
+
+.zac-name-input {
+  width: 260px;
+  border-radius: 12px;
+  border: 1px solid #4a4a80;
+  background: #171726;
+  color: #f4f3ff;
+  padding: 10px 14px;
+  font-size: 20px;
+}
+
+.zac-inline-btn {
+  gap: 8px;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 12px;
+}
+
+.zac-club-meta {
+  margin-top: 8px;
+  color: #43436b;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+}
+
+.zac-badge {
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.zac-badge-active {
+  border: 1px solid rgba(0, 255, 136, 0.28);
+  background: rgba(0, 255, 136, 0.12);
+  color: #00ff88;
+}
+
+.zac-badge-free {
+  border: 1px solid rgba(127, 119, 221, 0.35);
+  background: rgba(127, 119, 221, 0.12);
+  color: #8781ea;
+}
+
+.zac-badge-locked {
+  border: 1px solid rgba(255, 82, 82, 0.35);
+  background: rgba(255, 82, 82, 0.1);
+  color: #ff6666;
+}
+
+.zac-destroy-btn {
+  gap: 10px;
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 12px;
+}
+
+.zac-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.zac-stat-box,
+.zac-code-box {
+  padding: 18px 18px 16px;
+}
+
+.zac-stat-label {
+  font-size: 11px;
+  color: #3f3f66;
+  margin-bottom: 10px;
+}
+
+.zac-stat-value {
+  font-size: 22px;
+  color: #d7d6f4;
+}
+
+.zac-small {
+  font-size: 18px;
+}
+
+.zac-code-box {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.zac-join-code {
+  color: #00ff88;
+  font-size: 24px;
+  letter-spacing: 0.35em;
+}
+
+.zac-copy-btn {
+  gap: 8px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 11px;
+}
+
+.zac-copy-btn:disabled,
+.zac-modal-cancel:disabled,
+.zac-modal-confirm:disabled,
+.zac-name-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.zac-copy-btn.copied {
+  color: #00ff88;
+  border-color: rgba(0, 255, 136, 0.35);
+}
+
+.zac-roster-toggle {
+  gap: 8px;
+  border: 1px solid #474762;
+  border-radius: 16px;
+  background: transparent;
+  color: #f1f0ff;
+  padding: 14px 18px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.zac-roster {
+  margin-top: 16px;
+  border-top: 1px solid #1d1d30;
+  padding-top: 14px;
+}
+
+.zac-member-row {
+  padding: 12px 0;
+  border-bottom: 1px solid #171729;
+}
+
+.zac-member-row:last-child {
+  border-bottom: 0;
+}
+
+.zac-member-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zac-member-name {
+  font-size: 16px;
+  color: #b8b7da;
+}
+
+.zac-role-badge {
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.zac-role-badge.is-admin {
+  border: 1px solid rgba(127, 119, 221, 0.35);
+  background: rgba(127, 119, 221, 0.12);
+  color: #8b85ec;
+}
+
+.zac-role-badge.is-member {
+  border: 1px solid #2a2a40;
+  background: #171724;
+  color: #626293;
+}
+
+.zac-member-joined,
+.zac-empty-roster {
+  font-size: 13px;
+  color: #50507a;
+}
+
+.zac-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.zac-modal {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 20px;
+  border: 1px solid #33335d;
+  background: #11111b;
+  padding: 24px;
+}
+
+.zac-modal-title {
+  font-size: 18px;
+  color: #f0efff;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.zac-modal-body {
+  font-size: 14px;
+  color: #7777a9;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+
+.zac-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zac-modal-input {
+  border-radius: 12px;
+  border: 1px solid #393965;
+  background: #171726;
+  color: #f4f3ff;
+  padding: 14px 16px;
+  font-size: 15px;
+}
+
+.zac-modal-note,
+.zac-modal-error {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.zac-modal-note {
+  color: #60608d;
+}
+
+.zac-modal-error {
+  color: #ff8f8f;
+}
+
+.zac-modal-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.zac-modal-cancel,
+.zac-modal-confirm {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 11px;
+}
+
+.zac-modal-confirm {
+  border: none;
+  background: #ff5252;
+  color: #ffffff;
+}
+
+@media (max-width: 1120px) {
+  .zac-metrics,
+  .zac-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .zac-only-page {
+    padding: 18px 12px 32px;
+  }
+
+  .zac-command {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .zac-topbar,
+  .zac-section-row,
+  .zac-club-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .zac-topbar-right,
+  .zac-club-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .zac-metrics,
+  .zac-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zac-club-left,
+  .zac-club-name-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .zac-section-left {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .zac-name-input {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .zac-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .zac-code-box,
+  .zac-member-row,
+  .zac-member-left {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

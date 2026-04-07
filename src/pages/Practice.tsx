@@ -15,7 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
-import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
+import macCursorPointing from "../assets/Mac Cursor Pointing Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import southKnight from "../assets/The South Knight.png";
 import southPawn from "../assets/The South Pawn.png";
@@ -2218,8 +2218,8 @@ export function PracticeBoard({
                   style={{
                     backgroundColor: isRed ? '#ef4444' : isLightSquare ? boardColors.light : boardColors.dark,
                     ...(piece
-                      ? {
-                          '--cursor-open': `url(${macCursorOpen}) 8 8, grab`,
+                        ? {
+                          '--cursor-open': `url(${macCursorPointing}) 8 8, pointer`,
                           '--cursor-closed': `url(${macCursorClosed}) 8 8, grabbing`,
                         }
                       : {}),
@@ -3024,5 +3024,4 @@ export function PracticeBoard({
 export default function Practice() {
   return <PracticeBoard />;
 }
-
 

@@ -34,7 +34,6 @@ export default function Checkout() {
       { icon: RotateCcw, label: "Cancel anytime" },
       { icon: Zap, label: "Instant access" },
       { icon: Check, label: "No hidden fees" },
-      { icon: ShieldCheck, label: "7-day guarantee" },
     ],
     [],
   );

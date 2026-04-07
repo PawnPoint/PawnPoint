@@ -4,7 +4,7 @@ import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
 import { awardXp } from "../lib/mockApi";
-import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
+import macCursorPointing from "../assets/Mac Cursor Pointing Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import { resolveBoardTheme } from "../lib/boardThemes";
 import { resolvePieceTheme } from "../lib/pieceThemes";
@@ -424,7 +424,7 @@ export default function Puzzles() {
                               backgroundColor: isLightSquare ? boardColors.light : boardColors.dark,
                               ...(piece
                                 ? {
-                                    "--cursor-open": `url(${macCursorOpen}) 8 8, grab`,
+                                    "--cursor-open": `url(${macCursorPointing}) 8 8, pointer`,
                                     "--cursor-closed": `url(${macCursorClosed}) 8 8, grabbing`,
                                   }
                                 : {}),

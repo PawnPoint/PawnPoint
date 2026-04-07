@@ -1,12 +1,10 @@
 import { useMemo, useState, useEffect, type ElementType } from "react";
 import {
   LogOut,
-  UserRound,
   LayoutGrid,
   RotateCcw,
   Mail,
   ShieldOff,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ArrowLeftRight,
@@ -25,8 +23,6 @@ import {
   getCourses,
   getProgress,
   resetCourseProgress,
-  setSuggestedCourses,
-  setChessUsername,
   updateBoardTheme,
   choosePersonalAccount,
   createGroupForUser,
@@ -72,33 +68,11 @@ type SettingItem = {
   danger?: boolean;
 };
 
-type ChessProfile = {
-  username: string;
-  name?: string;
-  followers?: number;
-  country?: string;
-  lastOnline?: number;
-  status?: string;
-  title?: string;
-  avatar?: string;
-};
-
 type Option = { label: string; value: string };
 
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
-  const [linkedUsername, setLinkedUsername] = useState<string>(() => {
-    if (user?.chessUsername) return user.chessUsername;
-    if (user?.displayName) return user.displayName;
-    if (user?.email) return user.email.split("@")[0];
-    return "YourUsername";
-  });
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const [accountInput, setAccountInput] = useState("");
-  const [accountStatus, setAccountStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const [fetchedProfile, setFetchedProfile] = useState<ChessProfile | null>(null);
   const [boardModalOpen, setBoardModalOpen] = useState(false);
   const [boardTheme, setBoardTheme] = useState(() => resolveBoardTheme(user?.boardTheme).key);
   const [pieceTheme, setPieceTheme] = useState(() => resolvePieceTheme(user?.pieceTheme).key);
@@ -131,12 +105,6 @@ export default function Settings() {
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
 
   useEffect(() => {
-    if (user?.chessUsername) setLinkedUsername(user.chessUsername.slice(0, 9));
-    else if (user?.displayName) setLinkedUsername(user.displayName.slice(0, 9));
-    else if (user?.email) setLinkedUsername(user.email.split("@")[0].slice(0, 9));
-  }, [user]);
-
-  useEffect(() => {
     setBoardTheme(resolveBoardTheme(user?.boardTheme).key);
   }, [user?.boardTheme]);
 
@@ -165,51 +133,6 @@ export default function Settings() {
     }
   }, [manageGroupOpen, inGroup, user?.groupId]);
 
-  const fetchTopOpenings = async (username: string): Promise<string[]> => {
-    // chess.com archives list
-    const archivesResp = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/archives`);
-    if (!archivesResp.ok) throw new Error("Could not read game archives for this user.");
-    const archivesData = (await archivesResp.json()) as { archives?: string[] };
-    const archives = archivesData.archives || [];
-    const latest = archives[archives.length - 1];
-    if (!latest) return [];
-    const gamesResp = await fetch(latest);
-    if (!gamesResp.ok) return [];
-    const gamesData = (await gamesResp.json()) as { games?: any[] };
-    const counts: Record<string, number> = {};
-    (gamesData.games || []).slice(-50).forEach((g) => {
-      const opening = g?.opening || g?.eco || g?.eco_url;
-      if (!opening || typeof opening !== "string") return;
-      const name = opening.toLowerCase();
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name]) => name);
-  };
-
-  const mapOpeningsToCourses = (openings: string[], courses: Course[]): string[] => {
-    const lowerCourses = courses.map((c) => ({ id: c.id, title: c.title.toLowerCase(), course: c }));
-    const picks: string[] = [];
-    openings.forEach((op) => {
-      const tokens = op.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-      const primary = tokens[0] || op.toLowerCase();
-      const match = lowerCourses.find(
-        (c) =>
-          c.title.includes(primary) ||
-          tokens.some((t) => t.length > 3 && c.title.includes(t)) ||
-          (primary.includes("sicilian") && c.title.includes("dragon")),
-      );
-      if (match && !picks.includes(match.id)) picks.push(match.id);
-    });
-    if (!picks.length && courses.length) {
-      picks.push(courses[0].id);
-    }
-    return picks.slice(0, 3);
-  };
-
-  const chessUsername = useMemo(() => linkedUsername, [linkedUsername]);
   const handleResetCourse = async (courseId: string) => {
     if (!user) return;
     setResettingId(courseId);
@@ -507,26 +430,6 @@ export default function Settings() {
       },
     },
     {
-      key: "chess",
-      title: "Chess.com Account",
-      description: "Your account is connected with the following chess.com username:",
-      highlight: chessUsername,
-      accent: "bg-emerald-700",
-      icon: UserRound,
-      action: {
-        type: "button",
-        label: "Change Account",
-        variant: "outline",
-        onClick: () => {
-          setAccountInput(linkedUsername || "");
-          setAccountError(null);
-          setFetchedProfile(null);
-          setAccountStatus("idle");
-          setAccountModalOpen(true);
-        },
-      },
-    },
-    {
       key: "board",
       title: "Board and Theme Customization",
       description: "Customize your chessboard and chess pieces.",
@@ -610,40 +513,6 @@ export default function Settings() {
           },
     },
   ];
-
-  const handleLookupChessCom = async () => {
-    const inputRaw = accountInput.trim();
-    const username = inputRaw.toLowerCase();
-    if (!username) {
-      setAccountError("Enter a chess.com username.");
-      return;
-    }
-    setAccountStatus("loading");
-    setAccountError(null);
-    setFetchedProfile(null);
-    try {
-      const resp = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}`);
-      if (!resp.ok) {
-        throw new Error("User not found on chess.com");
-      }
-      const data = (await resp.json()) as any;
-      const profile: ChessProfile = {
-        username: data.username,
-        name: data.name,
-        followers: data.followers,
-        country: data.country,
-        lastOnline: data.last_online,
-        status: data.status,
-        title: data.title,
-        avatar: data.avatar,
-      };
-      setFetchedProfile(profile);
-      setAccountStatus("success");
-    } catch (err: any) {
-      setAccountStatus("error");
-      setAccountError(err?.message || "Could not find that user. Check the spelling and try again.");
-    }
-  };
 
   return (
     <AppShell backgroundStyle={pageBackground}>
@@ -960,111 +829,6 @@ export default function Settings() {
           </div>
         </div>
       )}
-
-      {accountModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="pp-modal w-full max-w-md rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl relative">
-            <button
-              className="absolute right-3 top-3 text-white/70 hover:text-white"
-              onClick={() => setAccountModalOpen(false)}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <div className="px-6 py-6 space-y-4">
-              <div>
-                <div className="text-xl font-bold">Change your Chess.com account</div>
-                <div className="text-sm text-white/70 mt-1">We will use this information to:</div>
-              </div>
-
-              <div className="space-y-2 text-sm text-white/80">
-                {[
-                  "Recommend you the best courses to study",
-                  "Analyze your games and tell you where you make mistakes",
-                  "Break down your chess skills and what to improve",
-                ].map((line, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5" />
-                    <span>{line}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.08em] text-white/50">Chess.com username</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={accountInput}
-                    onChange={(e) => setAccountInput(e.target.value.slice(0, 9))}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="Chess.com username"
-                    maxLength={9}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleLookupChessCom();
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    className="whitespace-nowrap"
-                    onClick={handleLookupChessCom}
-                    disabled={accountStatus === "loading"}
-                  >
-                    {accountStatus === "loading" ? "Searching..." : "Link"}
-                  </Button>
-                </div>
-                {accountError && <div className="text-xs text-rose-300">{accountError}</div>}
-                {accountStatus === "success" && fetchedProfile && (
-                  <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-3 text-sm space-y-1">
-                    <div className="font-semibold text-emerald-200 flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      {fetchedProfile.username}
-                    </div>
-                    {fetchedProfile.title && <div className="text-white/80">Title: {fetchedProfile.title}</div>}
-                    <div className="text-white/70">
-                      {formatLastOnline(fetchedProfile.lastOnline) || "Activity data unavailable"}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  className="w-full justify-center"
-                  onClick={async () => {
-                    if (accountStatus !== "success" || !fetchedProfile) {
-                      await handleLookupChessCom();
-                      return;
-                    }
-                    try {
-                      setAccountStatus("loading");
-                      const inputRaw = accountInput.trim();
-                      const lookupName = fetchedProfile.username.toLowerCase();
-                      const openings = await fetchTopOpenings(lookupName);
-                      const courses = await getCourses();
-                      const courseIds = mapOpeningsToCourses(openings, courses);
-                      setSuggestedCourses(courseIds, inputRaw || fetchedProfile.username);
-                      const chosen = (inputRaw || fetchedProfile.username || "").slice(0, 9);
-                      setLinkedUsername(chosen);
-                      const updated = await setChessUsername(chosen);
-                      if (updated) setUser(updated);
-                      setAccountStatus("success");
-                      setAccountModalOpen(false);
-                    } catch (err: any) {
-                      setAccountStatus("error");
-                      setAccountError(err?.message || "Could not fetch openings to build recommendations.");
-                    }
-                  }}
-                >
-                  {accountStatus === "success" ? "Save account" : accountStatus === "loading" ? "Working..." : "Continue"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {boardModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="pp-modal w-full max-w-4xl rounded-3xl bg-slate-900 text-white border border-white/10 shadow-2xl">
@@ -1101,7 +865,7 @@ export default function Settings() {
                           alt=""
                           className={`relative z-10 h-[36px] w-[36px] object-contain ${
                             pieceTheme === "freestyle" ? "p-1" : ""
-                          } ${pawnScaleForFen(pieceTheme, sq.piece)}`}
+                          } ${pawnScaleForFen(pieceTheme, sq.piece)} cursor-piece`}
                           draggable={false}
                         />
                       )}
@@ -1290,14 +1054,6 @@ export default function Settings() {
     </AppShell>
   );
 }
-function formatLastOnline(ts?: number) {
-  if (!ts) return null;
-  const diff = Date.now() / 1000 - ts;
-  if (diff < 3600) return "Active recently";
-  if (diff < 86400) return "Active today";
-  const days = Math.floor(diff / 86400);
-  return `Active ${days}d ago`;
-}
 
 const boardOptions: Option[] = Object.keys(BOARD_THEMES).map((key) => ({
   label: key.charAt(0).toUpperCase() + key.slice(1),
@@ -1388,5 +1144,6 @@ function pawnScaleForFen(pieceTheme: string, symbol: string) {
   if (pieceTheme === "freestyle" && lower === "p" && !isWhite) return "scale-110";
   return "";
 }
+
 
 

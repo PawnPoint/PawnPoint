@@ -35,6 +35,8 @@
 }
 
 :root {
+  --cursor-piece-open: url("./assets/Mac Cursor Pointing Hand.png") 8 8, pointer;
+  --cursor-piece-closed: url("./assets/Mac Cursor Closed Hand.png") 8 8, grabbing;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -143,4 +145,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.cursor-piece {
+  cursor: var(--cursor-open, var(--cursor-piece-open));
+}
+
+.cursor-piece:active {
+  cursor: var(--cursor-closed, var(--cursor-piece-closed));
 }

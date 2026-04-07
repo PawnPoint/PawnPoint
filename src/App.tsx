@@ -23,9 +23,12 @@ import SquareBase from "./pages/SquareBase";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
+import ZacOnly from "./pages/ZacOnly";
+import { auth } from "./lib/firebase";
 
 const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
 const SOUTH_KNIGHTS_GROUP_CODE = "0055";
+const ZAC_ONLY_UID = "FeXOccEwugQBmJtcFgydgAnrlUA3";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -85,6 +88,37 @@ function ProtectedStandings({ children }: { children: JSX.Element }) {
   }
 
   if (shouldLoginRedirect || shouldDashboardRedirect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Redirecting...
+      </div>
+    );
+  }
+
+  return children;
+}
+
+function ProtectedZacOnly({ children }: { children: JSX.Element }) {
+  const { loading } = useAuth();
+  const [, navigate] = useLocation();
+  const currentUid = auth.currentUser?.uid || null;
+  const shouldRedirect = !loading && currentUid !== ZAC_ONLY_UID;
+
+  useEffect(() => {
+    if (shouldRedirect) {
+      navigate("/");
+    }
+  }, [navigate, shouldRedirect]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
+        Loading...
+      </div>
+    );
+  }
+
+  if (shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white/70">
         Redirecting...
@@ -191,6 +225,13 @@ function Router() {
           <Protected>
             <Settings />
           </Protected>
+        )}
+      </Route>
+      <Route path="/zac-only">
+        {() => (
+          <ProtectedZacOnly>
+            <ZacOnly />
+          </ProtectedZacOnly>
         )}
       </Route>
       <Route path="/checkout" component={Checkout} />

@@ -14,7 +14,7 @@
       ],
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && (auth.uid == $uid || auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3')",
         ".validate": "newData.child('id').exists() && newData.child('email').exists() && newData.child('displayName').exists() && true",
         "id": {
           ".validate": "newData.isString() && newData.val() == $uid"
@@ -351,14 +351,15 @@
     "groupCodes": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && !data.exists()",
+        ".write": "auth != null && (auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3' || !data.exists())",
         ".validate": "newData.isString() && newData.val().length <= 60"
       }
     },
     "groups": {
+      ".read": "auth != null && auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3'",
       "$groupId": {
         ".read": "auth != null",
-        ".write": "auth != null && !data.exists() && newData.child('createdBy').val() == auth.uid",
+        ".write": "auth != null && (auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3' || (!data.exists() && newData.child('createdBy').val() == auth.uid))",
         ".validate": "newData.child('id').exists() && newData.child('createdBy').exists() && true",
         "id": {
           ".write": "!data.exists()",

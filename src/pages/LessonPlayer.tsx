@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
-import macCursorOpen from "../assets/Mac Cursor Open Hand.png";
+import macCursorPointing from "../assets/Mac Cursor Pointing Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import { useAuth } from "../hooks/useAuth";
 import { resolveBoardTheme } from "../lib/boardThemes";
@@ -1976,8 +1976,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                         ? boardColors.light
                                         : boardColors.dark,
                                     ...(piece
-                                      ? {
-                                          "--cursor-open": `url(${macCursorOpen}) 8 8, grab`,
+                                        ? {
+                                          "--cursor-open": `url(${macCursorPointing}) 8 8, pointer`,
                                           "--cursor-closed": `url(${macCursorClosed}) 8 8, grabbing`,
                                         }
                                       : {}),

@@ -86,6 +86,7 @@ export function AppShell({
   const xp = user?.totalXp ?? 0;
   const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
+  const hasActiveSubscription = !!(user?.premiumAccess || user?.subscriptionStatus === "active");
   const canViewStandings =
     user?.groupId === SOUTH_KNIGHTS_GROUP_ID || user?.groupCode?.includes(SOUTH_KNIGHTS_GROUP_CODE);
   const navLinks = canViewStandings
@@ -221,6 +222,11 @@ export function AppShell({
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       setGroupError("Name your group to continue.");
+      return;
+    }
+    if (!hasActiveSubscription) {
+      setGroupModalOpen(false);
+      navigate("/checkout");
       return;
     }
     await executeCreateGroup(groupName.trim());

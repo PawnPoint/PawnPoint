@@ -2672,11 +2672,14 @@ export async function joinGroupWithCode(
     createdAt: groupData.createdAt || Date.now(),
     locked: !!groupData.locked,
   };
+  const existingMembers = Object.values(groupData?.members || {});
+  const hasAdmin = existingMembers.some((entry) => entry?.role === "admin");
+  const nextRole: GroupMember["role"] = existingMembers.length === 0 || !hasAdmin ? "admin" : "member";
   const member: GroupMember = {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
-    role: "member",
+    role: nextRole,
     joinedAt: Date.now(),
   };
   try {
@@ -2691,7 +2694,7 @@ export async function joinGroupWithCode(
     groupId,
     groupCode: group.code,
     groupName: group.name,
-    groupRole: "member",
+    groupRole: nextRole,
     groupLocked: resolvedGroupLocked,
   };
   writeUser(updated);

@@ -76,7 +76,7 @@ export default function BoardCustomization() {
                             alt=""
                             className={`relative z-10 h-[36px] w-[36px] object-contain ${
                               pieceTheme === "freestyle" ? "p-1" : ""
-                            } ${pawnScaleForFen(pieceTheme, sq.piece)}`}
+                            } ${pawnScaleForFen(pieceTheme, sq.piece)} cursor-piece`}
                             draggable={false}
                           />
                         )}
