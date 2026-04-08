@@ -26,6 +26,7 @@ import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import { useAuth } from "../hooks/useAuth";
 import { resolveBoardTheme } from "../lib/boardThemes";
 import { resolvePieceTheme } from "../lib/pieceThemes";
+import { uploadCourseAsset } from "../lib/courseStorage";
 import {
   addChapter,
   completeSubsection,
@@ -408,6 +409,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [activeMoveIndex, setActiveMoveIndex] = useState<number>(-1);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [savingSubsection, setSavingSubsection] = useState(false);
   const [trainerNote, setTrainerNote] = useState<string | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
@@ -637,8 +639,10 @@ export default function LessonPlayer({ id }: { id?: string }) {
     if (!subsectionModal) {
       setUploadError(null);
       setSaveError(null);
+      setUploadingVideo(false);
     } else if (subsectionModal.type !== "video") {
       setUploadError(null);
+      setUploadingVideo(false);
     }
   }, [subsectionModal]);
 
@@ -2422,7 +2426,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 <div className="space-y-2">
                   <label className="text-sm text-white/80 flex items-center justify-between">
                     <span>Video URL or Upload</span>
-                    <span className="text-xs text-white/60">No size limit</span>
+                    <span className="text-xs text-white/60">Files are stored in Firebase Storage</span>
                   </label>
                   <input
                     value={subsectionModal.videoUrl}
@@ -2435,30 +2439,33 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   <input
                     type="file"
                     accept="video/*"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setUploadError(null);
-                      const reader = new FileReader();
-                      reader.onerror = () =>
-                        setUploadError("Could not read the video file. Try again or use a hosted link instead.");
-                      reader.onload = (ev) => {
-                        const result = ev.target?.result;
-                        if (typeof result === "string") {
-                          setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: result } : prev));
-                        } else {
-                          setUploadError("Could not process the video file. Please try another file or a URL.");
-                        }
-                      };
                       try {
-                        reader.readAsDataURL(file);
+                        setUploadingVideo(true);
+                        const uploadedUrl = await uploadCourseAsset(file, {
+                          kind: "videos",
+                          courseId: courseId || course?.id || "draft-course",
+                          chapterId: subsectionModal.chapterId,
+                        });
+                        setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: uploadedUrl } : prev));
                       } catch (err) {
-                        setUploadError("Video is too large to inline here. Please host it (e.g., MP4 link) and paste the URL.");
+                        const message =
+                          err instanceof Error
+                            ? err.message
+                            : "Could not upload the video. Try again or paste a hosted video URL instead.";
+                        setUploadError(message);
+                      } finally {
+                        setUploadingVideo(false);
+                        e.target.value = "";
                       }
                     }}
                     className="w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
                   />
                   {uploadError && <div className="text-xs text-red-300">{uploadError}</div>}
+                  {uploadingVideo && <div className="text-xs text-white/60">Uploading video to Firebase Storage...</div>}
                   <div className="space-y-2">
                     <label className="text-sm text-white/80">Trainer note (optional)</label>
                     <textarea
@@ -2614,7 +2621,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   Cancel
                 </Button>
                 <Button
-                  disabled={savingSubsection}
+                  disabled={savingSubsection || uploadingVideo}
                   onClick={async () => {
                     if (!subsectionModal) return;
                     setSaveError(null);
@@ -2645,8 +2652,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         setSaveError(parsedSource.reason || "This video link cannot be played here.");
                         return;
                       }
-                      if (rawUrl.startsWith("data:") && rawUrl.length > 4_000_000) {
-                        setSaveError("Video is too large to inline. Please host it (e.g., MP4 link) and paste the URL.");
+                      if (rawUrl.startsWith("data:")) {
+                        setSaveError("Inline video files are no longer supported. Upload the file again or paste a hosted URL.");
                         return;
                       }
                       payload = {
@@ -2703,7 +2710,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     }
                   }}
                 >
-                  {savingSubsection ? "Saving..." : "Save"}
+                  {uploadingVideo ? "Uploading video..." : savingSubsection ? "Saving..." : "Save"}
                 </Button>
               </div>
               {saveError && <div className="text-xs text-red-300 pt-1 text-right">{saveError}</div>}

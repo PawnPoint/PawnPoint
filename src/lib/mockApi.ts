@@ -801,6 +801,31 @@ function cleanSubsection(sub: Subsection): Subsection {
   return base as Subsection;
 }
 
+function normalizeChapterEntry(chapter: Chapter): Chapter {
+  const subsections: Record<string, Subsection> = {};
+  Object.entries(chapter.subsections || {}).forEach(([subId, sub]) => {
+    if (!sub) return;
+    subsections[subId] = cleanSubsection(sub);
+  });
+  return stripUndefinedDeep({
+    ...chapter,
+    subsections: reindexSubsections(subsections),
+  });
+}
+
+function normalizeCourseEntry(course: Course): Course {
+  const chapters: Record<string, Chapter> = {};
+  Object.entries(course.chapters || {}).forEach(([chapterId, chapter]) => {
+    if (!chapter) return;
+    chapters[chapterId] = normalizeChapterEntry(chapter);
+  });
+  return stripUndefinedDeep({
+    ...course,
+    thumbnailUrl: sanitizeThumbnail(course.thumbnailUrl),
+    chapters,
+  });
+}
+
 function reindexSubsections(subsections: Record<string, Subsection>, orderedIds?: string[]): Record<string, Subsection> {
   const seen = new Set<string>();
   const ordered: string[] = [];
@@ -834,21 +859,7 @@ function normalizeCourseRecord(record: CourseRecord): CourseRecord {
   const next: CourseRecord = {};
   Object.entries(record || {}).forEach(([id, course]) => {
     if (!course) return;
-    const chapters: Record<string, Chapter> = {};
-    Object.entries(course.chapters || {}).forEach(([chId, chapter]) => {
-      if (!chapter) return;
-      const subsections: Record<string, Subsection> = {};
-      Object.entries(chapter.subsections || {}).forEach(([subId, sub]) => {
-        if (!sub) return;
-        subsections[subId] = cleanSubsection(sub);
-      });
-      chapters[chId] = { ...chapter, subsections: reindexSubsections(subsections) };
-    });
-    next[id] = {
-      ...course,
-      thumbnailUrl: sanitizeThumbnail(course.thumbnailUrl),
-      chapters,
-    };
+    next[id] = normalizeCourseEntry(course);
   });
   return next;
 }
@@ -993,6 +1004,191 @@ function writeCoursesLocal(record: CourseRecord, scope?: DataScope) {
     localStorage.setItem(scopedStorageKey(STORAGE_KEYS.courses, resolved), JSON.stringify(safe));
   } catch {
     // ignore local write errors
+  }
+}
+
+function mutateLocalCourse(
+  courseId: string,
+  user: UserProfile | null | undefined,
+  transform: (course: Course | undefined) => Course | undefined,
+) {
+  const scope = resolveScope(user);
+  const record = readCoursesLocal(scope);
+  const next = transform(record[courseId]);
+  if (next) {
+    record[courseId] = normalizeCourseEntry(next);
+  } else {
+    delete record[courseId];
+  }
+  writeCoursesLocal(record, scope);
+}
+
+async function writeCourseEntry(course: Course, user?: UserProfile | null): Promise<Course> {
+  const normalized = normalizeCourseEntry(course);
+  const { path } = scopedPath(`${COURSES_PATH}/${normalized.id}`, user);
+  try {
+    await set(ref(db, path), normalized);
+    mutateLocalCourse(normalized.id, user, () => normalized);
+    return normalized;
+  } catch (err) {
+    mutateLocalCourse(normalized.id, user, () => normalized);
+    console.error("Failed to write course to Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function deleteCourseEntry(courseId: string, user?: UserProfile | null): Promise<void> {
+  const { path } = scopedPath(`${COURSES_PATH}/${courseId}`, user);
+  try {
+    await remove(ref(db, path));
+    mutateLocalCourse(courseId, user, () => undefined);
+  } catch (err) {
+    mutateLocalCourse(courseId, user, () => undefined);
+    console.error("Failed to delete course from Firebase; removed local copy instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function writeChapterEntry(
+  courseId: string,
+  chapter: Chapter,
+  user?: UserProfile | null,
+): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(chapter);
+  const { path } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${normalizedChapter.id}`, user);
+  try {
+    await set(ref(db, path), normalizedChapter);
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [normalizedChapter.id]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [normalizedChapter.id]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to write chapter to Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function updateChapterEntry(
+  courseId: string,
+  chapterId: string,
+  payload: Partial<Pick<Chapter, "title" | "index">>,
+  nextChapter: Chapter,
+  user?: UserProfile | null,
+): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(nextChapter);
+  const { path } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}`, user);
+  const safePayload = stripUndefinedShallow(payload);
+  try {
+    await update(ref(db, path), safePayload);
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to update chapter in Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function deleteChapterEntry(courseId: string, chapterId: string, user?: UserProfile | null): Promise<void> {
+  const { path } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}`, user);
+  try {
+    await remove(ref(db, path));
+    mutateLocalCourse(courseId, user, (course) => {
+      if (!course?.chapters?.[chapterId]) return course;
+      const chapters = { ...course.chapters };
+      delete chapters[chapterId];
+      return { ...course, chapters };
+    });
+  } catch (err) {
+    mutateLocalCourse(courseId, user, (course) => {
+      if (!course?.chapters?.[chapterId]) return course;
+      const chapters = { ...course.chapters };
+      delete chapters[chapterId];
+      return { ...course, chapters };
+    });
+    console.error("Failed to delete chapter from Firebase; removed local copy instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function applySubsectionUpdates(
+  courseId: string,
+  chapterId: string,
+  updatesPayload: Record<string, unknown>,
+  nextChapter: Chapter,
+  user?: UserProfile | null,
+): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(nextChapter);
+  const safePayload = stripUndefinedDeep(updatesPayload);
+  try {
+    if (Object.keys(safePayload).length > 0) {
+      await update(ref(db), safePayload);
+    }
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateLocalCourse(courseId, user, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to update subsection data in Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
   }
 }
 
@@ -2965,28 +3161,25 @@ export async function createCourse(course: Omit<Course, "id"> & { id?: string })
     ...newCourse,
     thumbnailUrl: sanitizeThumbnail(newCourse.thumbnailUrl),
   };
-  record[normalizedCourse.id] = normalizedCourse;
-  await writeCourseRecord(record, user);
-  return normalizedCourse;
+  return writeCourseEntry(normalizedCourse, user);
 }
 
 export async function updateCourse(course: Course): Promise<Course> {
   const user = readUser();
   const record = await fetchCourseRecord(user);
+  const existing = record[course.id];
   const normalizedCourse: Course = {
+    ...(existing || {}),
     ...course,
     thumbnailUrl: sanitizeThumbnail(course.thumbnailUrl),
+    chapters: course.chapters ?? existing?.chapters,
   };
-  record[normalizedCourse.id] = normalizedCourse;
-  await writeCourseRecord(record, user);
-  return record[course.id];
+  return writeCourseEntry(normalizedCourse, user);
 }
 
 export async function deleteCourse(id: string): Promise<void> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  delete record[id];
-  await writeCourseRecord(record, user);
+  await deleteCourseEntry(id, user);
 }
 
 export async function addChapter(courseId: string, title: string, index: number): Promise<Chapter | null> {
@@ -2996,11 +3189,7 @@ export async function addChapter(courseId: string, title: string, index: number)
   if (!course) return null;
   const chapterId = nanoid();
   const chapter: Chapter = { id: chapterId, title, index, subsections: {} };
-  const chapters = course.chapters || {};
-  chapters[chapterId] = chapter;
-  record[courseId] = { ...course, chapters };
-  await writeCourseRecord(record, user);
-  return chapter;
+  return writeChapterEntry(courseId, chapter, user);
 }
 
 export async function deleteChapter(courseId: string, chapterId: string): Promise<void> {
@@ -3008,9 +3197,7 @@ export async function deleteChapter(courseId: string, chapterId: string): Promis
   const record = await fetchCourseRecord(user);
   const course = record[courseId];
   if (!course?.chapters) return;
-  delete course.chapters[chapterId];
-  record[courseId] = { ...course };
-  await writeCourseRecord(record, user);
+  await deleteChapterEntry(courseId, chapterId, user);
 }
 
 export async function updateChapter(
@@ -3023,10 +3210,16 @@ export async function updateChapter(
   const course = record[courseId];
   if (!course?.chapters?.[chapterId]) return null;
   const nextChapter = { ...course.chapters[chapterId], ...updates };
-  course.chapters[chapterId] = nextChapter;
-  record[courseId] = { ...course };
-  await writeCourseRecord(record, user);
-  return nextChapter;
+  return updateChapterEntry(
+    courseId,
+    chapterId,
+    {
+      title: nextChapter.title,
+      index: nextChapter.index,
+    },
+    nextChapter,
+    user,
+  );
 }
 
 export async function saveSubsection(
@@ -3050,10 +3243,19 @@ export async function saveSubsection(
   const nextIndex = typeof subsection.index === "number" ? subsection.index : Object.keys(cleanedExisting).length;
   cleanedExisting[id] = cleanSubsection({ ...subsection, id, index: nextIndex } as Subsection);
   const reindexed = reindexSubsections(cleanedExisting);
-  chapters[chapterId] = { ...chapter, subsections: reindexed };
-  record[courseId] = { ...course, chapters };
-  await writeCourseRecord(record, user);
-  return reindexed[id];
+  const nextChapter = { ...chapter, subsections: reindexed };
+  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const updates: Record<string, unknown> = {
+    [`${subsectionsPath}/${id}`]: reindexed[id],
+  };
+  Object.entries(reindexed).forEach(([subId, sub]) => {
+    if (subId === id) return;
+    if (cleanedExisting[subId]?.index !== sub.index) {
+      updates[`${subsectionsPath}/${subId}/index`] = sub.index;
+    }
+  });
+  const persistedChapter = await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
+  return persistedChapter.subsections?.[id] || null;
 }
 
 export async function reorderSubsections(
@@ -3089,20 +3291,39 @@ export async function reorderSubsections(
   }, {});
 
   const reindexed = reindexSubsections(reordered, orderedIds);
-  course.chapters![chapterId] = { ...chapter, subsections: reindexed };
-  record[courseId] = { ...course };
-  await writeCourseRecord(record, user);
-  return reindexed;
+  const nextChapter = { ...chapter, subsections: reindexed };
+  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const updates: Record<string, unknown> = {};
+  Object.entries(reindexed).forEach(([id, sub]) => {
+    if (subs[id]?.index !== sub.index) {
+      updates[`${subsectionsPath}/${id}/index`] = sub.index;
+    }
+  });
+  const persistedChapter = await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
+  return persistedChapter.subsections || null;
 }
 
 export async function deleteSubsection(courseId: string, chapterId: string, subsectionId: string): Promise<void> {
   const user = readUser();
   const record = await fetchCourseRecord(user);
   const course = record[courseId];
-  if (!course?.chapters?.[chapterId]?.subsections) return;
-  delete course.chapters[chapterId].subsections![subsectionId];
-  record[courseId] = { ...course };
-  await writeCourseRecord(record, user);
+  const chapter = course?.chapters?.[chapterId];
+  const subs = chapter?.subsections;
+  if (!course || !chapter || !subs?.[subsectionId]) return;
+  const remaining = { ...subs };
+  delete remaining[subsectionId];
+  const reindexed = reindexSubsections(remaining);
+  const nextChapter = { ...chapter, subsections: reindexed };
+  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const updates: Record<string, unknown> = {
+    [`${subsectionsPath}/${subsectionId}`]: null,
+  };
+  Object.entries(reindexed).forEach(([id, sub]) => {
+    if (subs[id]?.index !== sub.index) {
+      updates[`${subsectionsPath}/${id}/index`] = sub.index;
+    }
+  });
+  await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
 }
 
 export async function getProgress(userId: string): Promise<Record<string, CourseProgress>> {

@@ -16,6 +16,7 @@ import { Progress } from "../components/ui/Progress";
 import { Search, Filter, Trash2, Plus, X, Pencil } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { nanoid } from "../lib/nanoid";
+import { uploadCourseAsset } from "../lib/courseStorage";
 
 const pageBackground = {
   backgroundImage: `
@@ -76,6 +77,7 @@ export default function Courses() {
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [difficultyMenuOpen, setDifficultyMenuOpen] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const MAX_THUMB_DATA_URL = 5_000_000;
 
   const { data: courses = [] } = useQuery<Course[]>({
@@ -130,6 +132,7 @@ export default function Courses() {
     setEditingCourse(null);
     setCourseDraft(createEmptyCourseDraft());
     setSaveError("");
+    setThumbnailUploading(false);
     setCategoryMenuOpen(false);
     setDifficultyMenuOpen(false);
   };
@@ -147,6 +150,7 @@ export default function Courses() {
     }
     setEditorOpen(true);
     setSaveError("");
+    setThumbnailUploading(false);
     setCategoryMenuOpen(false);
     setDifficultyMenuOpen(false);
   };
@@ -194,8 +198,13 @@ export default function Courses() {
     deleteCourseMutation.mutate(course.id);
   };
 
-  const saving = createCourseMutation.isPending || updateCourseMutation.isPending;
+  const saving = createCourseMutation.isPending || updateCourseMutation.isPending || thumbnailUploading;
   const deleting = deleteCourseMutation.isPending;
+  const saveLabel = thumbnailUploading
+    ? "Uploading thumbnail..."
+    : createCourseMutation.isPending || updateCourseMutation.isPending
+      ? "Saving..."
+      : "Save course";
 
   return (
     <AppShell backgroundStyle={pageBackground}>
@@ -321,21 +330,33 @@ export default function Courses() {
                     <input
                       type="file"
                       accept="image/png"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          const result = ev.target?.result;
-                          if (typeof result === "string") {
-                            setCourseDraft((prev) => ({ ...prev, thumbnailUrl: result }));
-                          }
-                        };
-                        reader.readAsDataURL(file);
+                        setSaveError("");
+                        setThumbnailUploading(true);
+                        try {
+                          const uploadedUrl = await uploadCourseAsset(file, {
+                            kind: "thumbnails",
+                            courseId: editingCourse?.id || courseDraft.id || courseDraft.title || "draft-course",
+                          });
+                          setCourseDraft((prev) => ({ ...prev, thumbnailUrl: uploadedUrl }));
+                        } catch (err) {
+                          const message =
+                            err instanceof Error
+                              ? err.message
+                              : "Could not upload the thumbnail. Try again or paste a hosted image URL.";
+                          setSaveError(message);
+                        } finally {
+                          setThumbnailUploading(false);
+                          e.target.value = "";
+                        }
                       }}
                       className="w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
                     />
-                    <div className="text-xs text-white/60">Use a link or upload a PNG to show on the card.</div>
+                    <div className="text-xs text-white/60">
+                      {thumbnailUploading ? "Uploading thumbnail to Firebase Storage..." : "Use a link or upload a PNG to show on the card."}
+                    </div>
                   </div>
                 </div>
 
@@ -436,7 +457,7 @@ export default function Courses() {
                       className={saving ? "opacity-60 pointer-events-none" : ""}
                       disabled={saving}
                     >
-                      {saving ? "Saving..." : "Save course"}
+                      {saveLabel}
                     </Button>
                   </div>
                 </div>
