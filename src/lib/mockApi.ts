@@ -908,6 +908,26 @@ function buildUserSyncPayload(profile: UserProfile) {
   });
 }
 
+function applyLocalAccountScope(profile: UserProfile, localProfile?: UserProfile | null): UserProfile {
+  if (!localProfile || localProfile.id !== profile.id) return profile;
+  const localHasGroup = !!localProfile.groupId;
+  return {
+    ...profile,
+    accountType: localHasGroup ? "group" : localProfile.accountType ?? "personal",
+    groupId: localHasGroup ? localProfile.groupId : null,
+    groupCode: localHasGroup ? localProfile.groupCode ?? profile.groupCode ?? null : null,
+    groupName: localHasGroup ? localProfile.groupName ?? profile.groupName ?? null : null,
+    groupRole: localHasGroup ? localProfile.groupRole ?? profile.groupRole ?? "member" : null,
+    groupLocked: localHasGroup
+      ? (typeof localProfile.groupLocked === "boolean"
+          ? localProfile.groupLocked
+          : typeof profile.groupLocked === "boolean"
+            ? profile.groupLocked
+            : false)
+      : false,
+  };
+}
+
 const REMOVED_COURSE_IDS = new Set([
   "course-trompowsky",
   "course-pieces",
@@ -1454,7 +1474,9 @@ export async function syncStreakStatus(userId: string): Promise<UserProfile | nu
     streakDeadlineAt: resolvedRow.deadline_at,
   };
 
-  const nextProfile = normalizeUser({ ...baseUser, ...profileUpdates });
+  const latestLocalUser = readUser();
+  const currentLocalUser = latestLocalUser && latestLocalUser.id === userId ? latestLocalUser : null;
+  const nextProfile = normalizeUser(applyLocalAccountScope({ ...baseUser, ...profileUpdates }, currentLocalUser));
   writeUser(nextProfile);
 
   if (changed) {
@@ -2579,12 +2601,12 @@ export async function createGroupForUser(
     isAdmin: true,
     groupLocked: false,
   };
-  writeUser(updated);
   try {
     await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to sync group details to user profile", err);
   }
+  writeUser(updated);
   await fetchCourseRecord(updated).catch(() => undefined);
   return { group, profile: updated };
 }
@@ -2672,9 +2694,14 @@ export async function joinGroupWithCode(
     createdAt: groupData.createdAt || Date.now(),
     locked: !!groupData.locked,
   };
+  const previousMember = groupData?.members?.[user.id] ?? null;
   const existingMembers = Object.values(groupData?.members || {});
-  const hasAdmin = existingMembers.some((entry) => entry?.role === "admin");
-  const nextRole: GroupMember["role"] = existingMembers.length === 0 || !hasAdmin ? "admin" : "member";
+  const nextRole: GroupMember["role"] =
+    previousMember?.role === "admin" || previousMember?.role === "member"
+      ? previousMember.role
+      : existingMembers.length === 0
+        ? "admin"
+        : "member";
   const member: GroupMember = {
     id: user.id,
     displayName: user.displayName,
@@ -2686,6 +2713,7 @@ export async function joinGroupWithCode(
     await update(ref(db, `groups/${groupId}/members/${user.id}`), member);
   } catch (err) {
     console.warn("Failed to record membership in Firebase", err);
+    throw new Error("Could not join that group right now. Please try again.");
   }
   const resolvedGroupLocked = typeof groupData.locked === "boolean" ? groupData.locked : undefined;
   const updated: UserProfile = {
@@ -2697,12 +2725,22 @@ export async function joinGroupWithCode(
     groupRole: nextRole,
     groupLocked: resolvedGroupLocked,
   };
-  writeUser(updated);
   try {
     await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
     console.warn("Failed to sync group join to user profile", err);
+    try {
+      if (previousMember) {
+        await set(ref(db, `groups/${groupId}/members/${user.id}`), previousMember);
+      } else {
+        await remove(ref(db, `groups/${groupId}/members/${user.id}`));
+      }
+    } catch (rollbackErr) {
+      console.warn("Failed to roll back membership after profile sync failure", rollbackErr);
+    }
+    throw new Error("Could not finish joining the group. Please try again.");
   }
+  writeUser(updated);
   await fetchCourseRecord(updated).catch(() => undefined);
   return { group, profile: updated };
 }

@@ -685,6 +685,7 @@ export default function Dashboard() {
   if (!user) return null;
 
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [selectedPreviewCourseId, setSelectedPreviewCourseId] = useState<string | null>(null);
 
   useEffect(() => {
     const interval = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -726,7 +727,10 @@ export default function Dashboard() {
   const availableCourses = dashboardQuery.data?.courses || suggestedCourses;
   const featuredCourseSelection = selectFeaturedCourse(availableCourses, progressByCourse);
   const allCoursesCompleted = featuredCourseSelection.allCompleted;
-  const featuredCourse = featuredCourseSelection.featuredEntry?.course;
+  const selectedPreviewCourse =
+    availableCourses.find((course) => course.id === selectedPreviewCourseId) ||
+    suggestedCourses.find((course) => course.id === selectedPreviewCourseId);
+  const featuredCourse = selectedPreviewCourse || featuredCourseSelection.featuredEntry?.course;
   const featuredProgress = featuredCourse ? progressByCourse[featuredCourse.id] : undefined;
   const featuredPercent = allCoursesCompleted ? 100 : featuredProgress?.progressPercent || 0;
   const featuredNextLesson = allCoursesCompleted
@@ -742,6 +746,14 @@ export default function Dashboard() {
     : featuredPercent > 0
       ? "Continue Learning"
       : "Explore Courses";
+
+  useEffect(() => {
+    if (!selectedPreviewCourseId) return;
+    const exists = availableCourses.some((course) => course.id === selectedPreviewCourseId);
+    if (!exists) {
+      setSelectedPreviewCourseId(null);
+    }
+  }, [availableCourses, selectedPreviewCourseId]);
 
   const leaderboard = buildLeaderboard(globalLeaderboardQuery.data || [], user);
   const solvedPuzzleTypes = dailyPuzzleTrackerOrder.filter((type) =>
@@ -1136,7 +1148,7 @@ export default function Dashboard() {
                       <button
                         key={course.id}
                         type="button"
-                        onClick={() => navigate(`/courses/${course.id}`)}
+                        onClick={() => setSelectedPreviewCourseId(course.id)}
                         className={`pp-dashboard-course-chip flex items-center gap-4 rounded-2xl border px-4 py-4 text-left ${
                           active
                             ? "border-blue-400/24 bg-blue-500/10"
