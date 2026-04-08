@@ -3,7 +3,7 @@ import { AppShell } from "../components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
-import { getStandingsBoards, updateStandingsBoard, type StandingsBoard } from "../lib/mockApi";
+import { getStandingsBoards, hasGroupAdminAccess, updateStandingsBoard, type StandingsBoard } from "../lib/mockApi";
 import { Sparkles, Crown, Loader2, Pencil, Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 
 const pageBackground = {
@@ -17,7 +17,7 @@ const pageBackground = {
 
 export default function Leaderboard() {
   const { user } = useAuth();
-  const isAdmin = !!user?.isAdmin;
+  const isAdmin = hasGroupAdminAccess(user);
   const [boards, setBoards] = useState<StandingsBoard[]>([]);
   const [standingsIndex, setStandingsIndex] = useState(0);
   const [loading, setLoading] = useState(true);

@@ -460,8 +460,18 @@ function resolveStandingsBoardsScope(user?: UserProfile | null): ScopedResource 
   return { scope: "public", cacheKey: "public", path: STANDINGS_BOARDS_PATH };
 }
 
+function hasSiteAdminAccess(profile?: Pick<UserProfile, "adminKeyUnlocked"> | null): boolean {
+  return profile?.adminKeyUnlocked === true;
+}
+
+export function hasGroupAdminAccess(
+  profile?: Pick<UserProfile, "adminKeyUnlocked" | "groupRole"> | null,
+): boolean {
+  return hasSiteAdminAccess(profile) || profile?.groupRole === "admin";
+}
+
 function resolveIsAdmin(profile: UserProfile): boolean {
-  return profile.adminKeyUnlocked === true || profile.groupRole === "admin";
+  return hasSiteAdminAccess(profile);
 }
 
 const DAILY_PUZZLE_TYPE_ORDER: DailyPuzzleType[] = ["easy", "medium", "hard"];
@@ -1846,9 +1856,7 @@ export async function ensureProfile(
 
           if (!member && legacyLocalId) {
             preservedLegacyAdmin =
-              legacyMember?.role === "admin" ||
-              groupData.createdBy === legacyLocalId ||
-              merged.adminKeyUnlocked === true;
+              legacyMember?.role === "admin" || groupData.createdBy === legacyLocalId;
             const migratedMember: GroupMember = {
               id: merged.id,
               displayName: legacyMember?.displayName || merged.displayName,
@@ -1877,13 +1885,12 @@ export async function ensureProfile(
               ...merged,
               accountType: "group",
               groupRole: member.role === "admin" ? "admin" : "member",
-              adminKeyUnlocked: merged.adminKeyUnlocked === true || (member.role !== "admin" && preservedLegacyAdmin),
+              adminKeyUnlocked: merged.adminKeyUnlocked === true,
             };
           } else if (groupData.removedMembers?.[merged.id]?.reason === "kicked") {
             dropGroup();
           } else {
-            const restoredRole: GroupMember["role"] =
-              groupData.createdBy === merged.id || merged.groupRole === "admin" ? "admin" : "member";
+            const restoredRole: GroupMember["role"] = groupData.createdBy === merged.id ? "admin" : "member";
             const restoredMember: GroupMember = {
               id: merged.id,
               displayName: merged.displayName,
@@ -2272,16 +2279,16 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
 export async function attachPaypalSubscription(subscriptionId: string): Promise<{ success: boolean; profile: UserProfile | null }> {
   const user = readUser();
   if (!user) return { success: false, profile: null };
-  const baseUpdated: UserProfile = {
+  const baseUpdated: UserProfile = normalizeUser({
     ...user,
     premiumAccess: true,
     paypalSubscriptionId: subscriptionId,
     subscriptionStatus: "active",
     subscriptionUpdatedAt: Date.now(),
     groupLocked: false,
-  };
+  });
   const restoreFields = await restoreOwnedGroupIfNeeded(baseUpdated);
-  const updated: UserProfile = restoreFields ? { ...baseUpdated, ...restoreFields } : baseUpdated;
+  const updated: UserProfile = normalizeUser(restoreFields ? { ...baseUpdated, ...restoreFields } : baseUpdated);
   writeUser(updated);
   try {
     await update(
@@ -2309,13 +2316,13 @@ export async function cancelPaypalSubscriptionLocally(): Promise<{ success: bool
   const user = readUser();
   if (!user || !user.paypalSubscriptionId) return { success: false, profile: null };
   await pauseOwnedGroupIfNeeded(user);
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...user,
     premiumAccess: false,
     subscriptionStatus: "cancelled",
     subscriptionUpdatedAt: Date.now(),
     groupLocked: true,
-  };
+  });
   writeUser(updated);
   try {
     await update(
@@ -2345,18 +2352,18 @@ export async function updateSubscriptionStatusFromWebhook(
   const user = readUser();
   if (!user || user.paypalSubscriptionId !== subscriptionId) return null;
   const premiumAccess = status === "active";
-  const baseUpdated: UserProfile = {
+  const baseUpdated: UserProfile = normalizeUser({
     ...user,
     premiumAccess,
     subscriptionStatus: status,
     subscriptionUpdatedAt: Date.now(),
     groupLocked: !premiumAccess,
-  };
+  });
   let updated: UserProfile = baseUpdated;
   if (premiumAccess) {
     const restoreFields = await restoreOwnedGroupIfNeeded(baseUpdated);
     if (restoreFields) {
-      updated = { ...baseUpdated, ...restoreFields };
+      updated = normalizeUser({ ...baseUpdated, ...restoreFields });
     }
   } else {
     await pauseOwnedGroupIfNeeded(user);
@@ -2536,7 +2543,6 @@ async function restoreOwnedGroupIfNeeded(user: UserProfile): Promise<Partial<Use
     groupName: ownedGroup.group.name || user.groupName || "Group",
     groupRole: "admin",
     groupLocked: false,
-    isAdmin: true,
   };
 }
 
@@ -2591,16 +2597,15 @@ export async function createGroupForUser(
   } catch (err) {
     console.warn("Failed to create group in Firebase", err);
   }
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...user,
     accountType: "group",
     groupId,
     groupCode: group.code,
     groupName: group.name,
     groupRole: "admin",
-    isAdmin: true,
     groupLocked: false,
-  };
+  });
   try {
     await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
@@ -2716,7 +2721,7 @@ export async function joinGroupWithCode(
     throw new Error("Could not join that group right now. Please try again.");
   }
   const resolvedGroupLocked = typeof groupData.locked === "boolean" ? groupData.locked : undefined;
-  const updated: UserProfile = {
+  const updated: UserProfile = normalizeUser({
     ...user,
     accountType: "group",
     groupId,
@@ -2724,7 +2729,7 @@ export async function joinGroupWithCode(
     groupName: group.name,
     groupRole: nextRole,
     groupLocked: resolvedGroupLocked,
-  };
+  });
   try {
     await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
   } catch (err) {
@@ -3410,8 +3415,8 @@ export async function addClubParticipant(
 ): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (!admin?.isAdmin) throw new Error("Only group admins can add participants.");
-  } else if (!admin?.isAdmin) {
+    if (!hasGroupAdminAccess(admin)) throw new Error("Only group admins can add participants.");
+  } else if (!hasSiteAdminAccess(admin)) {
     throw new Error("Only admins can add participants.");
   }
   const entry = normalizeClubEntry({ ...payload, addedBy: admin?.id });
@@ -3435,8 +3440,8 @@ export async function updateClubPerformance(
 ): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (!admin?.isAdmin) throw new Error("Only group admins can update performance.");
-  } else if (!admin?.isAdmin) {
+    if (!hasGroupAdminAccess(admin)) throw new Error("Only group admins can update performance.");
+  } else if (!hasSiteAdminAccess(admin)) {
     throw new Error("Only admins can update performance.");
   }
   const existing = readClubLeaderboardLocal(scoped);
@@ -3468,8 +3473,8 @@ export async function updateClubPerformance(
 export async function removeClubParticipant(admin: UserProfile | null, id: string): Promise<ClubLeaderboardEntry[]> {
   const scoped = resolveClubScope(admin);
   if (scoped.scope === "group") {
-    if (!admin?.isAdmin) throw new Error("Only group admins can remove participants.");
-  } else if (!admin?.isAdmin) {
+    if (!hasGroupAdminAccess(admin)) throw new Error("Only group admins can remove participants.");
+  } else if (!hasSiteAdminAccess(admin)) {
     throw new Error("Only admins can remove participants.");
   }
   const existing = readClubLeaderboardLocal(scoped).filter((entry) => entry.id !== id);
@@ -3513,7 +3518,7 @@ export async function updateStandingsBoard(
   boardId: string,
   names: string[],
 ): Promise<{ boards: StandingsBoard[]; localOnly: boolean }> {
-  if (!admin?.isAdmin) throw new Error("Only admins can edit the standings.");
+  if (!hasGroupAdminAccess(admin)) throw new Error("Only admins can edit the standings.");
   const scoped = resolveStandingsBoardsScope(admin);
   if (scoped.scope !== "group") {
     throw new Error("Standings editing is only available inside a group.");
@@ -3604,7 +3609,12 @@ export async function addSquareBaseBook(
   admin: UserProfile | null,
   payload: { title: string; url: string },
 ): Promise<SquareBaseBook> {
-  if (!admin?.isAdmin) throw new Error("Only admins can add books.");
+  const scope = resolveScope(admin);
+  if (scope === "group") {
+    if (!hasGroupAdminAccess(admin)) throw new Error("Only admins can add books.");
+  } else if (!hasSiteAdminAccess(admin)) {
+    throw new Error("Only admins can add books.");
+  }
   const trimmedUrl = (payload.url || "").trim();
   if (!trimmedUrl) throw new Error("PDF URL is required.");
   const book = normalizeSquareBaseBook({
@@ -3613,7 +3623,6 @@ export async function addSquareBaseBook(
     addedBy: admin.id,
     addedByName: admin.displayName || admin.email || "Admin",
   });
-  const scope = resolveScope(admin);
   const { path } = scopedPath(SQUARE_BASE_PATH, admin);
   const next = [...readSquareBaseLocal(scope), book];
   writeSquareBaseLocal(next, scope);
@@ -3626,8 +3635,12 @@ export async function addSquareBaseBook(
 }
 
 export async function removeSquareBaseBook(admin: UserProfile | null, id: string): Promise<void> {
-  if (!admin?.isAdmin) throw new Error("Only admins can remove books.");
   const scope = resolveScope(admin);
+  if (scope === "group") {
+    if (!hasGroupAdminAccess(admin)) throw new Error("Only admins can remove books.");
+  } else if (!hasSiteAdminAccess(admin)) {
+    throw new Error("Only admins can remove books.");
+  }
   const { path } = scopedPath(SQUARE_BASE_PATH, admin);
   const filtered = readSquareBaseLocal(scope).filter((b) => b.id !== id);
   writeSquareBaseLocal(filtered, scope);
