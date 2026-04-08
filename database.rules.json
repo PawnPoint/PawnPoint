@@ -355,6 +355,34 @@
         ".validate": "newData.isString() && newData.val().length <= 60"
       }
     },
+    "feedbackInbox": {
+      ".read": "auth != null && auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3'",
+      "$messageId": {
+        ".write": "auth != null && (auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3' || (!data.exists() && auth.uid == newData.child('senderId').val()))",
+        ".validate": "newData.val() == null || (newData.child('senderId').exists() && newData.child('senderName').exists() && newData.child('mood').exists() && newData.child('message').exists() && newData.child('createdAt').exists() && newData.child('source').exists())",
+        "senderId": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val() == auth.uid)"
+        },
+        "senderName": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 80)"
+        },
+        "senderEmail": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 254)"
+        },
+        "mood": {
+          ".validate": "newData.val() == null || newData.val() == 'Angry' || newData.val() == 'Dislike' || newData.val() == 'Meh' || newData.val() == 'Happy' || newData.val() == 'Excited'"
+        },
+        "message": {
+          ".validate": "newData.val() == null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 500)"
+        },
+        "createdAt": {
+          ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= now - 2592000000 && newData.val() <= now + 600000)"
+        },
+        "source": {
+          ".validate": "newData.val() == null || newData.val() == 'feedback-popup'"
+        }
+      }
+    },
     "groups": {
       ".read": "auth != null && auth.uid == 'FeXOccEwugQBmJtcFgydgAnrlUA3'",
       "$groupId": {

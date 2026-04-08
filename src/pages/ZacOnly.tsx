@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Copy, PencilLine, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Copy, Inbox, PencilLine, Plus, Trash2, X } from "lucide-react";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
 import { useAuth } from "../hooks/useAuth";
 import { auth, db } from "../lib/firebase";
+import {
+  normalizeFeedbackInboxMessage,
+  pruneOldFeedbackInboxMessages,
+  type FeedbackInboxMessage,
+} from "../lib/feedbackInbox";
 import { nanoid } from "../lib/nanoid";
 import type { Group, GroupMember, UserProfile } from "../lib/mockApi";
 import "./zac-only.css";
@@ -18,6 +23,7 @@ type ClubStatus = "active" | "free" | "locked";
 type RawUserRecord = Partial<UserProfile> | null;
 type RawGroupMember = Partial<GroupMember> | null;
 type RawGroupRecord = (Partial<Group> & { members?: Record<string, RawGroupMember> | null }) | null;
+type RawFeedbackInboxRecord = Partial<Omit<FeedbackInboxMessage, "id">> | null;
 
 type LiveUser = {
   id: string;
@@ -149,6 +155,16 @@ function formatJoinedDate(timestamp: number | null) {
   });
 }
 
+function formatInboxTimestamp(timestamp: number) {
+  return new Date(timestamp).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function normalizeUserRecord(id: string, raw: RawUserRecord): LiveUser {
   const email = typeof raw?.email === "string" ? raw.email : "";
   const displayName =
@@ -239,6 +255,9 @@ export default function ZacOnly() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [rawInboxMessages, setRawInboxMessages] = useState<Record<string, RawFeedbackInboxRecord>>({});
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxError, setInboxError] = useState<string | null>(null);
   const firebaseUid = auth.currentUser?.uid || null;
   const isAuthorized = !!user && user.id === ZAC_ONLY_UID && firebaseUid === ZAC_ONLY_UID;
 
@@ -257,6 +276,7 @@ export default function ZacOnly() {
     if (!isAuthorized) {
       setRawUsers({});
       setRawGroups({});
+      setRawInboxMessages({});
       setLoading(false);
       return;
     }
@@ -302,6 +322,33 @@ export default function ZacOnly() {
     };
   }, [isAuthorized]);
 
+  useEffect(() => {
+    if (!isAuthorized) {
+      setRawInboxMessages({});
+      setInboxError(null);
+      return;
+    }
+
+    setInboxError(null);
+    void pruneOldFeedbackInboxMessages().catch((err: any) => {
+      setInboxError(err?.message || "Could not prune old inbox messages.");
+    });
+
+    const unsubscribeInbox = onValue(
+      ref(db, "feedbackInbox"),
+      (snapshot) => {
+        setRawInboxMessages((snapshot.val() as Record<string, RawFeedbackInboxRecord>) || {});
+      },
+      (err) => {
+        setInboxError(err.message || "Could not sync the feedback inbox.");
+      },
+    );
+
+    return () => {
+      unsubscribeInbox();
+    };
+  }, [isAuthorized]);
+
   const users = useMemo(() => Object.entries(rawUsers).map(([id, raw]) => normalizeUserRecord(id, raw)), [rawUsers]);
 
   const usersById = useMemo(
@@ -314,6 +361,15 @@ export default function ZacOnly() {
   );
 
   const groups = useMemo(() => Object.entries(rawGroups).map(([id, raw]) => normalizeGroupRecord(id, raw)), [rawGroups]);
+
+  const inboxMessages = useMemo(
+    () =>
+      Object.entries(rawInboxMessages)
+        .map(([id, raw]) => normalizeFeedbackInboxMessage(id, raw))
+        .filter((message): message is FeedbackInboxMessage => !!message)
+        .sort((left, right) => right.createdAt - left.createdAt),
+    [rawInboxMessages],
+  );
 
   const clubs = useMemo<ClubRecord[]>(() => {
     return groups
@@ -594,7 +650,7 @@ export default function ZacOnly() {
     }
   };
 
-  const statusMessage = actionError || loadError;
+  const statusMessage = actionError || loadError || inboxError;
 
   if (authLoading) {
     return (
@@ -679,10 +735,17 @@ export default function ZacOnly() {
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
-            <button className="zac-deploy-btn" onClick={openCreateModal}>
-              <Plus size={16} />
-              Deploy New Club
-            </button>
+            <div className="zac-section-actions">
+              <button className="zac-inbox-btn" onClick={() => setInboxOpen(true)}>
+                <Inbox size={16} />
+                Inbox
+                <span className="zac-inbox-count">{inboxMessages.length}</span>
+              </button>
+              <button className="zac-deploy-btn" onClick={openCreateModal}>
+                <Plus size={16} />
+                Deploy New Club
+              </button>
+            </div>
           </div>
 
           {loading && <div className="zac-status-banner">Syncing live Firebase data...</div>}
@@ -851,6 +914,46 @@ export default function ZacOnly() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {inboxOpen && (
+          <div className="zac-modal-backdrop" onClick={() => setInboxOpen(false)}>
+            <div className="zac-modal zac-inbox-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="zac-modal-header">
+                <div>
+                  <div className="zac-modal-title">Feedback Inbox</div>
+                  <div className="zac-modal-body">Showing feedback from the last 30 days only.</div>
+                </div>
+                <button className="zac-inbox-close" onClick={() => setInboxOpen(false)} type="button">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {inboxError && <div className="zac-modal-error">{inboxError}</div>}
+
+              <div className="zac-inbox-list">
+                {!inboxMessages.length ? (
+                  <div className="zac-empty-roster">No feedback messages from the last 30 days.</div>
+                ) : (
+                  inboxMessages.map((message) => (
+                    <div key={message.id} className="zac-inbox-item">
+                      <div className="zac-inbox-item-top">
+                        <div>
+                          <div className="zac-inbox-name">{message.senderName}</div>
+                          <div className="zac-inbox-email">{message.senderEmail || message.senderId}</div>
+                        </div>
+                        <div className="zac-inbox-meta">
+                          <span className="zac-role-badge is-admin">{message.mood}</span>
+                          <span className="zac-member-joined">{formatInboxTimestamp(message.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div className="zac-inbox-message">{message.message}</div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -197,7 +197,7 @@ export default function Checkout() {
           <>
             <header className="mb-16 text-center md:mb-20">
               <div className="mb-3 inline-flex items-center justify-center">
-                <img src={pawnPointIcon} alt="Pawn Point logo" className="mr-3 h-9 w-9 object-contain" />
+                <img src={pawnPointIcon} alt="Pawn Point logo" className="mr-3 h-14 w-14 object-contain md:h-16 md:w-16" />
                 <h1 className="text-3xl font-semibold tracking-tight text-white">Pawn Point</h1>
               </div>
               <p className="text-sm text-blue-200/70">Used by competitive chess players</p>
@@ -254,9 +254,9 @@ export default function Checkout() {
             </div>
 
             <div className="mx-auto mb-16 max-w-[520px]">
-              <div className="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
+              <div className="flex flex-wrap items-start justify-center gap-5 text-center md:gap-8">
                 {promisePoints.map(({ icon: Icon, label }) => (
-                  <div key={label} className="flex flex-col items-center gap-2">
+                  <div key={label} className="flex w-[120px] flex-col items-center gap-2">
                     <Icon className="h-6 w-6 text-blue-400" />
                     <p className="text-sm text-blue-100/70">{label}</p>
                   </div>
@@ -286,13 +286,13 @@ export default function Checkout() {
           <div className="mx-auto max-w-md space-y-5">
             <div className="text-center">
               <div className="mb-3 inline-flex items-center gap-3">
-                <img src={pawnPointIcon} alt="Pawn Point logo" className="h-9 w-9 object-contain" />
+                <img src={pawnPointIcon} alt="Pawn Point logo" className="h-12 w-12 object-contain md:h-14 md:w-14" />
                 <span className="text-2xl font-semibold tracking-tight text-white">Pawn Point</span>
               </div>
               <p className="text-sm text-blue-200/70">Complete your subscription to unlock Pro access.</p>
             </div>
 
-            <div className="rounded-[28px] border border-white/12 bg-white/[0.07] p-6 shadow-2xl backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/12 bg-transparent p-6 shadow-2xl backdrop-blur-xl">
               <div className="space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-sm">
                   <div className="flex items-center justify-between">
@@ -316,15 +316,6 @@ export default function Checkout() {
                   <div id={PAYPAL_BUTTON_CONTAINER_ID} className="flex min-h-[52px] items-center justify-center" />
                   {paypalLoading && <div className="py-2 text-center text-xs text-white/70">Loading PayPal...</div>}
                   {paypalError && <div className="py-2 text-center text-xs text-rose-200">{paypalError}</div>}
-                </div>
-
-                <div className="flex justify-between">
-                  <Button variant="outline" className="px-6" onClick={() => setShowSummary(false)}>
-                    Back
-                  </Button>
-                  <Button variant="outline" className="px-6" onClick={() => navigate("/dashboard")}>
-                    Cancel
-                  </Button>
                 </div>
               </div>
             </div>

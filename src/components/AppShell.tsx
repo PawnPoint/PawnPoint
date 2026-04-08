@@ -28,6 +28,7 @@ import {
   joinGroupWithCode,
   setAdminStatus,
 } from "../lib/mockApi";
+import { submitFeedbackInboxMessage } from "../lib/feedbackInbox";
 import { PodiumBarsIcon } from "./icons/PodiumBars";
 
 const baseLinks = [
@@ -177,8 +178,21 @@ export function AppShell({
       return;
     }
 
-    if (feedbackText.trim()) {
+    try {
+      if (!user?.id) {
+        setFeedbackStatus("Sign in before sending feedback.");
+        return;
+      }
+      await submitFeedbackInboxMessage({
+        senderId: user.id,
+        senderName: user.displayName || user.chessUsername || undefined,
+        senderEmail: user.email || undefined,
+        mood: feedbackMood,
+        message: feedbackText,
+      });
       closeFeedback();
+    } catch (err: any) {
+      setFeedbackStatus(err?.message || "Could not send feedback right now.");
     }
   };
 

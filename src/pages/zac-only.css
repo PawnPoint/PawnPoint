@@ -27,6 +27,11 @@
 .zac-club-top,
 .zac-member-row,
 .zac-modal-actions,
+.zac-modal-header,
+.zac-section-actions,
+.zac-inbox-btn,
+.zac-inbox-item-top,
+.zac-inbox-meta,
 .zac-code-box,
 .zac-club-name-row,
 .zac-club-left,
@@ -223,6 +228,7 @@
 .zac-deploy-btn,
 .zac-inline-btn,
 .zac-destroy-btn,
+.zac-inbox-btn,
 .zac-copy-btn,
 .zac-modal-cancel,
 .zac-modal-confirm {
@@ -232,6 +238,7 @@
 .zac-deploy-btn,
 .zac-destroy-btn,
 .zac-inline-btn,
+.zac-inbox-btn,
 .zac-copy-btn,
 .zac-modal-cancel {
   border: 1px solid #434359;
@@ -239,11 +246,29 @@
   color: #efeffc;
 }
 
-.zac-deploy-btn {
+.zac-section-actions {
+  gap: 14px;
+}
+
+.zac-deploy-btn,
+.zac-inbox-btn {
   gap: 12px;
   border-radius: 16px;
   padding: 18px 24px;
   font-size: 18px;
+}
+
+.zac-inbox-count {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 255, 136, 0.35);
+  background: rgba(0, 255, 136, 0.12);
+  color: #00ff88;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .zac-clubs {
@@ -513,6 +538,16 @@
   padding: 24px;
 }
 
+.zac-inbox-modal {
+  max-width: 760px;
+}
+
+.zac-modal-header {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
 .zac-modal-title {
   font-size: 18px;
   color: #f0efff;
@@ -575,6 +610,72 @@
   color: #ffffff;
 }
 
+.zac-inbox-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid #3a3a61;
+  background: #171726;
+  color: #d6d4fa;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.zac-inbox-list {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(65vh, 640px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.zac-inbox-item {
+  border: 1px solid #232344;
+  border-radius: 18px;
+  background: #141420;
+  padding: 18px;
+}
+
+.zac-inbox-item-top,
+.zac-inbox-meta {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.zac-inbox-item-top {
+  align-items: flex-start;
+}
+
+.zac-inbox-meta {
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.zac-inbox-name {
+  color: #f0efff;
+  font-size: 16px;
+}
+
+.zac-inbox-email {
+  margin-top: 6px;
+  color: #6a6aa1;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.zac-inbox-message {
+  margin-top: 14px;
+  color: #cbcaea;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 1120px) {
   .zac-metrics,
   .zac-stats-grid {
@@ -600,7 +701,8 @@
   }
 
   .zac-topbar-right,
-  .zac-club-right {
+  .zac-club-right,
+  .zac-section-actions {
     width: 100%;
     justify-content: space-between;
   }
@@ -616,7 +718,11 @@
     flex-direction: column;
   }
 
-  .zac-section-left {
+  .zac-section-left,
+  .zac-section-actions,
+  .zac-modal-header,
+  .zac-inbox-item-top,
+  .zac-inbox-meta {
     width: 100%;
     flex-direction: column;
     align-items: flex-start;
@@ -634,7 +740,8 @@
 
   .zac-code-box,
   .zac-member-row,
-  .zac-member-left {
+  .zac-member-left,
+  .zac-inbox-meta {
     align-items: flex-start;
     flex-direction: column;
   }
