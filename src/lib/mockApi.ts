@@ -768,7 +768,21 @@ function sanitizeThumbnail(url?: string): string {
   if (!url) return DEFAULT_COURSE_THUMBNAIL;
   const trimmed = url.trim();
   if (!trimmed) return DEFAULT_COURSE_THUMBNAIL;
-  if (trimmed.startsWith("/") || trimmed.startsWith("data:")) return trimmed;
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return trimmed;
+    }
+  } catch {
+    // fall through to the default thumbnail for invalid URLs
+  }
   return DEFAULT_COURSE_THUMBNAIL;
 }
 

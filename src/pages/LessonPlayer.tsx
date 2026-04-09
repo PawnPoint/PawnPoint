@@ -411,6 +411,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [savingSubsection, setSavingSubsection] = useState(false);
+  const videoUploadTokenRef = useRef(0);
   const [trainerNote, setTrainerNote] = useState<string | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -637,10 +638,12 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   useEffect(() => {
     if (!subsectionModal) {
+      videoUploadTokenRef.current += 1;
       setUploadError(null);
       setSaveError(null);
       setUploadingVideo(false);
     } else if (subsectionModal.type !== "video") {
+      videoUploadTokenRef.current += 1;
       setUploadError(null);
       setUploadingVideo(false);
     }
@@ -2442,6 +2445,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      const uploadToken = ++videoUploadTokenRef.current;
                       setUploadError(null);
                       try {
                         setUploadingVideo(true);
@@ -2450,15 +2454,21 @@ export default function LessonPlayer({ id }: { id?: string }) {
                           courseId: courseId || course?.id || "draft-course",
                           chapterId: subsectionModal.chapterId,
                         });
-                        setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: uploadedUrl } : prev));
+                        if (videoUploadTokenRef.current === uploadToken) {
+                          setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: uploadedUrl } : prev));
+                        }
                       } catch (err) {
-                        const message =
-                          err instanceof Error
-                            ? err.message
-                            : "Could not upload the video. Try again or paste a hosted video URL instead.";
-                        setUploadError(message);
+                        if (videoUploadTokenRef.current === uploadToken) {
+                          const message =
+                            err instanceof Error
+                              ? err.message
+                              : "Could not upload the video. Try again or paste a hosted video URL instead.";
+                          setUploadError(message);
+                        }
                       } finally {
-                        setUploadingVideo(false);
+                        if (videoUploadTokenRef.current === uploadToken) {
+                          setUploadingVideo(false);
+                        }
                         e.target.value = "";
                       }
                     }}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -78,6 +78,7 @@ export default function Courses() {
   const [difficultyMenuOpen, setDifficultyMenuOpen] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const thumbnailUploadTokenRef = useRef(0);
   const MAX_THUMB_DATA_URL = 5_000_000;
 
   const { data: courses = [] } = useQuery<Course[]>({
@@ -128,6 +129,7 @@ export default function Courses() {
   });
 
   const closeEditor = () => {
+    thumbnailUploadTokenRef.current += 1;
     setEditorOpen(false);
     setEditingCourse(null);
     setCourseDraft(createEmptyCourseDraft());
@@ -138,6 +140,7 @@ export default function Courses() {
   };
 
   const startEditingCourse = (course?: Course) => {
+    thumbnailUploadTokenRef.current += 1;
     if (course) {
       setEditingCourse(course);
       setCourseDraft({
@@ -333,6 +336,7 @@ export default function Courses() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
+                        const uploadToken = ++thumbnailUploadTokenRef.current;
                         setSaveError("");
                         setThumbnailUploading(true);
                         try {
@@ -340,15 +344,21 @@ export default function Courses() {
                             kind: "thumbnails",
                             courseId: editingCourse?.id || courseDraft.id || courseDraft.title || "draft-course",
                           });
-                          setCourseDraft((prev) => ({ ...prev, thumbnailUrl: uploadedUrl }));
+                          if (thumbnailUploadTokenRef.current === uploadToken) {
+                            setCourseDraft((prev) => ({ ...prev, thumbnailUrl: uploadedUrl }));
+                          }
                         } catch (err) {
-                          const message =
-                            err instanceof Error
-                              ? err.message
-                              : "Could not upload the thumbnail. Try again or paste a hosted image URL.";
-                          setSaveError(message);
+                          if (thumbnailUploadTokenRef.current === uploadToken) {
+                            const message =
+                              err instanceof Error
+                                ? err.message
+                                : "Could not upload the thumbnail. Try again or paste a hosted image URL.";
+                            setSaveError(message);
+                          }
                         } finally {
-                          setThumbnailUploading(false);
+                          if (thumbnailUploadTokenRef.current === uploadToken) {
+                            setThumbnailUploading(false);
+                          }
                           e.target.value = "";
                         }
                       }}
