@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource/newsreader": "^5.2.10",
     "@mliebelt/pgn-parser": "^1.4.13",
     "@supabase/supabase-js": "^2.52.1",
     "@tanstack/react-query": "^5.60.5",

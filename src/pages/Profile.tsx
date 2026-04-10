@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
-import { getDashboard, updateTaglineSettings } from "../lib/mockApi";
+import { updateProfileAvatar, updateTaglineSettings } from "../lib/mockApi";
+import {
+  PROFILE_AVATAR_OPTIONS,
+  type ProfileAvatarPresetId,
+  presetAvatarValue,
+} from "../lib/profileAvatars";
+import { optimizeProfileAvatarFile } from "../lib/profileAvatarUpload";
 import defaultAvatar from "../assets/Easter Default.png";
-import southKnight from "../assets/The South Knight.png";
-import avatar1 from "../assets/Avatar 1.png";
-import avatar2 from "../assets/Avatar 2.png";
-import avatar3 from "../assets/Avatar 3.png";
-import avatar4 from "../assets/Avatar 4.png";
-import avatar5 from "../assets/Avatar 5.png";
 import { Pencil, X } from "lucide-react";
-import { db } from "../lib/firebase";
-import { ref, update } from "firebase/database";
 
 const pageBackground = {
   backgroundImage: `
@@ -30,14 +27,9 @@ export default function Profile() {
   const [, navigate] = useLocation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || defaultAvatar);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
-  const { data } = useQuery({
-    queryKey: ["profile", user?.id],
-    enabled: !!user,
-    queryFn: () => getDashboard(user!),
-  });
-
-  const unlockedPfps = user?.unlockedPfps || [];
   const unlockedTaglines = user?.unlockedTaglines || [];
   const [taglineEnabled, setTaglineEnabled] = useState(user?.taglinesEnabled ?? true);
   const [selectedTagline, setSelectedTagline] = useState(user?.selectedTagline || "");
@@ -66,38 +58,48 @@ export default function Profile() {
 
   // XP distribution removed per request
 
-  const avatars = [
-    { id: "default", label: "Easter Default", url: defaultAvatar },
-    { id: "south", label: "South Knight", url: southKnight },
-    { id: "avatar1", label: "Avatar 1", url: avatar1 },
-    { id: "avatar2", label: "Avatar 2", url: avatar2 },
-    { id: "avatar3", label: "Avatar 3", url: avatar3 },
-    { id: "avatar4", label: "Avatar 4", url: avatar4 },
-    { id: "avatar5", label: "Avatar 5", url: avatar5 },
-  ];
+  const avatars = PROFILE_AVATAR_OPTIONS;
 
-  const handleAvatarSelect = (url: string) => {
-    setAvatarUrl(url);
-    if (user) {
-      const updated = { ...user, avatarUrl: url };
-      localStorage.setItem("pawnpoint_user", JSON.stringify(updated));
-      setUser(updated);
-      update(ref(db, `users/${user.id}`), { avatarUrl: url }).catch((err) =>
-        console.warn("Failed to persist avatar to Firebase", err),
-      );
+  const handleAvatarSelect = async (avatarId: ProfileAvatarPresetId) => {
+    if (!user || avatarBusy) return;
+    setAvatarBusy(true);
+    setAvatarError("");
+    try {
+      const updated = await updateProfileAvatar(user.id, presetAvatarValue(avatarId));
+      if (updated) {
+        setUser(updated);
+        setAvatarUrl(updated.avatarUrl || defaultAvatar);
+      }
+      setPickerOpen(false);
+    } finally {
+      setAvatarBusy(false);
     }
-    setPickerOpen(false);
   };
 
-  const handleAvatarUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result;
-      if (typeof result === "string") {
-        handleAvatarSelect(result);
+  const handleAvatarUpload = async (file: File) => {
+    if (!user || avatarBusy) return;
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Please choose an image file.");
+      return;
+    }
+    setAvatarBusy(true);
+    setAvatarError("");
+    try {
+      const optimizedAvatar = await optimizeProfileAvatarFile(file);
+      const updated = await updateProfileAvatar(user.id, optimizedAvatar);
+      if (updated) {
+        setUser(updated);
+        setAvatarUrl(updated.avatarUrl || defaultAvatar);
       }
-    };
-    reader.readAsDataURL(file);
+      setPickerOpen(false);
+    } catch (err) {
+      console.warn("Failed to upload avatar", err);
+      setAvatarError(
+        err instanceof Error ? err.message : "Could not process this image. Try another file.",
+      );
+    } finally {
+      setAvatarBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -121,23 +123,24 @@ export default function Profile() {
         <div
           className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl"
           style={{
-            background: "linear-gradient(135deg, #0b2a5b 0%, #0b1220 50%, #000000 100%)",
+            background: "linear-gradient(135deg, #1b1713 0%, #15120f 58%, #100d0a 100%)",
           }}
         >
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6 p-6">
-            <div className="flex items-center gap-4">
+          <div className="relative z-10 flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
               <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white/40 shadow-lg">
                 <img
                   src={avatarUrl || defaultAvatar}
                   alt="Avatar"
                   className="h-full w-full object-cover"
+                  loading="eager"
                   onError={(event) => {
                     event.currentTarget.src = defaultAvatar;
                   }}
                 />
                 <button
                   onClick={() => setPickerOpen(true)}
-                  className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-white/80 text-slate-900 flex items-center justify-center shadow-lg hover:bg-white transition"
+                  className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#f2ebe0] text-[#17130f] shadow-lg transition hover:bg-[#e8dfd2]"
                   aria-label="Change profile picture"
                 >
                   <Pencil className="h-4 w-4" />
@@ -146,7 +149,7 @@ export default function Profile() {
               <div className="space-y-1 text-white">
                 <div className="text-2xl font-bold">{user.chessUsername || user.displayName}</div>
                 {taglineEnabled && selectedTagline && (
-                  <div className="text-xs text-white/70 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                  <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-white/70 sm:max-w-xs">
                     {selectedTagline}
                   </div>
                 )}
@@ -161,12 +164,13 @@ export default function Profile() {
                       })
                     : "your start date"}
                 </div>
-                <div className="text-sm text-white/70">Chess.com: {user.chessUsername || "Not linked"}</div>
                 {inGroup && (
                   <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
-                    <span className="rounded-full bg-white/10 px-2 py-1">{user.groupName || "Group member"}</span>
+                    <span className="rounded-full border border-[rgba(214,197,162,0.14)] bg-[#201a15] px-2 py-1">
+                      {user.groupName || "Group member"}
+                    </span>
                     {isGroupAdmin && user.groupCode && (
-                      <span className="rounded-full bg-emerald-500/20 border border-emerald-300/40 px-2 py-1 text-emerald-100">
+                      <span className="rounded-full border border-[rgba(214,197,162,0.22)] bg-[rgba(214,197,162,0.12)] px-2 py-1 text-[#d6c5a2]">
                         Group Code: {user.groupCode}
                       </span>
                     )}
@@ -174,11 +178,11 @@ export default function Profile() {
                 )}
               </div>
             </div>
-            <div className="flex-1 flex flex-wrap items-center gap-3 justify-start lg:justify-end">
-              <Button variant="outline" onClick={() => navigate("/settings")}>
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:justify-end">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate("/settings")}>
                 Settings
               </Button>
-              <Button variant="outline" onClick={() => navigate("/dashboard")}>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate("/dashboard")}>
                 Back to Dashboard
               </Button>
             </div>
@@ -186,9 +190,9 @@ export default function Profile() {
         </div>
 
         {pickerOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-            <div className="pp-modal w-full max-w-3xl rounded-2xl bg-slate-900 text-white border border-white/10 shadow-2xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
+          <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/70 px-4 py-6 sm:items-center">
+            <div className="pp-modal max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-5 text-white shadow-2xl sm:p-6">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xl font-semibold">Change Profile Picture</div>
                   <div className="text-sm text-white/70">Select the picture you want to use for your profile</div>
@@ -201,22 +205,24 @@ export default function Profile() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="mt-4 grid grid-cols-2 justify-items-center gap-4 sm:grid-cols-4">
                 {avatars.map((avatar) => {
                   const active = avatarUrl === avatar.url;
                   return (
                     <button
                       key={avatar.id}
-                      onClick={() => handleAvatarSelect(avatar.url)}
+                      onClick={() => void handleAvatarSelect(avatar.id)}
+                      disabled={avatarBusy}
                       className={`relative rounded-full p-1 border aspect-square ${
                         active ? "border-emerald-400 ring-2 ring-emerald-400/60" : "border-transparent"
-                      } hover:border-white/30 transition`}
-                      style={{ width: "6rem", height: "6rem" }}
+                      } hover:border-white/30 transition disabled:cursor-not-allowed disabled:opacity-70`}
+                      style={{ width: "100%", maxWidth: "5.75rem" }}
                     >
                       <img
                         src={avatar.url}
                         alt={avatar.label}
                         className="h-full w-full rounded-full object-cover"
+                        loading="lazy"
                       />
                       {active && (
                         <div className="absolute inset-0 rounded-full border-2 border-emerald-300 pointer-events-none" />
@@ -225,21 +231,23 @@ export default function Profile() {
                   );
                 })}
               </div>
-              <div className="flex items-center gap-3">
-                <label className="inline-flex items-center px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm cursor-pointer hover:border-white/20">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="inline-flex w-full cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:border-white/20 sm:w-auto">
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleAvatarUpload(file);
+                      if (file) void handleAvatarUpload(file);
+                      e.currentTarget.value = "";
                     }}
                   />
-                  Upload custom photo
+                  {avatarBusy ? "Processing image..." : "Upload custom photo"}
                 </label>
+                {avatarError ? <div className="text-sm text-rose-300">{avatarError}</div> : null}
               </div>
-              <div className="flex justify-end">
+              <div className="mt-4 flex justify-end">
                 <Button variant="outline" onClick={() => setPickerOpen(false)}>
                   Close
                 </Button>

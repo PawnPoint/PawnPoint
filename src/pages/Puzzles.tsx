@@ -30,6 +30,12 @@ function trackerDifficultyFor(selection: PuzzleDifficulty): "easy" | "medium" | 
   return "easy";
 }
 
+function xpRewardForDifficulty(selection: PuzzleDifficulty) {
+  if (selection === "intermediate") return 100;
+  if (selection === "advanced") return 125;
+  return 50;
+}
+
 export default function Puzzles() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -46,12 +52,14 @@ export default function Puzzles() {
   const [revealMode, setRevealMode] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState<Square[]>([]);
   const [dragFrom, setDragFrom] = useState<Square | null>(null);
+  const [redSquares, setRedSquares] = useState<Set<string>>(new Set());
   const [arrowStart, setArrowStart] = useState<{ row: number; col: number; square: Square } | null>(null);
   const [arrowTarget, setArrowTarget] = useState<{ row: number; col: number; square: Square } | null>(null);
   const [arrowMoved, setArrowMoved] = useState(false);
   const [arrows, setArrows] = useState<
     { start: { row: number; col: number; square: Square }; end: { row: number; col: number; square: Square } }[]
   >([]);
+  const [suppressContextToggle, setSuppressContextToggle] = useState(false);
   const solutionIndexRef = useRef(0);
   const boardColors = resolveBoardTheme(user?.boardTheme).colors;
   const { key: pieceThemeKey, pieces: pieceSet } = useMemo(() => resolvePieceTheme(user?.pieceTheme), [user?.pieceTheme]);
@@ -89,6 +97,7 @@ export default function Puzzles() {
     setStatus(pick.themes || pick.openingTags || pick.id);
     setSolved(false);
     setRevealMode(false);
+    setRedSquares(new Set());
     setArrows([]);
     setArrowStart(null);
     setArrowTarget(null);
@@ -102,6 +111,7 @@ export default function Puzzles() {
   }, [category, difficulty]);
 
   useEffect(() => {
+    setRedSquares(new Set());
     setArrows([]);
     setArrowStart(null);
     setArrowTarget(null);
@@ -113,6 +123,16 @@ export default function Puzzles() {
     const rows = g.board();
     return orientation === "w" ? rows : rows.slice().reverse().map((row) => row.slice().reverse());
   }, [fen, orientation]);
+
+  const legalMoves = useMemo(() => {
+    if (!selected) return new Set<Square>();
+    try {
+      const g = new Chess(fen);
+      return new Set(g.moves({ square: selected, verbose: true }).map((move) => move.to as Square));
+    } catch {
+      return new Set<Square>();
+    }
+  }, [fen, selected]);
 
   const currentTurn = useMemo<Color>(() => {
     try {
@@ -132,6 +152,24 @@ export default function Puzzles() {
   const startArrow = (rowIdx: number, colIdx: number) => {
     const sq = squareName(rowIdx, colIdx);
     setArrowStart({ row: rowIdx, col: colIdx, square: sq });
+    setArrowTarget(null);
+    setArrowMoved(false);
+  };
+
+  const toggleRedSquare = (rowIdx: number, colIdx: number) => {
+    const sq = squareName(rowIdx, colIdx);
+    setRedSquares((prev) => {
+      const next = new Set(prev);
+      if (next.has(sq)) next.delete(sq);
+      else next.add(sq);
+      return next;
+    });
+  };
+
+  const clearBoardAnnotations = () => {
+    setRedSquares(new Set());
+    setArrows([]);
+    setArrowStart(null);
     setArrowTarget(null);
     setArrowMoved(false);
   };
@@ -161,6 +199,10 @@ export default function Puzzles() {
         }
         return [...prev, { start: arrowStart, end: arrowTarget }];
       });
+      setSuppressContextToggle(true);
+    } else if (arrowStart && !arrowMoved) {
+      toggleRedSquare(arrowStart.row, arrowStart.col);
+      setSuppressContextToggle(true);
     }
     setArrowMoved(false);
     setArrowStart(null);
@@ -272,6 +314,7 @@ export default function Puzzles() {
     setCurrent(null);
     setFen("");
     setSelected(null);
+    clearBoardAnnotations();
     setSolved(false);
     solutionIndexRef.current = 0;
     setStatus("Select a category to start.");
@@ -279,13 +322,16 @@ export default function Puzzles() {
 
   const handleSolved = (puzzle: Puzzle) => {
     const puzzleType = trackerDifficultyFor(difficulty);
+    const xpReward = xpRewardForDifficulty(difficulty);
     const solvedLabel =
-      puzzleType === "medium" ? "Medium puzzle solved! +100 XP" : `${puzzleType[0].toUpperCase()}${puzzleType.slice(1)} puzzle solved! +100 XP`;
+      puzzleType === "medium"
+        ? `Medium puzzle solved! +${xpReward} XP`
+        : `${puzzleType[0].toUpperCase()}${puzzleType.slice(1)} puzzle solved! +${xpReward} XP`;
     setSolved(true);
     setStatus(solvedLabel);
     setToast({ message: solvedLabel, tone: "success" });
     if (user?.id) {
-      void awardXp(user.id, 100, {
+      void awardXp(user.id, xpReward, {
         source: "puzzle",
         subsectionId: puzzle.id,
         puzzleType,
@@ -364,16 +410,8 @@ export default function Puzzles() {
                       const sq = squareName(rIdx, cIdx);
                       const isLightSquare = (rIdx + cIdx) % 2 === 0;
                       const isLastMove = lastMoveSquares.includes(sq);
-                      const legalMoves = (() => {
-                        if (!selected) return [];
-                        try {
-                          const g = new Chess(fen);
-                          return g.moves({ square: selected, verbose: true }).map((m) => m.to);
-                        } catch {
-                          return [];
-                        }
-                      })();
-                      const isLegal = legalMoves.includes(sq);
+                      const isRed = redSquares.has(sq);
+                      const isLegal = legalMoves.has(sq);
                       return (
                         <button
                           key={`${rIdx}-${cIdx}`}
@@ -381,11 +419,20 @@ export default function Puzzles() {
                           draggable={!!piece && piece.color === currentTurn}
                           onContextMenu={(e) => {
                             e.preventDefault();
+                            if (suppressContextToggle) {
+                              setSuppressContextToggle(false);
+                              return;
+                            }
+                            if (!arrowStart && !arrowMoved) {
+                              toggleRedSquare(rIdx, cIdx);
+                            }
                           }}
                           onMouseDown={(e) => {
                             if (e.button === 2) {
                               e.preventDefault();
                               startArrow(rIdx, cIdx);
+                            } else if (e.button === 0 && (arrows.length || redSquares.size || arrowStart || arrowTarget)) {
+                              clearBoardAnnotations();
                             }
                           }}
                           onMouseEnter={(e) => handleRightDrag(rIdx, cIdx, e.buttons)}
@@ -421,7 +468,7 @@ export default function Puzzles() {
                           }`}
                           style={
                             {
-                              backgroundColor: isLightSquare ? boardColors.light : boardColors.dark,
+                              backgroundColor: isRed ? "#ef4444" : isLightSquare ? boardColors.light : boardColors.dark,
                               ...(piece
                                 ? {
                                     "--cursor-open": `url(${macCursorPointing}) 8 8, pointer`,
@@ -524,11 +571,11 @@ export default function Puzzles() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black p-5 space-y-3 text-white w-full max-w-[720px] mx-auto">
-              <div className="flex justify-center gap-3 flex-wrap">
+            <div className="w-full max-w-[720px] mx-auto rounded-2xl border border-white/10 bg-black p-4 text-white sm:p-5">
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center">
                 <Button
                   variant="outline"
-                  className="min-w-[120px]"
+                  className="w-full sm:min-w-[120px]"
                   onClick={() => {
                     if (category) {
                       loadPuzzle(category);
@@ -537,19 +584,19 @@ export default function Puzzles() {
                 >
                   Next puzzle
                 </Button>
-                <Button variant="outline" className="min-w-[120px]" onClick={resetCategory}>
+                <Button variant="outline" className="w-full sm:min-w-[120px]" onClick={resetCategory}>
                   New category
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-w-[120px]"
+                  className="w-full sm:min-w-[120px]"
                   onClick={() => setOrientation((prev) => (prev === "w" ? "b" : "w"))}
                 >
                   Perspective
                 </Button>
                 <Button
                   variant="outline"
-                  className="min-w-[120px]"
+                  className="w-full sm:min-w-[120px]"
                   onClick={() => {
                     if (!current || solved) return;
                     setRevealMode(true);
@@ -566,7 +613,7 @@ export default function Puzzles() {
         )}
 
         {toast && (
-          <div className="fixed bottom-4 right-4 z-50">
+          <div className="fixed bottom-4 left-4 right-4 z-50 sm:left-auto sm:right-4">
             <div
               className={`rounded-lg px-4 py-3 shadow-lg flex items-center gap-3 border ${
                 toast.tone === "success"

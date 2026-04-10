@@ -3,7 +3,10 @@ import { auth, db } from "./firebase";
 import { get, onValue, ref, remove, set, update } from "firebase/database";
 import { DEFAULT_BOARD_THEME, resolveBoardTheme } from "./boardThemes";
 import { DEFAULT_PIECE_THEME, resolvePieceTheme } from "./pieceThemes";
-import avatarFallback from "../assets/Easter Default.png";
+import {
+  normalizeProfileAvatarValue,
+  resolveProfileAvatarUrl,
+} from "./profileAvatars";
 
 export type DailyPuzzleType = "easy" | "medium" | "hard";
 
@@ -11,6 +14,7 @@ export type UserProfile = {
   id: string;
   email: string;
   displayName: string;
+  avatarKey?: string;
   avatarUrl?: string;
   accountType?: "personal" | "group";
   groupId?: string | null;
@@ -488,7 +492,7 @@ function normalizeDailyPuzzleTypes(value: unknown): DailyPuzzleType[] {
 }
 
 function normalizeAvatarUrl(value: string | null | undefined) {
-  return typeof value === "string" && value.trim().length ? value : avatarFallback;
+  return resolveProfileAvatarUrl(value);
 }
 
 function readUser(): UserProfile | null {
@@ -580,7 +584,8 @@ function readUser(): UserProfile | null {
     parsed.unlockedSets = parsed.unlockedSets || [];
     parsed.taglinesEnabled = parsed.taglinesEnabled ?? true;
     parsed.selectedTagline = parsed.selectedTagline ?? "";
-    parsed.avatarUrl = normalizeAvatarUrl(parsed.avatarUrl);
+    parsed.avatarKey = normalizeProfileAvatarValue(parsed.avatarKey ?? parsed.avatarUrl);
+    parsed.avatarUrl = normalizeAvatarUrl(parsed.avatarKey);
     parsed.onlineRating = typeof parsed.onlineRating === "number" ? parsed.onlineRating : 1000;
     parsed.dailyPuzzleTypes = normalizeDailyPuzzleTypes(parsed.dailyPuzzleTypes);
     parsed.boardTheme = resolveBoardTheme(parsed.boardTheme).key;
@@ -2032,7 +2037,17 @@ export async function ensureProfile(
         (remoteProfile.premiumAccess ? "active" : undefined),
       subscriptionUpdatedAt: remoteProfile.subscriptionUpdatedAt ?? baseProfile.subscriptionUpdatedAt ?? null,
       groupLocked: remoteProfile.groupLocked ?? baseProfile.groupLocked ?? false,
-      avatarUrl: remoteProfile.avatarUrl ?? baseProfile.avatarUrl,
+      avatarKey:
+        remoteProfile.avatarKey ??
+        remoteProfile.avatarUrl ??
+        baseProfile.avatarKey ??
+        baseProfile.avatarUrl,
+      avatarUrl: normalizeAvatarUrl(
+        remoteProfile.avatarKey ??
+          remoteProfile.avatarUrl ??
+          baseProfile.avatarKey ??
+          baseProfile.avatarUrl,
+      ),
       isAdmin: false,
     };
     const dropGroup = () => {
@@ -3402,7 +3417,8 @@ function normalizeUser(u: UserProfile): UserProfile {
   const hasGroup = !!u.groupId;
   return {
     ...u,
-    avatarUrl: normalizeAvatarUrl(u.avatarUrl),
+    avatarKey: normalizeProfileAvatarValue(u.avatarKey ?? u.avatarUrl),
+    avatarUrl: normalizeAvatarUrl(u.avatarKey ?? u.avatarUrl),
     adminKeyUnlocked,
     isAdmin,
     accountType: hasGroup ? "group" : u.accountType ?? "personal",
@@ -3456,6 +3472,30 @@ export async function unlockGift(userId: string, gift: GiftConfig): Promise<User
     });
   } catch (err) {
     console.warn("Failed to sync unlocked gifts", err);
+  }
+  return normalized;
+}
+
+export async function updateProfileAvatar(
+  userId: string,
+  avatarValue: string,
+): Promise<UserProfile | null> {
+  const user = readUser();
+  if (!user || user.id !== userId) return null;
+  const avatarKey = normalizeProfileAvatarValue(avatarValue);
+  const normalized = normalizeUser({
+    ...user,
+    avatarKey,
+    avatarUrl: resolveProfileAvatarUrl(avatarKey),
+  });
+  writeUser(normalized);
+  try {
+    await update(ref(db, `users/${userId}`), {
+      avatarKey: normalized.avatarKey,
+      avatarUrl: normalized.avatarUrl,
+    });
+  } catch (err) {
+    console.warn("Failed to sync avatar settings", err);
   }
   return normalized;
 }

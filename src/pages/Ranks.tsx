@@ -10,63 +10,28 @@ import {
 import { AppShell } from "../components/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { getGlobalXpLeaderboard, type UserProfile } from "../lib/mockApi";
+import {
+  formatRankBandRange,
+  rankBands,
+  resolveRankBand,
+  type RankBandKey,
+} from "../lib/ranks";
 import avatarFallback from "../assets/Easter Default.png";
 
 const pageBackground = {
-  backgroundColor: "#0a0e1a",
+  backgroundColor: "#141413",
   minHeight: "100vh",
-  color: "#ffffff",
+  color: "#f3ede3",
 } as const;
 
-const wholeNumber = new Intl.NumberFormat("en-US");
+const backgroundOverlay = (
+  <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+    <div className="pp-dashboard-ambient" />
+    <div className="pp-dashboard-grain" />
+  </div>
+);
 
-const rankBands = [
-  {
-    key: "gold",
-    label: "Gold",
-    min: 1,
-    max: 50,
-    accent: "from-amber-400/25 to-amber-700/10",
-    border: "border-amber-400/20",
-    text: "text-amber-200",
-  },
-  {
-    key: "diamond",
-    label: "Diamond",
-    min: 51,
-    max: 100,
-    accent: "from-cyan-300/20 to-blue-500/10",
-    border: "border-cyan-400/20",
-    text: "text-cyan-200",
-  },
-  {
-    key: "ascendant",
-    label: "Ascendant",
-    min: 101,
-    max: 200,
-    accent: "from-emerald-300/20 to-teal-500/10",
-    border: "border-emerald-400/20",
-    text: "text-emerald-200",
-  },
-  {
-    key: "immortal",
-    label: "Immortal",
-    min: 201,
-    max: 400,
-    accent: "from-fuchsia-300/20 to-purple-500/10",
-    border: "border-fuchsia-400/20",
-    text: "text-fuchsia-200",
-  },
-  {
-    key: "radiant",
-    label: "Radiant",
-    min: 401,
-    max: undefined,
-    accent: "from-indigo-300/20 to-purple-600/10",
-    border: "border-indigo-400/20",
-    text: "text-indigo-200",
-  },
-] as const;
+const wholeNumber = new Intl.NumberFormat("en-US");
 
 const regionPool = [
   "Europe",
@@ -81,8 +46,13 @@ const regionPool = [
   "North America",
 ] as const;
 
-type RankBand = (typeof rankBands)[number];
-type RankBandKey = RankBand["key"];
+const rankBandTextClass: Record<RankBandKey, string> = {
+  gold: "text-[#e8ca73]",
+  diamond: "text-[#93d9ea]",
+  ascendant: "text-[#8bd8bc]",
+  immortal: "text-[#ebb6de]",
+  radiant: "text-[#b8c0ff]",
+};
 
 type RankedPlayer = {
   id: string;
@@ -107,14 +77,6 @@ function hashString(input: string) {
     hash = (hash * 31 + input.charCodeAt(index)) >>> 0;
   }
   return hash;
-}
-
-function resolveRankBand(level: number): RankBand {
-  return rankBands.find((band) => level >= band.min && (band.max === undefined || level <= band.max)) || rankBands[0];
-}
-
-function formatRankBandRange(band: RankBand) {
-  return band.max === undefined ? `Levels ${band.min}+` : `Levels ${band.min} - ${band.max}`;
 }
 
 function buildRankedPlayers(entries: UserProfile[], currentUserId?: string | null): RankedPlayer[] {
@@ -180,6 +142,8 @@ function PlayerAvatar({
       src={player.avatarUrl || avatarFallback}
       alt={player.name}
       className={`${sizeClass} rounded-full border border-white/10 bg-white/5 object-cover`}
+      loading="lazy"
+      decoding="async"
       onError={(event) => {
         event.currentTarget.src = avatarFallback;
       }}
@@ -195,36 +159,42 @@ function PodiumCard({
   featured?: boolean;
 }) {
   if (!player) {
-    return <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6" />;
+    return (
+      <div className="rounded-3xl border border-[rgba(214,197,162,0.14)] bg-[#141413] p-6" />
+    );
   }
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] p-6 backdrop-blur-sm transition-all duration-300 ${
-        featured ? "shadow-2xl shadow-blue-500/12" : ""
+      className={`relative overflow-hidden rounded-3xl border border-[rgba(214,197,162,0.14)] bg-[#141413] p-6 transition-all duration-300 ${
+        featured ? "shadow-[0_22px_48px_rgba(214,197,162,0.08)]" : ""
       }`}
     >
       {featured && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(214,197,162,0.1)] to-transparent" />
       )}
 
       <div className="relative flex flex-col items-center gap-4 text-center">
         <div className="relative">
           <div
             className={`absolute -inset-1 rounded-full blur-xl ${
-              featured ? "bg-gradient-to-r from-blue-500/25 to-cyan-400/20 opacity-100" : "opacity-0"
+              featured
+                ? "bg-gradient-to-r from-[rgba(214,197,162,0.2)] to-[rgba(143,118,67,0.12)] opacity-100"
+                : "opacity-0"
             }`}
           />
           <div className="relative">
             <PlayerAvatar player={player} sizeClass={featured ? "h-24 w-24" : "h-20 w-20"} />
             <div
-              className={`absolute -bottom-1 -right-1 flex items-center justify-center rounded-full border-2 border-[#0a0e1a] ${
+              className={`absolute -bottom-1 -right-1 flex items-center justify-center rounded-full border-2 border-[#141413] ${
                 featured
-                  ? "h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600"
-                  : "h-7 w-7 bg-white/10"
+                  ? "h-8 w-8 bg-gradient-to-br from-[#d6c5a2] to-[#8f7643]"
+                  : "h-7 w-7 bg-[rgba(214,197,162,0.08)]"
               }`}
             >
-              <span className="text-xs font-semibold text-white">#{player.bandRank}</span>
+              <span className={`text-xs font-semibold ${featured ? "text-[#141413]" : "text-white"}`}>
+                #{player.bandRank}
+              </span>
             </div>
           </div>
         </div>
@@ -233,24 +203,24 @@ function PodiumCard({
           <h3 className={featured ? "text-lg font-semibold text-white" : "text-base font-semibold text-white"}>
             {player.name}
           </h3>
-          <p className="mt-1 text-xs text-white/45">
-            {player.rankBandLabel} · Overall #{wholeNumber.format(player.globalRank)}
+          <p className="mt-1 text-xs text-[#8d8374]">
+            {player.rankBandLabel} &middot; Overall #{wholeNumber.format(player.globalRank)}
           </p>
           {player.isCurrentUser && (
-            <div className="mt-2 inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200">
+            <div className="mt-2 inline-flex rounded-full border border-[rgba(214,197,162,0.22)] bg-[rgba(214,197,162,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#e8ca73]">
               You
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-sm text-white/60">
+        <div className="flex items-center gap-3 text-sm text-[#b5aa9a]">
           <div>
-            <span className="text-white/45">Level </span>
+            <span className="text-[#8d8374]">Level </span>
             <span className="font-medium text-white">Lv. {wholeNumber.format(player.level)}</span>
           </div>
-          <div className="h-3 w-px bg-white/10" />
+          <div className="h-3 w-px bg-[rgba(214,197,162,0.12)]" />
           <div>
-            <span className="text-white/45">XP </span>
+            <span className="text-[#8d8374]">XP </span>
             <span className="font-medium text-white">{wholeNumber.format(player.xp)}</span>
           </div>
         </div>
@@ -262,7 +232,7 @@ function PodiumCard({
 function TrendIcon({ trend }: { trend: number }) {
   if (trend > 0) return <TrendingUp className="h-4 w-4 text-emerald-400" />;
   if (trend < 0) return <TrendingDown className="h-4 w-4 text-rose-400" />;
-  return <Minus className="h-4 w-4 text-white/30" />;
+  return <Minus className="h-4 w-4 text-[#8d8374]" />;
 }
 
 export default function Ranks() {
@@ -327,23 +297,26 @@ export default function Ranks() {
   );
   const topThree = activeBandPlayers.slice(0, 3);
   const podiumLayout = [topThree[1], topThree[0], topThree[2]];
-
   const currentPlayer = allPlayers.find((player) => player.isCurrentUser) || null;
 
   return (
-    <AppShell backgroundStyle={pageBackground}>
-      <div className="min-h-screen bg-[#0a0e1a] text-white">
+    <AppShell
+      backgroundStyle={pageBackground}
+      backgroundOverlay={backgroundOverlay}
+      variant="dashboard-editorial"
+    >
+      <div className="min-h-screen text-[#f3ede3]">
         <div className="mx-auto max-w-[1400px] px-6 py-8">
           <div className="mb-8">
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h1 className="text-4xl font-semibold tracking-[-0.04em] text-white">Global Rankings</h1>
-                <p className="mt-2 text-sm text-white/50">
+                <p className="mt-2 text-sm text-[#b5aa9a]">
                   Click a rank to open that leaderboard. Only one rank board is shown at a time.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:justify-end lg:overflow-visible lg:pb-0">
                 {rankBands.map((band) => {
                   const count = allPlayers.filter((player) => player.rankBand === band.key).length;
                   const active = band.key === activeBand.key;
@@ -352,13 +325,16 @@ export default function Ranks() {
                       key={band.key}
                       type="button"
                       onClick={() => setSelectedBand(band.key)}
-                      className={`rounded-lg border px-4 py-2 text-sm transition-all duration-200 ${
+                      className={`shrink-0 rounded-lg border px-4 py-2 text-sm transition-all duration-200 ${
                         active
-                          ? `${band.border} bg-gradient-to-r ${band.accent} ${band.text}`
-                          : "border-white/10 bg-white/[0.04] text-white/65 hover:border-white/20 hover:text-white"
+                          ? "border-[rgba(214,197,162,0.24)] bg-[rgba(214,197,162,0.12)] text-white"
+                          : "border-[rgba(214,197,162,0.14)] bg-[rgba(246,240,230,0.02)] text-[#b5aa9a] hover:border-[rgba(214,197,162,0.24)] hover:text-white"
                       }`}
                     >
-                      {band.label} ({count})
+                      <span className={active ? "text-white" : rankBandTextClass[band.key]}>
+                        {band.label}
+                      </span>{" "}
+                      <span className={active ? "text-white" : "text-[#b5aa9a]"}>({count})</span>
                     </button>
                   );
                 })}
@@ -366,13 +342,13 @@ export default function Ranks() {
             </div>
 
             <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8d8374]" />
               <input
                 type="text"
                 placeholder="Search players..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/[0.05] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/30 transition-colors focus:border-white/20 focus:outline-none"
+                className="w-full rounded-lg border border-[rgba(214,197,162,0.14)] bg-[rgba(27,23,19,0.92)] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-[#8d8374] transition-colors focus:border-[rgba(214,197,162,0.24)] focus:outline-none"
               />
             </div>
           </div>
@@ -380,32 +356,36 @@ export default function Ranks() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
             <div className="space-y-6">
               {loading ? (
-                <div className="flex min-h-[340px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-300" />
+                <div className="flex min-h-[340px] items-center justify-center rounded-2xl border border-[rgba(214,197,162,0.14)] bg-[rgba(27,23,19,0.94)]">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#d6c5a2]" />
                 </div>
               ) : (
                 <>
-                  <section className={`rounded-2xl border bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 backdrop-blur-sm ${activeBand.border}`}>
+                  <section className="rounded-2xl border border-[rgba(214,197,162,0.14)] bg-[#141413] p-4 sm:p-5">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <div className={`inline-flex rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${activeBand.text}`}>
+                        <div
+                          className={`inline-flex rounded-full border border-[rgba(214,197,162,0.18)] bg-[rgba(214,197,162,0.07)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${rankBandTextClass[activeBand.key]}`}
+                        >
                           {activeBand.label}
                         </div>
                         <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">
                           {activeBand.label} leaderboard
                         </h2>
-                        <p className="mt-1 text-sm text-white/60">
-                          {formatRankBandRange(activeBand)} | {activeBandPlayers.length} player{activeBandPlayers.length === 1 ? "" : "s"} shown
+                        <p className="mt-1 text-sm text-[#b5aa9a]">
+                          {formatRankBandRange(activeBand)} | {activeBandPlayers.length} player
+                          {activeBandPlayers.length === 1 ? "" : "s"} shown
                         </p>
                       </div>
 
                       {searchTerm.trim() ? (
                         matchedPlayers.length ? (
-                          <div className="rounded-xl border border-blue-400/16 bg-blue-500/10 px-4 py-3 text-sm text-white/80">
-                            {matchedPlayers[0].name} is #{matchedPlayers[0].bandRank} in {matchedPlayers[0].rankBandLabel} and overall #{matchedPlayers[0].globalRank}.
+                          <div className="rounded-xl border border-[rgba(214,197,162,0.2)] bg-[rgba(214,197,162,0.08)] px-4 py-3 text-sm text-[#f3ede3]">
+                            {matchedPlayers[0].name} is #{matchedPlayers[0].bandRank} in{" "}
+                            {matchedPlayers[0].rankBandLabel} and overall #{matchedPlayers[0].globalRank}.
                           </div>
                         ) : (
-                          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60">
+                          <div className="rounded-xl border border-[rgba(214,197,162,0.14)] bg-[rgba(246,240,230,0.02)] px-4 py-3 text-sm text-[#b5aa9a]">
                             No players matched this search.
                           </div>
                         )
@@ -425,11 +405,13 @@ export default function Ranks() {
                     </div>
                   </div>
 
-                  <section className={`overflow-hidden rounded-2xl border bg-gradient-to-b from-white/[0.05] to-white/[0.02] backdrop-blur-sm ${activeBand.border}`}>
-                    <div className={`border-b border-white/10 bg-gradient-to-r ${activeBand.accent} px-6 py-5`}>
+                  <section className="overflow-hidden rounded-2xl border border-[rgba(214,197,162,0.14)] bg-[#141413]">
+                    <div className="border-b border-[rgba(214,197,162,0.14)] bg-gradient-to-r from-[rgba(214,197,162,0.22)] to-[rgba(143,118,67,0.12)] px-4 py-4 sm:px-6 sm:py-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                          <div className={`inline-flex rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${activeBand.text}`}>
+                          <div
+                            className={`inline-flex rounded-full border border-[rgba(214,197,162,0.18)] bg-[rgba(19,16,13,0.28)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${rankBandTextClass[activeBand.key]}`}
+                          >
                             Active Rank
                           </div>
                           <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white">
@@ -437,10 +419,14 @@ export default function Ranks() {
                           </h3>
                         </div>
 
-                        <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-                          <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Top level</div>
+                        <div className="rounded-xl border border-[rgba(214,197,162,0.18)] bg-[rgba(19,16,13,0.28)] px-4 py-3 text-left lg:text-right">
+                          <div className="text-[11px] uppercase tracking-[0.16em] text-[#8d8374]">
+                            Top level
+                          </div>
                           <div className="mt-1 text-lg font-semibold text-white">
-                            {activeBandPlayers[0] ? `Lv. ${wholeNumber.format(activeBandPlayers[0].level)}` : "No players"}
+                            {activeBandPlayers[0]
+                              ? `Lv. ${wholeNumber.format(activeBandPlayers[0].level)}`
+                              : "No players"}
                           </div>
                         </div>
                       </div>
@@ -448,59 +434,117 @@ export default function Ranks() {
 
                     {activeBandPlayers.length ? (
                       <div>
-                        <div className="grid grid-cols-[70px_1fr_110px_110px_110px_70px] gap-4 border-b border-white/10 bg-white/[0.03] px-6 py-4">
-                          <div className="text-xs uppercase tracking-wider text-white/40">Rank</div>
-                          <div className="text-xs uppercase tracking-wider text-white/40">Player</div>
-                          <div className="text-xs uppercase tracking-wider text-white/40">Level</div>
-                          <div className="text-xs uppercase tracking-wider text-white/40">XP</div>
-                          <div className="text-xs uppercase tracking-wider text-white/40">Streak</div>
-                          <div className="text-xs uppercase tracking-wider text-white/40">Trend</div>
+                        <div className="hidden grid-cols-[70px_1fr_110px_110px_110px_70px] gap-4 border-b border-[rgba(214,197,162,0.14)] bg-[rgba(246,240,230,0.02)] px-6 py-4 md:grid">
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">Rank</div>
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">Player</div>
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">Level</div>
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">XP</div>
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">Streak</div>
+                          <div className="text-xs uppercase tracking-wider text-[#8d8374]">Trend</div>
                         </div>
 
                         <div>
                           {activeBandPlayers.map((player) => {
                             const highlighted = highlightedPlayerIds.has(player.id);
                             return (
-                              <div
-                                key={`${activeBand.key}-${player.id}-${player.bandRank}`}
-                                className={`grid grid-cols-[70px_1fr_110px_110px_110px_70px] gap-4 border-b border-white/[0.05] px-6 py-4 transition-colors duration-150 hover:bg-white/[0.04] ${
-                                  highlighted
-                                    ? "bg-blue-500/[0.12]"
-                                    : player.isCurrentUser
-                                      ? "bg-blue-500/[0.08]"
-                                      : "bg-white/[0.02]"
-                                }`}
-                              >
-                                <div className="flex items-center">
-                                  <span className="text-sm font-medium text-white/70">#{player.bandRank}</span>
-                                </div>
-
-                                <div className="flex items-center gap-3">
-                                  <PlayerAvatar player={player} sizeClass="h-10 w-10" />
-                                  <div className="min-w-0">
-                                    <div className="truncate text-sm text-white/90">
-                                      {player.isCurrentUser ? `${player.name} (You)` : player.name}
+                              <div key={`${activeBand.key}-${player.id}-${player.bandRank}`}>
+                                <div
+                                  className={`border-b border-[rgba(214,197,162,0.08)] px-4 py-4 transition-colors duration-150 hover:bg-[rgba(214,197,162,0.05)] md:hidden ${
+                                    highlighted
+                                      ? "bg-[rgba(214,197,162,0.12)]"
+                                      : player.isCurrentUser
+                                        ? "bg-[rgba(214,197,162,0.08)]"
+                                        : "bg-[rgba(255,255,255,0.01)]"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <PlayerAvatar player={player} sizeClass="h-10 w-10" />
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium text-white/90">
+                                          {player.isCurrentUser ? `${player.name} (You)` : player.name}
+                                        </div>
+                                        <div className="text-xs text-[#8d8374]">
+                                          #{player.bandRank} in {player.rankBandLabel}
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-xs text-white/40">
-                                      Overall #{wholeNumber.format(player.globalRank)}
+                                    <div className="text-right">
+                                      <div className="text-xs text-[#8d8374]">Overall</div>
+                                      <div className="text-sm font-medium text-white">
+                                        #{wholeNumber.format(player.globalRank)}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-[rgba(214,197,162,0.08)] bg-[rgba(246,240,230,0.02)] p-3">
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#8d8374]">Level</div>
+                                      <div className="mt-1 text-sm font-medium text-white">
+                                        Lv. {wholeNumber.format(player.level)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#8d8374]">XP</div>
+                                      <div className="mt-1 text-sm text-[#b5aa9a]">
+                                        {wholeNumber.format(player.xp)}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 sm:block">
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-[#8d8374]">Trend</div>
+                                      <div className="mt-1 flex items-center sm:justify-start">
+                                        <TrendIcon trend={player.trend} />
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center">
-                                  <span className="text-sm font-medium text-white">Lv. {wholeNumber.format(player.level)}</span>
-                                </div>
+                                <div
+                                  className={`hidden grid-cols-[70px_1fr_110px_110px_110px_70px] gap-4 border-b border-[rgba(214,197,162,0.08)] px-6 py-4 transition-colors duration-150 hover:bg-[rgba(214,197,162,0.05)] md:grid ${
+                                    highlighted
+                                      ? "bg-[rgba(214,197,162,0.12)]"
+                                      : player.isCurrentUser
+                                        ? "bg-[rgba(214,197,162,0.08)]"
+                                        : "bg-[rgba(255,255,255,0.01)]"
+                                  }`}
+                                >
+                                  <div className="flex items-center">
+                                    <span className="text-sm font-medium text-[#b5aa9a]">#{player.bandRank}</span>
+                                  </div>
 
-                                <div className="flex items-center">
-                                  <span className="text-sm text-white/70">{wholeNumber.format(player.xp)}</span>
-                                </div>
+                                  <div className="flex items-center gap-3">
+                                    <PlayerAvatar player={player} sizeClass="h-10 w-10" />
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm text-white/90">
+                                        {player.isCurrentUser ? `${player.name} (You)` : player.name}
+                                      </div>
+                                      <div className="text-xs text-[#8d8374]">
+                                        Overall #{wholeNumber.format(player.globalRank)}
+                                      </div>
+                                    </div>
+                                  </div>
 
-                                <div className="flex items-center">
-                                  <span className="text-sm text-white/70">{wholeNumber.format(player.streak)} days</span>
-                                </div>
+                                  <div className="flex items-center">
+                                    <span className="text-sm font-medium text-white">
+                                      Lv. {wholeNumber.format(player.level)}
+                                    </span>
+                                  </div>
 
-                                <div className="flex items-center justify-center">
-                                  <TrendIcon trend={player.trend} />
+                                  <div className="flex items-center">
+                                    <span className="text-sm text-[#b5aa9a]">
+                                      {wholeNumber.format(player.xp)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center">
+                                    <span className="text-sm text-[#b5aa9a]">
+                                      {wholeNumber.format(player.streak)} days
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center justify-center">
+                                    <TrendIcon trend={player.trend} />
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -508,7 +552,7 @@ export default function Ranks() {
                         </div>
                       </div>
                     ) : (
-                      <div className="px-6 py-10 text-center text-sm text-white/50">
+                      <div className="px-6 py-10 text-center text-sm text-[#b5aa9a]">
                         No players are available in this rank right now.
                       </div>
                     )}
@@ -518,29 +562,29 @@ export default function Ranks() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 backdrop-blur-sm">
-                <h3 className="mb-4 text-sm text-white/50">Your Rank</h3>
+              <div className="rounded-xl border border-[rgba(214,197,162,0.14)] bg-[#141413] p-5">
+                <h3 className="mb-4 text-sm text-[#b5aa9a]">Your Rank</h3>
                 {currentPlayer ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <PlayerAvatar player={currentPlayer} sizeClass="h-12 w-12" />
                       <div className="flex-1">
                         <div className="mb-1 text-sm text-white/90">{currentPlayer.name}</div>
-                        <div className="text-xs text-white/50">
+                        <div className={`text-xs ${rankBandTextClass[currentPlayer.rankBand]}`}>
                           #{currentPlayer.bandRank} in {currentPlayer.rankBandLabel}
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 border-t border-white/10 pt-3">
+                    <div className="grid grid-cols-2 gap-3 border-t border-[rgba(214,197,162,0.14)] pt-3">
                       <div>
-                        <div className="mb-1 text-xs text-white/40">Level</div>
+                        <div className="mb-1 text-xs text-[#8d8374]">Level</div>
                         <div className="text-sm font-medium text-white/90">
                           Lv. {wholeNumber.format(currentPlayer.level)}
                         </div>
                       </div>
                       <div>
-                        <div className="mb-1 text-xs text-white/40">Overall</div>
+                        <div className="mb-1 text-xs text-[#8d8374]">Overall</div>
                         <div className="text-sm font-medium text-white/90">
                           #{wholeNumber.format(currentPlayer.globalRank)}
                         </div>
@@ -548,12 +592,12 @@ export default function Ranks() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-white/50">Sign in to see your position.</div>
+                  <div className="text-sm text-[#b5aa9a]">Sign in to see your position.</div>
                 )}
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5 backdrop-blur-sm">
-                <h3 className="mb-4 text-sm text-white/50">Ranks</h3>
+              <div className="rounded-xl border border-[rgba(214,197,162,0.14)] bg-[#141413] p-5">
+                <h3 className="mb-4 text-sm text-[#b5aa9a]">Ranks</h3>
                 <div className="space-y-2">
                   {rankBands.map((band) => {
                     const count = allPlayers.filter((player) => player.rankBand === band.key).length;
@@ -565,21 +609,22 @@ export default function Ranks() {
                         onClick={() => setSelectedBand(band.key)}
                         className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
                           active
-                            ? `${band.border} bg-gradient-to-r ${band.accent}`
-                            : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
+                            ? "border-[rgba(214,197,162,0.24)] bg-[rgba(214,197,162,0.12)]"
+                            : "border-[rgba(214,197,162,0.14)] bg-[rgba(246,240,230,0.02)] hover:border-[rgba(214,197,162,0.24)] hover:bg-[rgba(214,197,162,0.05)]"
                         }`}
                       >
                         <div>
-                          <div className={`text-sm font-semibold ${active ? "text-white" : band.text}`}>{band.label}</div>
-                          <div className="text-xs text-white/45">{formatRankBandRange(band)}</div>
+                          <div className={`text-sm font-semibold ${active ? "text-white" : rankBandTextClass[band.key]}`}>
+                            {band.label}
+                          </div>
+                          <div className="text-xs text-[#8d8374]">{formatRankBandRange(band)}</div>
                         </div>
-                        <div className="text-sm text-white/70">{wholeNumber.format(count)}</div>
+                        <div className="text-sm text-[#b5aa9a]">{wholeNumber.format(count)}</div>
                       </button>
                     );
                   })}
                 </div>
               </div>
-
             </div>
           </div>
         </div>

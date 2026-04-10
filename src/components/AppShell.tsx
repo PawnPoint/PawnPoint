@@ -22,6 +22,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
 import pawnPointIcon from "../assets/App tab icon.png";
 import avatarFallback from "../assets/Easter Default.png";
+import "../pages/dashboard-editorial.css";
 import {
   choosePersonalAccount,
   createGroupForUser,
@@ -53,10 +54,12 @@ export function AppShell({
   children,
   backgroundStyle,
   backgroundOverlay,
+  variant = "dashboard-editorial",
 }: {
   children: React.ReactNode;
   backgroundStyle?: CSSProperties;
   backgroundOverlay?: React.ReactNode;
+  variant?: "default" | "dashboard-editorial";
 }) {
   const { user, logout, setUser } = useAuth();
   const [, navigate] = useLocation();
@@ -103,9 +106,21 @@ export function AppShell({
     { label: "Excited", emoji: "🤩" },
   ];
 
+  const editorialShell = variant === "dashboard-editorial";
   const themeBg = isLight ? "bg-white text-gray-900" : "bg-gray-950 text-white";
   const headerBg = isLight ? "border-gray-200 bg-white" : "border-gray-800 bg-gray-900";
   const navText = isLight ? "text-gray-700 hover:text-gray-900" : "text-gray-400 dark:hover:text-white";
+  const shellClassName = editorialShell ? "pp-shell-editorial" : themeBg;
+  const shellStyle = editorialShell
+    ? {
+        ...backgroundStyle,
+        background: "#141413",
+        backgroundColor: "#141413",
+        backgroundImage: "none",
+        minHeight: "100vh",
+        color: "#f3ede3",
+      }
+    : backgroundStyle;
   const isMehMood = feedbackMood === "Meh";
   const canSubmitFeedback = feedbackText.trim().length > 0;
 
@@ -267,19 +282,23 @@ export function AppShell({
   };
 
   return (
-    <div className={`min-h-screen ${themeBg} relative overflow-x-hidden`} style={backgroundStyle}>
+    <div className={`min-h-screen relative overflow-x-hidden ${shellClassName}`} style={shellStyle}>
       {backgroundOverlay}
       <div className="relative z-10">
-        <header className={`pp-shell-header sticky top-0 z-20 border-b ${headerBg}`}>
+        <header
+          className={`pp-shell-header sticky top-0 z-20 border-b ${
+            editorialShell ? "pp-shell-header--editorial" : headerBg
+          }`}
+        >
         <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg overflow-hidden flex items-center justify-center">
+            <div className="pp-shell-brand-mark h-10 w-10 overflow-hidden flex items-center justify-center">
               <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
             </div>
-            <span className="text-lg font-bold tracking-tight">Pawn Point</span>
+            <span className="pp-shell-brand text-lg font-bold tracking-tight">Pawn Point</span>
           </div>
 
-          <nav className={`hidden md:flex items-center gap-1 text-sm font-medium ${navText}`}>
+          <nav className={`pp-shell-nav hidden md:flex items-center gap-1 text-sm font-medium ${editorialShell ? "" : navText}`}>
             {navLinks.map(({ href, label, icon: Icon }) => {
               const iconSize = Icon === PodiumBarsIcon ? "h-5 w-5" : "h-4 w-4";
               if (label === "Practice") {
@@ -290,10 +309,12 @@ export function AppShell({
                         setPracticeOpen((v) => !v);
                         setProfileOpen(false);
                       }}
-                      className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${
-                        isLight
-                          ? "hover:text-gray-900 hover:bg-gray-100"
-                          : "hover:text-white hover:bg-gray-800"
+                      className={`pp-shell-nav-trigger flex items-center gap-2 px-3 py-2 transition-colors ${
+                        editorialShell
+                          ? "text-[#a59a89]"
+                          : isLight
+                            ? "rounded-md hover:text-gray-900 hover:bg-gray-100"
+                            : "rounded-md hover:text-white hover:bg-gray-800"
                       }`}
                     >
                       <Icon className={iconSize} />
@@ -301,16 +322,20 @@ export function AppShell({
                       <ChevronDown className={`h-4 w-4 transition-transform ${practiceOpen ? "rotate-180" : ""}`} />
                     </button>
                     {practiceOpen && (
-                      <div className={`absolute left-1/2 -translate-x-1/2 top-12 w-48 rounded-lg shadow-lg border z-50 ${
-                        isLight
-                          ? "bg-white border-gray-200"
-                          : "bg-gray-800 border-gray-700"
+                      <div className={`pp-shell-popover absolute left-1/2 -translate-x-1/2 top-12 w-48 rounded-lg shadow-lg border z-50 ${
+                        editorialShell
+                          ? ""
+                          : isLight
+                            ? "bg-white border-gray-200"
+                            : "bg-gray-800 border-gray-700"
                       } py-2 transform`}>
                         <button
-                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                            isLight
-                              ? "text-gray-700 hover:bg-gray-50"
-                              : "text-gray-200 hover:bg-gray-700"
+                          className={`pp-shell-menu-item w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            editorialShell
+                              ? "text-[#f3ede3]"
+                              : isLight
+                                ? "text-gray-700 hover:bg-gray-50"
+                                : "text-gray-200 hover:bg-gray-700"
                           }`}
                           onClick={() => {
                             navigate("/practice");
@@ -321,10 +346,12 @@ export function AppShell({
                           Play AI
                         </button>
                         <button
-                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                            isLight
-                              ? "text-gray-700 hover:bg-gray-50"
-                              : "text-gray-200 hover:bg-gray-700"
+                          className={`pp-shell-menu-item w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            editorialShell
+                              ? "text-[#f3ede3]"
+                              : isLight
+                                ? "text-gray-700 hover:bg-gray-50"
+                                : "text-gray-200 hover:bg-gray-700"
                           }`}
                           onClick={() => {
                             navigate("/puzzles");
@@ -335,10 +362,12 @@ export function AppShell({
                           Puzzles
                         </button>
                         <button
-                          className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                            isLight
-                              ? "text-gray-700 hover:bg-gray-50"
-                              : "text-gray-200 hover:bg-gray-700"
+                          className={`pp-shell-menu-item w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                            editorialShell
+                              ? "text-[#f3ede3]"
+                              : isLight
+                                ? "text-gray-700 hover:bg-gray-50"
+                                : "text-gray-200 hover:bg-gray-700"
                           }`}
                           onClick={() => {
                             navigate("/squarebase");
@@ -357,10 +386,12 @@ export function AppShell({
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 transition-colors ${
-                    isLight
-                      ? "hover:text-gray-900 hover:bg-gray-100"
-                      : "hover:text-white hover:bg-gray-800"
+                  className={`pp-shell-nav-link flex items-center gap-2 px-3 py-2 transition-colors ${
+                    editorialShell
+                      ? "text-[#a59a89]"
+                      : isLight
+                        ? "rounded-md hover:text-gray-900 hover:bg-gray-100"
+                        : "rounded-md hover:text-white hover:bg-gray-800"
                   }`}
                 >
                   <Icon className={iconSize} />
@@ -373,16 +404,18 @@ export function AppShell({
           <div className="hidden md:flex items-center gap-2 relative">
             <button
               onClick={() => setProfileOpen((v) => !v)}
-              className={`relative flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
-                isLight
-                  ? "border-gray-200 bg-gray-50 text-gray-900 hover:bg-gray-100"
-                  : "border-gray-700 bg-gray-800 text-white hover:bg-gray-700"
+              className={`pp-shell-profile-trigger relative flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                editorialShell
+                  ? ""
+                  : isLight
+                    ? "border-gray-200 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                    : "border-gray-700 bg-gray-800 text-white hover:bg-gray-700"
               }`}
               aria-haspopup="menu"
               aria-expanded={profileOpen}
             >
-              <div className={`h-8 w-8 rounded-full overflow-hidden border ${
-                isLight ? "border-gray-200" : "border-gray-700"
+              <div className={`pp-shell-avatar-ring h-8 w-8 rounded-full overflow-hidden border ${
+                editorialShell ? "" : isLight ? "border-gray-200" : "border-gray-700"
               }`}>
                 <img
                   src={avatarSrc}
@@ -399,15 +432,17 @@ export function AppShell({
               </div>
             </button>
             {profileOpen && (
-              <div className={`absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-lg shadow-lg border z-50 ${
-                isLight
-                  ? "bg-white border-gray-200"
-                  : "bg-gray-800 border-gray-700"
+              <div className={`pp-shell-popover absolute left-1/2 -translate-x-1/2 top-14 w-56 rounded-lg shadow-lg border z-50 ${
+                editorialShell
+                  ? ""
+                  : isLight
+                    ? "bg-white border-gray-200"
+                    : "bg-gray-800 border-gray-700"
               } py-2 transform`}>
                 <div className="px-4 py-2">
                   <div className="flex items-center gap-3">
-                    <div className={`h-8 w-8 rounded-full overflow-hidden border ${
-                      isLight ? "border-gray-200" : "border-gray-700"
+                    <div className={`pp-shell-avatar-ring h-8 w-8 rounded-full overflow-hidden border ${
+                      editorialShell ? "" : isLight ? "border-gray-200" : "border-gray-700"
                     }`}>
                       <img
                         src={avatarSrc}
@@ -420,7 +455,7 @@ export function AppShell({
                     </div>
                     <div>
                       <div className="text-sm font-semibold">{nameLabel}</div>
-                      <div className="text-xs text-green-500 font-semibold">
+                      <div className={`text-xs font-semibold ${editorialShell ? "text-[#d6c5a2]" : "text-green-500"}`}>
                         LVL {level} | {xp} XP
                       </div>
                       {user?.accountType && (
@@ -432,13 +467,11 @@ export function AppShell({
                   </div>
                 </div>
                 <div className={`px-2 space-y-1 text-sm ${
-                  isLight ? "text-gray-700" : "text-gray-300"
+                  editorialShell ? "text-[#f3ede3]" : isLight ? "text-gray-700" : "text-gray-300"
                 }`}>
                   <button
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                      isLight
-                        ? "hover:bg-gray-100"
-                        : "hover:bg-gray-700"
+                    className={`pp-shell-menu-item w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      editorialShell ? "" : isLight ? "hover:bg-gray-100" : "hover:bg-gray-700"
                     }`}
                     onClick={() => {
                       navigate("/profile");
@@ -449,10 +482,8 @@ export function AppShell({
                     My Profile
                   </button>
                   <button
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                      isLight
-                        ? "hover:bg-gray-100"
-                        : "hover:bg-gray-700"
+                    className={`pp-shell-menu-item w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      editorialShell ? "" : isLight ? "hover:bg-gray-100" : "hover:bg-gray-700"
                     }`}
                     onClick={() => {
                       navigate("/settings");
@@ -463,10 +494,8 @@ export function AppShell({
                     Settings
                   </button>
                   <button
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                      isLight
-                        ? "hover:bg-gray-100"
-                        : "hover:bg-gray-700"
+                    className={`pp-shell-menu-item w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      editorialShell ? "" : isLight ? "hover:bg-gray-100" : "hover:bg-gray-700"
                     }`}
                     onClick={() => {
                       setFeedbackOpen(true);
@@ -479,10 +508,8 @@ export function AppShell({
                     Feedback
                   </button>
                   <button
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                      isLight
-                        ? "hover:bg-gray-100"
-                        : "hover:bg-gray-700"
+                    className={`pp-shell-menu-item w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
+                      editorialShell ? "" : isLight ? "hover:bg-gray-100" : "hover:bg-gray-700"
                     }`}
                     onClick={() => {
                       logout();
@@ -498,7 +525,9 @@ export function AppShell({
           </div>
 
           <button
-            className="md:hidden h-10 w-10 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            className={`pp-shell-mobile-toggle md:hidden h-10 w-10 flex items-center justify-center rounded-lg ${
+              editorialShell ? "text-[#f3ede3]" : "hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle navigation"
           >
@@ -506,18 +535,20 @@ export function AppShell({
           </button>
         </div>
         {open && (
-          <div className={`pp-mobile-menu md:hidden border-t ${
-            isLight ? "border-gray-200 bg-gray-50" : "border-gray-800 bg-gray-900"
+          <div className={`pp-mobile-menu pp-shell-mobile-menu md:hidden border-t ${
+            editorialShell
+              ? ""
+              : isLight ? "border-gray-200 bg-gray-50" : "border-gray-800 bg-gray-900"
           }`}>
             <div className="px-4 py-4 space-y-4">
               {user && (
-                <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                  isLight
-                    ? "border-gray-200 bg-white"
-                    : "border-gray-700 bg-gray-800"
+                <div className={`pp-shell-mobile-user flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                  editorialShell
+                    ? ""
+                    : isLight ? "border-gray-200 bg-white" : "border-gray-700 bg-gray-800"
                 }`}>
-                  <div className={`h-10 w-10 rounded-lg overflow-hidden border ${
-                    isLight ? "border-gray-200" : "border-gray-700"
+                  <div className={`pp-shell-avatar-ring h-10 w-10 rounded-lg overflow-hidden border ${
+                    editorialShell ? "" : isLight ? "border-gray-200" : "border-gray-700"
                   }`}>
                     <img
                       src={avatarSrc}
@@ -543,10 +574,12 @@ export function AppShell({
                   <Link
                     key={href}
                     href={href}
-                    className={`flex items-center gap-2 rounded-lg border px-3 py-3 transition-colors ${
-                      isLight
-                        ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                        : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    className={`pp-shell-mobile-link flex items-center gap-2 rounded-lg border px-3 py-3 transition-colors ${
+                      editorialShell
+                        ? ""
+                        : isLight
+                          ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                          : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
                     }`}
                     onClick={() => setOpen(false)}
                   >
@@ -575,7 +608,11 @@ export function AppShell({
         )}
       </header>
 
-        <main className="pp-shell-main w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <main className={`pp-shell-main w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 ${
+          editorialShell
+            ? "pp-shell-main--editorial"
+            : "max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px]"
+        }`}>
           {children}
         </main>
       </div>
