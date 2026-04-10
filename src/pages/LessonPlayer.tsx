@@ -1510,9 +1510,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
       {xpToastPortal}
       <AppShell backgroundStyle={pageBackground}>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)] items-start justify-items-center xl:justify-items-start gap-3 xl:gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)] items-start justify-items-stretch xl:justify-items-start gap-3 xl:gap-4">
           {showMovesList && (
-            <div className="w-full max-w-[360px] sm:max-w-[420px] flex flex-col gap-3 mt-2 self-start relative z-10 order-2 xl:-ml-4">
+            <div className="w-full max-w-[360px] sm:max-w-[420px] flex flex-col gap-3 mt-2 self-start justify-self-center xl:justify-self-start relative z-10 order-2 xl:-ml-4">
               <div
                 ref={movesPanelRef}
                 className="rounded-2xl bg-slate-900 border border-white/10 text-white shadow-xl"
@@ -1685,7 +1685,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
             </div>
           )}
 
-          <div className="flex-1 flex flex-col items-start order-1">
+          <div className="w-full flex-1 flex flex-col items-start order-1">
             {!showMovesList && (
               <div className="flex items-center justify-start gap-2 mb-3 w-full max-w-[1400px] px-2">
                 <Button
@@ -1699,7 +1699,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-start 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-3 2xl:gap-4 items-start mx-0">
+            <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-start 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-3 2xl:gap-4 items-start mx-auto lg:mx-0">
               <div className="relative w-full">
                 <div
                   className={`relative block px-2 sm:px-3 pb-6 sm:pb-8 w-full mx-0 ${
@@ -1862,7 +1862,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 ) : (
                   <>
                     <div
-                      className="pp-lesson-board aspect-square w-full max-w-[760px] rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
+                      className="pp-lesson-board aspect-square w-full max-w-[760px] lg:w-[760px] rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
                       style={{
                         backgroundColor: boardColors.dark,
                       }}
