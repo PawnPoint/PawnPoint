@@ -1118,7 +1118,6 @@ export default function LessonPlayer({ id }: { id?: string }) {
     return () => observer.disconnect();
   }, [showMovesList]);
 
-  const boardSize = 760;
   const movesSubtitle =
     (isStudyLike && studyError) ? studyError : activeSubsection?.type === "quiz" ? "Answer the questions below" : null;
 
@@ -1468,6 +1467,43 @@ export default function LessonPlayer({ id }: { id?: string }) {
     }
   };
 
+  const renderStudyMoveControls = (className: string) => {
+    if (!isStudyLike) return null;
+    return (
+      <div className={className}>
+        <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
+          <button
+            type="button"
+            className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={goFirstMove}
+            disabled={!canStepBack}
+            aria-label="Back to start"
+          >
+            <SkipBack className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="h-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={goPrevMove}
+            disabled={!canStepBack}
+            aria-label="Previous move"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="h-10 rounded-lg bg-white text-slate-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={goNextMove}
+            disabled={!canStepForward}
+            aria-label="Next move"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <>
@@ -1638,39 +1674,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     </>
                   )}
                 </div>
-                {isStudyLike && (
-                  <div className="pp-lesson-nav px-4 pb-4">
-                    <div className="grid grid-cols-[40px_1fr_1fr] gap-2">
-                      <button
-                        type="button"
-                        className="h-10 w-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                        onClick={goFirstMove}
-                        disabled={!canStepBack}
-                        aria-label="Back to start"
-                      >
-                        <SkipBack className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="h-10 rounded-lg bg-white/10 border border-white/10 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                        onClick={goPrevMove}
-                        disabled={!canStepBack}
-                        aria-label="Previous move"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="h-10 rounded-lg bg-white text-slate-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                        onClick={goNextMove}
-                        disabled={!canStepForward}
-                        aria-label="Next move"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {renderStudyMoveControls("pp-lesson-nav hidden px-4 pb-4 md:block")}
                 {trainerNote && (
                   <div className="px-4 pb-4 pt-3 border-t border-white/10">
                     <div className="font-semibold mb-2">Trainer Note</div>
@@ -1696,7 +1700,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
             )}
 
             <div className="grid grid-cols-1 w-full max-w-[760px] justify-items-start 2xl:grid-cols-[minmax(360px,1fr)_minmax(240px,0.6fr)] gap-3 2xl:gap-4 items-start mx-0">
-              <div className="relative">
+              <div className="relative w-full">
                 <div
                   className={`relative block px-2 sm:px-3 pb-6 sm:pb-8 w-full mx-0 ${
                     isVideoSubsection ? "max-w-[360px]" : "max-w-none"
@@ -1858,13 +1862,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 ) : (
                   <>
                     <div
-                      className="pp-lesson-board rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
+                      className="pp-lesson-board aspect-square w-full max-w-[760px] rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.45)] mx-0 xl:mx-0 mt-2 flex-shrink-0 self-start"
                       style={{
                         backgroundColor: boardColors.dark,
-                        width: `${boardSize}px`,
-                        height: `${boardSize}px`,
-                        maxWidth: `${boardSize}px`,
-                        maxHeight: `${boardSize}px`,
                       }}
                     >
                       <div className="pp-board relative grid grid-cols-8 grid-rows-8 w-full h-full aspect-square mx-auto">
@@ -2123,6 +2123,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         ))}
                       </div>
                     </div>
+                    {renderStudyMoveControls("pp-lesson-nav w-full max-w-[760px] pt-3 md:hidden")}
                   </>
                 )}
               </div>
