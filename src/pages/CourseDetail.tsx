@@ -5,6 +5,7 @@ import {
   getCourse,
   getProgressForCourse,
   updateLessonProgress,
+  canEditCourse,
   type CourseProgress,
   type Course,
   type Chapter,
@@ -43,7 +44,6 @@ type OrderedChapter = Chapter & { subsections: Record<string, Subsection> };
 
 export default function CourseDetail({ id }: { id: string }) {
   const { user } = useAuth();
-  const isAdmin = !!user?.isAdmin;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [openChapterId, setOpenChapterId] = useState<string | null>(null);
@@ -140,6 +140,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   }, [chapterItems, completed, orderedChapters]);
 
   const courseProgress = progress?.progressPercent ?? 0;
+  const canManageCourse = canEditCourse(course, user);
 
   const chapterProgress = (ch: OrderedChapter) => chapterPercentById[ch.id] ?? 0;
 
@@ -150,6 +151,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   };
 
   const handleCreateSubsection = async () => {
+    if (!canManageCourse) return;
     if (!selectedChapterId) {
       setToast("Select a chapter first.");
       return;
@@ -234,20 +236,21 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   };
 
   const handleDeleteSubsection = async (chapterId: string, subsectionId: string) => {
-    if (!isAdmin) return;
+    if (!canManageCourse) return;
     await deleteSubsection(course.id, chapterId, subsectionId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
-    if (!isAdmin) return;
+    if (!canManageCourse) return;
     await deleteChapter(course.id, chapterId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
   };
 
   const handleCreateChapter = async () => {
+    if (!canManageCourse) return;
     const title = newChapterTitle.trim() || `Chapter ${orderedChapters.length + 1}`;
     const index = orderedChapters.length;
     const created = await addChapter(course.id, title, index);
@@ -291,13 +294,15 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                   <div className="flex items-center gap-2 text-sm text-white/80">
                     <span>Your progress:</span>
                     <span className="text-white font-semibold">{courseProgress}%</span>
-                    <button
-                      className="ml-2 p-1 rounded-full hover:bg-white/10 text-white"
-                      onClick={() => setCreateModalOpen(true)}
-                      aria-label="Add subsection"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                    </button>
+                    {canManageCourse && (
+                      <button
+                        className="ml-2 p-1 rounded-full hover:bg-white/10 text-white"
+                        onClick={() => setCreateModalOpen(true)}
+                        aria-label="Add subsection"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                   <Progress value={courseProgress} />
                 </div>
@@ -325,7 +330,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                       </div>
                       <Progress value={pct} />
                     </div>
-                    {isAdmin && (
+                    {canManageCourse && (
                       <button
                         className="p-1 rounded-full hover:bg-white/10 text-white/70"
                         onClick={(e) => {
@@ -380,7 +385,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                       {study?.title || "Lesson"}
                                     </div>
                                   </div>
-                                  {isAdmin && (
+                                  {canManageCourse && (
                                     <button
                                       className="text-white/60 hover:text-red-300 ml-2"
                                       onClick={() => study && handleDeleteSubsection(chapter.id, study.id)}
@@ -413,7 +418,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                             <BookOpen className="h-5 w-5 text-white" />
                                             <span className="text-white">{pgn.title}</span>
                                           </button>
-                                          {isAdmin && (
+                                          {canManageCourse && (
                                             <button
                                               className="text-white/60 hover:text-red-300"
                                               onClick={() => handleDeleteSubsection(chapter.id, pgn.id)}
@@ -440,7 +445,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                             <Icon className="h-5 w-5 text-white" />
                                             <span className="text-white">{quiz.title}</span>
                                           </button>
-                                          {isAdmin && (
+                                          {canManageCourse && (
                                             <button
                                               className="text-white/60 hover:text-red-300"
                                               onClick={() => handleDeleteSubsection(chapter.id, quiz.id)}

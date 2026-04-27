@@ -132,6 +132,84 @@ export default function Landing() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let cancelled = false;
+    let observer: MutationObserver | null = null;
+
+    const styleBubble = () => {
+      const bubble = document.querySelector<HTMLElement>(
+        'aqx-voice-bubble[campaign-id="2868f229-620f-481b-af01-d0cd99ca97f7"]',
+      );
+      if (!bubble) return false;
+      bubble.style.position = "fixed";
+      bubble.style.left = "16px";
+      bubble.style.right = "auto";
+      bubble.style.bottom = "16px";
+      bubble.style.top = "auto";
+      bubble.style.zIndex = "60";
+      bubble.style.display = "block";
+      bubble.style.visibility = "visible";
+      bubble.style.opacity = "1";
+      return true;
+    };
+
+    if (!styleBubble()) {
+      observer = new MutationObserver(() => {
+        if (styleBubble() && observer) {
+          observer.disconnect();
+          observer = null;
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-atlas-voice-bubble="true"]');
+    const existingBubble = document.querySelector<HTMLElement>(
+      'aqx-voice-bubble[campaign-id="2868f229-620f-481b-af01-d0cd99ca97f7"]',
+    );
+    const createBubble = () => {
+      if (cancelled) return;
+      const currentBubble = document.querySelector<HTMLElement>(
+        'aqx-voice-bubble[campaign-id="2868f229-620f-481b-af01-d0cd99ca97f7"]',
+      );
+      if (currentBubble) {
+        styleBubble();
+        return;
+      }
+      const bubble = document.createElement("aqx-voice-bubble");
+      bubble.setAttribute("campaign-id", "2868f229-620f-481b-af01-d0cd99ca97f7");
+      bubble.setAttribute("size", "sm");
+      document.body.appendChild(bubble);
+      styleBubble();
+    };
+
+    if (!existingBubble) {
+      if (existingScript && customElements.get("aqx-voice-bubble")) {
+        createBubble();
+      } else {
+        const script = existingScript || document.createElement("script");
+        if (!existingScript) {
+          script.src = "https://cdn.youratlas.com/scripts/aqx-voice-bubble.prod.min.js";
+          script.async = true;
+          script.dataset.atlasVoiceBubble = "true";
+          script.onload = createBubble;
+          document.head.appendChild(script);
+        } else {
+          script.addEventListener("load", createBubble, { once: true });
+        }
+      }
+    } else {
+      styleBubble();
+    }
+
+    return () => {
+      cancelled = true;
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
   const faqItems = useMemo(
     () => [
       {
@@ -185,7 +263,7 @@ export default function Landing() {
       </div>
 
       <div className="relative z-10">
-      <div className="relative px-4 pt-4 sm:px-6">
+      <div className="fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-6">
         <div
           className={`mx-auto grid h-16 w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-4 rounded-[22px] border px-4 sm:px-5 md:h-[72px] md:grid-cols-[1fr_auto_1fr] ${
             isLight
@@ -227,27 +305,30 @@ export default function Landing() {
           <div className="flex items-center justify-end gap-2 md:gap-3">
             <button
               onClick={goToLogin}
-              className={`hidden rounded-full px-3 py-2 text-sm font-semibold transition sm:inline-flex ${
-                isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/8"
+              className={`hidden rounded-xl px-3 py-2 text-sm font-semibold transition sm:inline-flex ${
+                isLight ? "bg-white text-slate-900 hover:bg-slate-100" : "bg-white text-black hover:bg-white/90"
               }`}
             >
               Log in
             </button>
             <button
-              onClick={goToSignup}
-              className={`rounded-full px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
+              onClick={() => {
+                setContactOpen(true);
+                setFaqOpen(false);
+              }}
+              className={`rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
                 isLight
                   ? "bg-slate-900 text-white hover:bg-slate-800"
                   : "bg-white text-black hover:bg-white/90"
               }`}
             >
-              Get Started Free
+              Book demo
             </button>
           </div>
         </div>
       </div>
 
-      <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-12 sm:pt-16 min-h-[calc(100vh-72px)] flex items-center">
+      <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-28 sm:pt-32 min-h-[calc(100vh-72px)] flex items-center">
         <section className="w-full flex flex-col items-center text-center">
           <div className="w-full max-w-5xl">
             <BlurText
@@ -271,14 +352,14 @@ export default function Landing() {
             <div className="mt-8 fade-in flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
               <button
                 onClick={goToSignup}
-                className="w-full sm:w-auto rounded-full bg-white hover:bg-white/90 text-black px-5 py-3 text-sm font-semibold transition"
+                className="w-full sm:w-auto rounded-xl border border-white/16 bg-transparent hover:bg-white/10 text-white px-5 py-3 text-sm font-semibold transition"
               >
                 Get Started Free
               </button>
-              <div className="block w-full rounded-full border border-white/12 bg-white/4 backdrop-blur-sm sm:inline-flex sm:w-auto">
+              <div className="block w-full rounded-xl border border-white/12 bg-transparent sm:inline-flex sm:w-auto">
                 <button
                   onClick={goToLogin}
-                  className={`block w-full rounded-full px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
+                  className={`block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
                     isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
                   }`}
                 >
@@ -411,10 +492,10 @@ export default function Landing() {
 
           <div className="fade-in delay-2 mt-12 rounded-[30px] border border-white/10 bg-white/[0.03] px-6 py-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:px-8 sm:py-10">
             <h3 className="text-2xl font-semibold tracking-tight text-white">
-              Get in touch
+              Book a demo
             </h3>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-white/65 sm:text-base">
-              Why not send us a message
+              Schedule a conversation with the Pawn Point team
             </p>
             <button
               type="button"
@@ -424,7 +505,7 @@ export default function Landing() {
               }}
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-[0_14px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
             >
-              Get In Touch
+              Book a Demo
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>

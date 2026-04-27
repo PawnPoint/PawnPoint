@@ -95,6 +95,8 @@ export type Course = {
   accentColor: string;
   lessons: Lesson[]; // legacy
   chapters?: Record<string, Chapter>;
+  isShared?: boolean;
+  managedByGroupId?: string | null;
 };
 
 export type Chapter = {
@@ -246,6 +248,15 @@ const SQUARE_BASE_PATH = "squareBaseBooks";
 const STANDINGS_BOARDS_PATH = "standingsBoards";
 const LOCAL_THUMBNAILS = ["/pieces/wB.png", "/pieces/bQ.png", "/pieces/wN.png", "/pieces/bK.png"];
 const DEFAULT_GROUP_NAME = "My Group";
+const PLATFORM_COURSE_EDITOR_USER_ID = "FeXOccEwugQBmJtcFgydgAnrlUA3";
+const PLATFORM_COURSE_IDS = new Set([
+  "4l3d1jubhd6j",
+  "dlafpafud05u",
+  "emzem6o8yv63",
+  "igrx18bxsdcp",
+  "j5ef2s59v94m",
+  "s9qmng7usig8",
+]);
 const MATCHMAKING_TIMEOUT_MS = 2 * 60 * 1000;
 const GROUP_REJOIN_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 export const USER_UPDATED_EVENT = "pawnpoint:user-updated";
@@ -327,53 +338,6 @@ type DataScope = {
   userId?: string | null;
 };
 type ScopedResource = DataScope & { path: string };
-const sampleCourses: Course[] = [
-  {
-    id: "course-london",
-    title: "The London System",
-    description: "Club-ready white repertoire that keeps pressure and teaches universal plans.",
-    category: "white_opening",
-    difficulty: "beginner",
-    thumbnailUrl: LOCAL_THUMBNAILS[0],
-    accentColor: "#ec4899",
-    lessons: [
-      { id: "l1", title: "Why Play the London", summary: "Principles and key themes." },
-      { id: "l2", title: "Typical Structures", summary: "Plans in classical pawn chains." },
-      { id: "l3", title: "Model Game Review", summary: "Club-level example with blunders fixed." },
-    ],
-    chapters: {
-      "london-1": {
-        id: "london-1",
-        title: "Foundations",
-        index: 0,
-        subsections: {
-          "london-video-1": {
-            id: "london-video-1",
-            type: "video",
-            title: "Why play the London",
-            videoUrl: "https://www.youtube.com/embed/GlOQ8k8ZHbM",
-            index: 0,
-          },
-        },
-      },
-      "london-2": {
-        id: "london-2",
-        title: "Plans vs ...d5 and ...g6",
-        index: 1,
-        subsections: {
-          "london-video-2": {
-            id: "london-video-2",
-            type: "video",
-            title: "Hitting kingside fianchettos",
-            videoUrl: "https://www.youtube.com/embed/oo8g52D0F8E",
-            index: 0,
-          },
-        },
-      },
-    },
-  },
-];
-
 function sanitizeDigits(input: string): string {
   const digits = (input || "").replace(/[^0-9]/g, "");
   if (!digits) return "";
@@ -468,10 +432,25 @@ function hasSiteAdminAccess(profile?: Pick<UserProfile, "adminKeyUnlocked"> | nu
   return profile?.adminKeyUnlocked === true;
 }
 
+function isPlatformCourseEditor(profile?: Pick<UserProfile, "id"> | null): boolean {
+  return profile?.id === PLATFORM_COURSE_EDITOR_USER_ID;
+}
+
 export function hasGroupAdminAccess(
   profile?: Pick<UserProfile, "adminKeyUnlocked" | "groupRole"> | null,
 ): boolean {
   return hasSiteAdminAccess(profile) || profile?.groupRole === "admin";
+}
+
+export function canEditCourse(
+  course?: Pick<Course, "id" | "isShared" | "managedByGroupId"> | null,
+  profile?: Pick<UserProfile, "id" | "adminKeyUnlocked" | "isAdmin"> | null,
+): boolean {
+  if (!course) return false;
+  if (PLATFORM_COURSE_IDS.has(course.id)) {
+    return isPlatformCourseEditor(profile);
+  }
+  return !!profile?.isAdmin || hasSiteAdminAccess(profile);
 }
 
 function resolveIsAdmin(profile: UserProfile): boolean {
@@ -976,7 +955,14 @@ const REMOVED_COURSE_IDS = new Set([
   "course-endgame",
 ]);
 
-const SAMPLE_COURSE_RECORD = stripUndefinedDeep(normalizeCourseRecord(toRecord(sampleCourses)));
+const LEGACY_CREATED_COURSE_IDS = new Set([
+  "course-london",
+  "course-kings-indian",
+  "course-how-to-use-your-pieces",
+  "course-aggressive-italian",
+  "course-french-defense",
+  "course-dutch-defense",
+]);
 
 function applyCoursePatches(record: CourseRecord): { record: CourseRecord; changed: boolean } {
   let changed = false;
@@ -1042,6 +1028,42 @@ function mutateLocalCourse(
   writeCoursesLocal(record, scope);
 }
 
+function readSharedCoursesLocal(): CourseRecord {
+  const raw = localStorage.getItem(scopedStorageKey(STORAGE_KEYS.courses, { scope: "public", cacheKey: "shared-courses" }));
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as CourseRecord | Course[];
+    if (Array.isArray(parsed)) return normalizeCourseRecord(toRecord(parsed.filter(Boolean) as Course[]));
+    return normalizeCourseRecord(parsed || {});
+  } catch {
+    return {};
+  }
+}
+
+function writeSharedCoursesLocal(record: CourseRecord) {
+  try {
+    const normalized = normalizeCourseRecord(record);
+    const safe = stripUndefinedDeep(normalized);
+    localStorage.setItem(scopedStorageKey(STORAGE_KEYS.courses, { scope: "public", cacheKey: "shared-courses" }), JSON.stringify(safe));
+  } catch {
+    // ignore shared local write errors
+  }
+}
+
+function mutateSharedLocalCourse(
+  courseId: string,
+  transform: (course: Course | undefined) => Course | undefined,
+) {
+  const record = readSharedCoursesLocal();
+  const next = transform(record[courseId]);
+  if (next) {
+    record[courseId] = normalizeCourseEntry({ ...next, isShared: true, managedByGroupId: null });
+  } else {
+    delete record[courseId];
+  }
+  writeSharedCoursesLocal(record);
+}
+
 async function writeCourseEntry(course: Course, user?: UserProfile | null): Promise<Course> {
   const normalized = normalizeCourseEntry(course);
   const { path } = scopedPath(`${COURSES_PATH}/${normalized.id}`, user);
@@ -1052,6 +1074,24 @@ async function writeCourseEntry(course: Course, user?: UserProfile | null): Prom
   } catch (err) {
     mutateLocalCourse(normalized.id, user, () => normalized);
     console.error("Failed to write course to Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function writeSharedCourseEntry(course: Course): Promise<Course> {
+  const normalized = normalizeCourseEntry({
+    ...course,
+    isShared: true,
+    managedByGroupId: null,
+  });
+  const path = `${COURSES_PATH}/${normalized.id}`;
+  try {
+    await set(ref(db, path), normalized);
+    mutateSharedLocalCourse(normalized.id, () => normalized);
+    return normalized;
+  } catch (err) {
+    mutateSharedLocalCourse(normalized.id, () => normalized);
+    console.error("Failed to write shared course to Firebase; saved locally instead.", err);
     throw new Error("Cloud save failed. Check network/Firebase rules.");
   }
 }
@@ -1211,6 +1251,143 @@ async function applySubsectionUpdates(
   }
 }
 
+async function writeSharedChapterEntry(courseId: string, chapter: Chapter): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(chapter);
+  const path = `${COURSES_PATH}/${courseId}/chapters/${normalizedChapter.id}`;
+  try {
+    await set(ref(db, path), normalizedChapter);
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [normalizedChapter.id]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [normalizedChapter.id]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to write shared chapter to Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function updateSharedChapterEntry(
+  courseId: string,
+  chapterId: string,
+  payload: Partial<Pick<Chapter, "title" | "index">>,
+  nextChapter: Chapter,
+): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(nextChapter);
+  const path = `${COURSES_PATH}/${courseId}/chapters/${chapterId}`;
+  const safePayload = stripUndefinedShallow(payload);
+  try {
+    await update(ref(db, path), safePayload);
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to update shared chapter in Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function deleteSharedChapterEntry(courseId: string, chapterId: string): Promise<void> {
+  const path = `${COURSES_PATH}/${courseId}/chapters/${chapterId}`;
+  try {
+    await remove(ref(db, path));
+    mutateSharedLocalCourse(courseId, (course) => {
+      if (!course?.chapters?.[chapterId]) return course;
+      const chapters = { ...course.chapters };
+      delete chapters[chapterId];
+      return { ...course, chapters };
+    });
+  } catch (err) {
+    mutateSharedLocalCourse(courseId, (course) => {
+      if (!course?.chapters?.[chapterId]) return course;
+      const chapters = { ...course.chapters };
+      delete chapters[chapterId];
+      return { ...course, chapters };
+    });
+    console.error("Failed to delete shared chapter from Firebase; removed local copy instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
+async function applySharedSubsectionUpdates(
+  courseId: string,
+  chapterId: string,
+  updatesPayload: Record<string, unknown>,
+  nextChapter: Chapter,
+): Promise<Chapter> {
+  const normalizedChapter = normalizeChapterEntry(nextChapter);
+  const safePayload = stripUndefinedDeep(updatesPayload);
+  try {
+    if (Object.keys(safePayload).length > 0) {
+      await update(ref(db), safePayload);
+    }
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    return normalizedChapter;
+  } catch (err) {
+    mutateSharedLocalCourse(courseId, (course) =>
+      course
+        ? {
+            ...course,
+            chapters: {
+              ...(course.chapters || {}),
+              [chapterId]: normalizedChapter,
+            },
+          }
+        : course,
+    );
+    console.error("Failed to update shared subsection data in Firebase; saved locally instead.", err);
+    throw new Error("Cloud save failed. Check network/Firebase rules.");
+  }
+}
+
 async function fetchCourseRecord(user?: UserProfile | null): Promise<CourseRecord> {
   const scope = resolveScope(user);
   const { path } = scopedPath(COURSES_PATH, user);
@@ -1247,6 +1424,34 @@ async function fetchCourseRecord(user?: UserProfile | null): Promise<CourseRecor
   }
 }
 
+async function fetchSharedCourseRecord(): Promise<CourseRecord> {
+  try {
+    const snap = await get(ref(db, COURSES_PATH));
+    if (snap.exists()) {
+      const val = snap.val() as CourseRecord | Course[];
+      const record = Array.isArray(val) ? toRecord(val.filter(Boolean) as Course[]) : (val || {});
+      const filtered = Object.fromEntries(
+        Object.entries(record)
+          .filter(([id]) => PLATFORM_COURSE_IDS.has(id))
+          .map(([id, course]) => [id, { ...course, isShared: true, managedByGroupId: null }]),
+      ) as CourseRecord;
+      const normalized = stripUndefinedDeep(normalizeCourseRecord(filtered));
+      writeSharedCoursesLocal(normalized);
+      return normalized;
+    }
+    return {};
+  } catch (err) {
+    const local = stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
+    if (Object.keys(local).length) {
+      return Object.fromEntries(
+        Object.entries(local).filter(([id]) => PLATFORM_COURSE_IDS.has(id)),
+      ) as CourseRecord;
+    }
+    console.warn("Failed to fetch shared courses; returning local/empty.", err);
+    return {};
+  }
+}
+
 async function writeCourseRecord(record: CourseRecord, user?: UserProfile | null): Promise<void> {
   const scope = resolveScope(user);
   const { path } = scopedPath(COURSES_PATH, user);
@@ -1263,25 +1468,86 @@ async function writeCourseRecord(record: CourseRecord, user?: UserProfile | null
   }
 }
 
+async function fetchCombinedCourseRecord(user?: UserProfile | null): Promise<CourseRecord> {
+  const [sharedRecord, scopedRecord] = await Promise.all([
+    fetchSharedCourseRecord(),
+    fetchCourseRecord(user),
+  ]);
+  return {
+    ...sharedRecord,
+    ...scopedRecord,
+  };
+}
+
+async function resolveCourseStorage(courseId: string, user?: UserProfile | null): Promise<{
+  course: Course | null;
+  isShared: boolean;
+}> {
+  const sharedRecord = await fetchSharedCourseRecord();
+  if (sharedRecord[courseId]) {
+    return { course: sharedRecord[courseId], isShared: true };
+  }
+  const scopedRecord = await fetchCourseRecord(user);
+  return { course: scopedRecord[courseId] || null, isShared: false };
+}
+
 export function listenCourses(callback: (courses: Course[]) => void, user?: UserProfile | null): () => void {
   const scope = resolveScope(user);
   const { path } = scopedPath(COURSES_PATH, user);
-  const coursesRef = ref(db, path);
-  const off = onValue(
-    coursesRef,
+  const scopedRef = ref(db, path);
+  const sharedRef = ref(db, COURSES_PATH);
+  let latestScoped = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
+  let latestShared = stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
+
+  const emit = () => {
+    callback(toList({ ...latestShared, ...latestScoped }));
+  };
+
+  const offScoped = onValue(
+    scopedRef,
     (snap) => {
       const val = snap.val();
-      if (val) {
-        const record = Array.isArray(val) ? toRecord(val.filter(Boolean) as Course[]) : (val as CourseRecord);
-        callback(toList(stripUndefinedDeep(normalizeCourseRecord(record))));
-      }
+      latestScoped = val
+        ? stripUndefinedDeep(
+            normalizeCourseRecord(Array.isArray(val) ? toRecord(val.filter(Boolean) as Course[]) : (val as CourseRecord)),
+          )
+        : {};
+      emit();
     },
     () => {
-      const local = toList(stripUndefinedDeep(readCoursesLocal(scope)));
-      callback(local);
+      latestScoped = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
+      emit();
     },
   );
-  return () => off();
+
+  const offShared = onValue(
+    sharedRef,
+    (snap) => {
+      const val = snap.val();
+      latestShared = val
+        ? stripUndefinedDeep(
+            normalizeCourseRecord(
+              Object.fromEntries(
+                Object.entries(Array.isArray(val) ? toRecord(val.filter(Boolean) as Course[]) : (val as CourseRecord))
+                  .filter(([id]) => PLATFORM_COURSE_IDS.has(id))
+                  .map(([id, course]) => [id, { ...course, isShared: true, managedByGroupId: null }]),
+              ),
+            ),
+          )
+        : {};
+      emit();
+    },
+    () => {
+      latestShared = stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
+      emit();
+    },
+  );
+
+  emit();
+  return () => {
+    offScoped();
+    offShared();
+  };
 }
 
 export function listenCourse(
@@ -1290,7 +1556,8 @@ export function listenCourse(
   user?: UserProfile | null,
 ): () => void {
   const scope = resolveScope(user);
-  const { path } = scopedPath(`${COURSES_PATH}/${courseId}`, user);
+  const isSharedCourse = PLATFORM_COURSE_IDS.has(courseId);
+  const path = isSharedCourse ? `${COURSES_PATH}/${courseId}` : scopedPath(`${COURSES_PATH}/${courseId}`, user).path;
   const courseRef = ref(db, path);
   const off = onValue(
     courseRef,
@@ -1298,14 +1565,20 @@ export function listenCourse(
       const val = snap.val() as Course | null;
       const normalized =
         val && val.id
-          ? stripUndefinedDeep(normalizeCourseRecord({ [val.id]: val as Course })[val.id])
+          ? stripUndefinedDeep(
+              normalizeCourseRecord({
+                [val.id]: isSharedCourse
+                  ? { ...(val as Course), isShared: true, managedByGroupId: null }
+                  : (val as Course),
+              })[val.id],
+            )
           : val
             ? { ...val, thumbnailUrl: DEFAULT_COURSE_THUMBNAIL }
             : null;
       callback(normalized || null);
     },
     () => {
-      const local = readCoursesLocal(scope);
+      const local = isSharedCourse ? readSharedCoursesLocal() : readCoursesLocal(scope);
       callback(local[courseId] || null);
     },
   );
@@ -3155,7 +3428,7 @@ export async function deleteGroup(admin: UserProfile | null): Promise<UserProfil
 }
 
 export async function getCourses(search?: string, category?: string, user?: UserProfile | null): Promise<Course[]> {
-  const record = await fetchCourseRecord(user);
+  const record = await fetchCombinedCourseRecord(user);
   let results = toList(record);
   if (category && category !== "all") {
     results = results.filter((c) => c.category === category);
@@ -3168,7 +3441,7 @@ export async function getCourses(search?: string, category?: string, user?: User
 }
 
 export async function getCourse(id: string, user?: UserProfile | null): Promise<Course | null> {
-  const record = await fetchCourseRecord(user);
+  const record = await fetchCombinedCourseRecord(user);
   return record[id] || null;
 }
 
@@ -3176,9 +3449,7 @@ export async function createCourse(course: Omit<Course, "id"> & { id?: string })
   const user = readUser();
   const record = await fetchCourseRecord(user);
   const hasSubscription = !!(user?.premiumAccess || user?.subscriptionStatus === "active");
-  const isSouthKnightGroup =
-    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
-  if (user && !isSouthKnightGroup && !hasSubscription && Object.keys(record).length >= 3) {
+  if (user && !hasSubscription && Object.keys(record).length >= 3) {
     throw new Error("Free plan allows up to 3 courses. Subscribe to add more.");
   }
   const newCourse: Course = {
@@ -3195,38 +3466,51 @@ export async function createCourse(course: Omit<Course, "id"> & { id?: string })
 
 export async function updateCourse(course: Course): Promise<Course> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const existing = record[course.id];
+  const { course: existing, isShared } = await resolveCourseStorage(course.id, user);
+  if (isShared && !canEditCourse(existing, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
   const normalizedCourse: Course = {
     ...(existing || {}),
     ...course,
     thumbnailUrl: sanitizeThumbnail(course.thumbnailUrl),
     chapters: course.chapters ?? existing?.chapters,
   };
-  return writeCourseEntry(normalizedCourse, user);
+  return isShared ? writeSharedCourseEntry(normalizedCourse) : writeCourseEntry(normalizedCourse, user);
 }
 
 export async function deleteCourse(id: string): Promise<void> {
   const user = readUser();
+  const { course, isShared } = await resolveCourseStorage(id, user);
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
+  if (isShared) {
+    throw new Error("Protected platform courses cannot be deleted.");
+  }
   await deleteCourseEntry(id, user);
 }
 
 export async function addChapter(courseId: string, title: string, index: number): Promise<Chapter | null> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   if (!course) return null;
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
   const chapterId = nanoid();
   const chapter: Chapter = { id: chapterId, title, index, subsections: {} };
-  return writeChapterEntry(courseId, chapter, user);
+  return isShared ? writeSharedChapterEntry(courseId, chapter) : writeChapterEntry(courseId, chapter, user);
 }
 
 export async function deleteChapter(courseId: string, chapterId: string): Promise<void> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   if (!course?.chapters) return;
-  await deleteChapterEntry(courseId, chapterId, user);
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
+  await (isShared ? deleteSharedChapterEntry(courseId, chapterId) : deleteChapterEntry(courseId, chapterId, user));
 }
 
 export async function updateChapter(
@@ -3235,20 +3519,32 @@ export async function updateChapter(
   updates: Partial<Pick<Chapter, "title" | "index">>,
 ): Promise<Chapter | null> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   if (!course?.chapters?.[chapterId]) return null;
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
   const nextChapter = { ...course.chapters[chapterId], ...updates };
-  return updateChapterEntry(
-    courseId,
-    chapterId,
-    {
-      title: nextChapter.title,
-      index: nextChapter.index,
-    },
-    nextChapter,
-    user,
-  );
+  return isShared
+    ? updateSharedChapterEntry(
+        courseId,
+        chapterId,
+        {
+          title: nextChapter.title,
+          index: nextChapter.index,
+        },
+        nextChapter,
+      )
+    : updateChapterEntry(
+        courseId,
+        chapterId,
+        {
+          title: nextChapter.title,
+          index: nextChapter.index,
+        },
+        nextChapter,
+        user,
+      );
 }
 
 export async function saveSubsection(
@@ -3257,9 +3553,11 @@ export async function saveSubsection(
   subsection: Subsection,
 ): Promise<Subsection | null> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   if (!course) return null;
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
   const chapters = course.chapters || {};
   const chapter = chapters[chapterId];
   if (!chapter) return null;
@@ -3283,7 +3581,9 @@ export async function saveSubsection(
       updates[`${subsectionsPath}/${subId}/index`] = sub.index;
     }
   });
-  const persistedChapter = await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
+  const persistedChapter = await (isShared
+    ? applySharedSubsectionUpdates(courseId, chapterId, updates, nextChapter)
+    : applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user));
   return persistedChapter.subsections?.[id] || null;
 }
 
@@ -3293,11 +3593,13 @@ export async function reorderSubsections(
   orderedIds: string[],
 ): Promise<Record<string, Subsection> | null> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   const chapter = course?.chapters?.[chapterId];
   const subs = chapter?.subsections;
   if (!course || !chapter || !subs) return null;
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
 
   const seen = new Set<string>();
   const orderedEntries: [string, Subsection][] = [];
@@ -3328,17 +3630,21 @@ export async function reorderSubsections(
       updates[`${subsectionsPath}/${id}/index`] = sub.index;
     }
   });
-  const persistedChapter = await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
+  const persistedChapter = await (isShared
+    ? applySharedSubsectionUpdates(courseId, chapterId, updates, nextChapter)
+    : applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user));
   return persistedChapter.subsections || null;
 }
 
 export async function deleteSubsection(courseId: string, chapterId: string, subsectionId: string): Promise<void> {
   const user = readUser();
-  const record = await fetchCourseRecord(user);
-  const course = record[courseId];
+  const { course, isShared } = await resolveCourseStorage(courseId, user);
   const chapter = course?.chapters?.[chapterId];
   const subs = chapter?.subsections;
   if (!course || !chapter || !subs?.[subsectionId]) return;
+  if (isShared && !canEditCourse(course, user)) {
+    throw new Error("Only the assigned course editor can edit these platform courses.");
+  }
   const remaining = { ...subs };
   delete remaining[subsectionId];
   const reindexed = reindexSubsections(remaining);
@@ -3352,7 +3658,9 @@ export async function deleteSubsection(courseId: string, chapterId: string, subs
       updates[`${subsectionsPath}/${id}/index`] = sub.index;
     }
   });
-  await applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user);
+  await (isShared
+    ? applySharedSubsectionUpdates(courseId, chapterId, updates, nextChapter)
+    : applySubsectionUpdates(courseId, chapterId, updates, nextChapter, user));
 }
 
 export async function getProgress(userId: string): Promise<Record<string, CourseProgress>> {

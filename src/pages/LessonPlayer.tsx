@@ -29,6 +29,7 @@ import { resolvePieceTheme } from "../lib/pieceThemes";
 import { uploadCourseAsset } from "../lib/courseStorage";
 import {
   addChapter,
+  canEditCourse,
   completeSubsection,
   getProgressForCourse,
   deleteChapter,
@@ -368,7 +369,6 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [location, navigate] = useLocation();
   const boardColors = resolveBoardTheme(user?.boardTheme).colors;
   const { key: pieceThemeKey, pieces: pieceSet } = useMemo(() => resolvePieceTheme(user?.pieceTheme), [user?.pieceTheme]);
-  const isAdmin = !!user?.isAdmin;
   const gameRef = useRef(new Chess());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const movesPanelRef = useRef<HTMLDivElement | null>(null);
@@ -384,6 +384,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [courseId, setCourseId] = useState(id || "");
   const [course, setCourse] = useState<Course | null>(null);
+  const canManageCourse = canEditCourse(course, user);
   const [loadingCourse, setLoadingCourse] = useState(false);
   const [chapterModal, setChapterModal] = useState<{
     mode: "create" | "edit";
@@ -659,7 +660,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
   };
 
   const handleAddChapter = async () => {
-    if (!isAdmin || !courseId) return;
+    if (!canManageCourse || !courseId) return;
     setChapterModal({
       mode: "create",
       title: "",
@@ -668,21 +669,21 @@ export default function LessonPlayer({ id }: { id?: string }) {
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
-    if (!isAdmin || !courseId) return;
+    if (!canManageCourse || !courseId) return;
     const confirmed = window.confirm("Delete this chapter and its subsections?");
     if (!confirmed) return;
     await deleteChapter(courseId, chapterId);
   };
 
   const handleDeleteSubsection = async (chapterId: string, subsectionId: string) => {
-    if (!isAdmin || !courseId) return;
+    if (!canManageCourse || !courseId) return;
     const confirmed = window.confirm("Delete this subsection?");
     if (!confirmed) return;
     await deleteSubsection(courseId, chapterId, subsectionId);
   };
 
   const handleReorderSubsection = async (chapterId: string, subsectionId: string) => {
-    if (!isAdmin || !courseId) return;
+    if (!canManageCourse || !courseId) return;
     const chapter = course?.chapters?.[chapterId];
     const subs = chapter?.subsections;
     if (!chapter || !subs) return;
@@ -2169,7 +2170,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
               </button>
             </div>
             <div className="p-4 space-y-3">
-              {isAdmin && (
+              {canManageCourse && (
                 <Button variant="outline" size="sm" onClick={handleAddChapter} className="w-full justify-center">
                   Add chapter
                 </Button>
@@ -2194,7 +2195,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                         <div className="text-xs text-white/60">Items: {subsections.length}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {isAdmin && (
+                        {canManageCourse && (
                           <>
                             <Button
                               size="sm"
@@ -2246,7 +2247,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                               <span>{item.title}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              {!isAdmin && (item.type === "video" || item.type === "study" || item.type === "pgn") && (
+                              {!canManageCourse && (item.type === "video" || item.type === "study" || item.type === "pgn") && (
                                 completedSubsections.has(item.id) ? (
                                   <span className="text-emerald-300 text-xs font-semibold">Completed</span>
                                 ) : (
@@ -2262,7 +2263,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                   </Button>
                                 )
                               )}
-                              {isAdmin && (
+                              {canManageCourse && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -2275,7 +2276,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               )}
-                              {isAdmin && (
+                              {canManageCourse && (
                                 <Button
                                   size="sm"
                                   variant="ghost"

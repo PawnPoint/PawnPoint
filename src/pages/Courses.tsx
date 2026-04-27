@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
+  canEditCourse,
   createCourse,
   deleteCourse,
   getCourses,
@@ -284,7 +285,7 @@ export default function Courses() {
                 key={course.id}
                 course={course}
                 onOpen={() => navigate(`/courses/${course.id}`)}
-                isAdmin={isAdmin}
+                canManage={canEditCourse(course, user)}
                 onEdit={() => startEditingCourse(course)}
                 onDelete={handleDeleteCourse}
               />
@@ -447,7 +448,7 @@ export default function Courses() {
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
-                  {editingCourse && (
+                  {editingCourse && !editingCourse.isShared && (
                     <Button
                       variant="ghost"
                       onClick={() => handleDeleteCourse(editingCourse)}
@@ -488,13 +489,13 @@ export default function Courses() {
 function CourseCard({
   course,
   onOpen,
-  isAdmin,
+  canManage,
   onEdit,
   onDelete,
 }: {
   course: Course;
   onOpen: () => void;
-  isAdmin: boolean;
+  canManage: boolean;
   onEdit: (course: Course) => void;
   onDelete: (course: Course) => void;
 }) {
@@ -505,7 +506,7 @@ function CourseCard({
       className="relative overflow-hidden transition flex flex-col card-solid border h-[360px]"
       style={{ backgroundColor: "#111724", borderColor: "#111724" }}
     >
-      {isAdmin && (
+      {canManage && (
         <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1">
           <button
             onClick={() => onEdit(course)}
@@ -514,13 +515,15 @@ function CourseCard({
           >
             <Pencil className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => onDelete(course)}
-            className="p-1 rounded-md hover:bg-white/10 text-red-200"
-            aria-label="Delete course"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {!course.isShared && (
+            <button
+              onClick={() => onDelete(course)}
+              className="p-1 rounded-md hover:bg-white/10 text-red-200"
+              aria-label="Delete course"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
       <img src={thumbnail} alt={course.title} className="h-32 w-full object-cover" />
