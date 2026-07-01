@@ -7,9 +7,11 @@ import { ArrowLeft, Check, RotateCcw, ShieldCheck, Sparkles, Trophy, Users, Zap 
 import { useAuth } from "../hooks/useAuth";
 import { auth } from "../lib/firebase";
 import { loadPaypalSdk } from "../lib/paypal";
+import { canAccessBlackBook, canAccessTrainingPage } from "../lib/access";
+import { checkoutReturnPath } from "../lib/checkoutRedirect";
 
 export default function Checkout() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { user, loading, setUser } = useAuth();
   const [showSummary, setShowSummary] = useState(false);
   const [paypalError, setPaypalError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export default function Checkout() {
     () => [
       "Elite Opening & Middlegame Library",
       "Global Rankings & Standings",
-      "SquareBase AI Training",
+      "BlackBook Training Library",
       "Private Training Groups",
       "Premium XP & Rewards System",
       "Future Features Included",
@@ -162,13 +164,126 @@ export default function Checkout() {
     setShowSummary(true);
   };
 
+  const returnTo = useMemo(() => checkoutReturnPath(location.split("?")[1] || ""), [location]);
+  const backTarget = useMemo(() => {
+    if (returnTo.startsWith("/blackbook") && !canAccessBlackBook(user)) return "/dashboard";
+    if (returnTo.startsWith("/training") && !canAccessTrainingPage(user)) return "/dashboard";
+    return returnTo || "/dashboard";
+  }, [returnTo, user]);
+
   const handlePageBack = useCallback(() => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    navigate("/");
-  }, [navigate]);
+    navigate(backTarget);
+  }, [backTarget, navigate]);
+
+  const freeFeatures = [
+    "Core dashboard and progress tracking",
+    "Limited course access",
+    "Daily puzzle training",
+  ];
+
+  const proFeatures = [
+    "Everything in Free Plan",
+    "Full course library access",
+    "Unlimited BlackBook study space",
+    "Global ranks and standings",
+    "Private club and team workspaces",
+    "AI assisted analysis tools",
+    "Premium puzzle and training flows",
+    "Custom profile rewards",
+    "Priority product updates",
+    "Standard security features",
+  ];
+
+  if (!showSummary) {
+    return (
+      <main className="min-h-screen bg-black px-6 py-16 text-white md:py-24">
+        <button
+          type="button"
+          aria-label="Go back"
+          onClick={handlePageBack}
+          className="fixed left-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/14 bg-black text-white transition hover:border-white/35 md:left-6 md:top-6"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
+        <section className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="text-[clamp(2.5rem,6vw,4.6rem)] font-semibold tracking-[-0.035em]">
+              Pricing that Scales with You
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-white/82">
+              Pawn Point gives players and clubs a focused training system for courses, progress, BlackBook study, and purposeful improvement.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-16 grid max-w-[980px] gap-0 md:mt-24 md:grid-cols-5">
+            <article className="flex flex-col justify-between rounded-xl border border-white/14 bg-black p-8 md:col-span-2 md:my-2 md:rounded-r-none md:border-r-0 lg:p-10">
+              <div>
+                <h2 className="text-base font-semibold">Free</h2>
+                <div className="my-4 text-3xl font-semibold tracking-tight">$0 / mo</div>
+                <p className="text-sm text-white/58">Per player</p>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(user ? "/dashboard" : "/login")}
+                  className="mt-6 h-11 w-full rounded-lg border border-white/18 text-sm font-semibold text-white transition hover:border-white/35 hover:bg-white/5"
+                >
+                  Get Started
+                </button>
+
+                <div className="my-6 border-t border-dashed border-white/18" />
+                <ul className="space-y-4 text-sm">
+                  {freeFeatures.map((feature) => (
+                    <li key={feature} className="flex items-center gap-3">
+                      <Check className="h-3.5 w-3.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+
+            <article className="rounded-xl border border-white/18 bg-[#262626] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.35)] md:col-span-3 lg:p-10">
+              <div className="grid gap-8 sm:grid-cols-[0.8fr_1fr]">
+                <div>
+                  <h2 className="text-base font-semibold">Pro</h2>
+                  <div className="my-4 text-3xl font-semibold tracking-tight">$25 / mo</div>
+                  <p className="text-sm text-white/58">Per player</p>
+
+                  <button
+                    type="button"
+                    onClick={handlePrimaryAction}
+                    disabled={loading}
+                    className="mt-7 h-12 w-full rounded-lg bg-white text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Get Started
+                  </button>
+
+                  {!loading && !canCheckout && (
+                    <p className="mt-4 text-sm leading-6 text-white/55">
+                      Sign in inside the app to continue with checkout.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold">Everything in free plus :</h3>
+                  <ul className="mt-6 space-y-4 text-sm">
+                    {proFeatures.map((feature) => (
+                      <li key={feature} className="flex items-center gap-3">
+                        <Check className="h-3.5 w-3.5 shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#030712] text-white">

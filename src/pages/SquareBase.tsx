@@ -20,8 +20,11 @@ import southKnight from "../assets/The South Knight.png";
 import avatarFallback from "../assets/Easter Default.png";
 import { PracticeBoard } from "./Practice";
 import { useAuth } from "../hooks/useAuth";
+import { AppShell } from "../components/AppShell";
 import { db } from "../lib/firebase";
 import { awardXp, getCurrentProfile } from "../lib/mockApi";
+import { canAccessBlackBook, canAccessTrainingPage } from "../lib/access";
+import { checkoutPath } from "../lib/checkoutRedirect";
 import "./squarebase.css";
 
 type SquareBaseTab = "explore" | "analysis" | "ai" | "blackbook";
@@ -470,7 +473,14 @@ const buildPlanWeek = () => {
 export default function SquareBase() {
   const [location, setLocation] = useLocation();
   const { user, setUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<SquareBaseTab>("explore");
+  const readTabFromLocation = (): SquareBaseTab => {
+    if (typeof window === "undefined") return "explore";
+    if (window.location.pathname === "/blackbook") return "blackbook";
+    if (window.location.pathname === "/training") return "ai";
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab === "blackbook" || tab === "analysis" || tab === "ai" || tab === "explore" ? tab : "explore";
+  };
+  const [activeTab, setActiveTab] = useState<SquareBaseTab>(readTabFromLocation);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const initialOverlay = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -489,10 +499,11 @@ export default function SquareBase() {
   const profileRef = useRef<HTMLDivElement | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
   const year = useMemo(() => new Date().getFullYear(), []);
-  const isSouthKnightGroup =
-    user?.groupId === "south-knight" || user?.groupCode?.includes("0055");
-  const canAccessPremium =
-    isSouthKnightGroup || user?.premiumAccess || user?.subscriptionStatus === "active";
+  const blackBookAllowed = canAccessBlackBook(user);
+  const trainingAllowed = canAccessTrainingPage(user);
+  const routePath = location.split("?")[0];
+  const showSquareBaseHeader =
+    activeTab !== "blackbook" && activeTab !== "ai" && routePath !== "/blackbook" && routePath !== "/training";
 
   const chessQuotes = useMemo(
     () => [
@@ -576,6 +587,11 @@ export default function SquareBase() {
   }, [overlayFromLocation]);
 
   useEffect(() => {
+    const nextTab = readTabFromLocation();
+    setActiveTab((current) => (current === nextTab ? current : nextTab));
+  }, [location]);
+
+  useEffect(() => {
     overlayTimers.current.forEach((t) => window.clearTimeout(t));
     overlayTimers.current = [];
 
@@ -603,11 +619,14 @@ export default function SquareBase() {
 
   useEffect(() => {
     if (!user) return;
-    if (!canAccessPremium && (activeTab === "blackbook" || activeTab === "ai")) {
-      setActiveTab("explore");
-      setLocation("/checkout");
+    if (activeTab === "blackbook" && !blackBookAllowed) {
+      setLocation(checkoutPath("/blackbook"));
+      return;
     }
-  }, [activeTab, canAccessPremium, setLocation, user]);
+    if (activeTab === "ai" && !trainingAllowed) {
+      setLocation(checkoutPath("/training"));
+    }
+  }, [activeTab, blackBookAllowed, setLocation, trainingAllowed, user]);
 
   const contentVisible = !showOverlay;
   const firstName = useMemo(() => {
@@ -666,15 +685,29 @@ export default function SquareBase() {
   }, []);
   const handleTabChange = useCallback(
     (tab: SquareBaseTab) => {
-      if ((tab === "blackbook" || tab === "ai") && user && !canAccessPremium) {
-        setLocation("/checkout");
+      if (tab === "blackbook" && user && !blackBookAllowed) {
+        setLocation(checkoutPath("/blackbook"));
+        closeMobileNav();
+        return;
+      }
+      if (tab === "ai" && user && !trainingAllowed) {
+        setLocation(checkoutPath("/training"));
         closeMobileNav();
         return;
       }
       setActiveTab(tab);
+      if (tab === "blackbook") {
+        setLocation("/blackbook");
+      } else if (tab === "ai") {
+        setLocation("/training");
+      } else if (tab === "explore") {
+        setLocation("/squarebase");
+      } else {
+        setLocation("/squarebase?tab=analysis");
+      }
       closeMobileNav();
     },
-    [canAccessPremium, closeMobileNav, setLocation, user],
+    [blackBookAllowed, closeMobileNav, setLocation, trainingAllowed, user],
   );
 
   useEffect(() => {
@@ -1644,7 +1677,9 @@ export default function SquareBase() {
   };
 
   return (
-    <div className="sb-root">
+    <AppShell>
+    <div className="sb-root sb-root--inside-shell">
+      {showSquareBaseHeader && (
       <header className="sb-shellHeader">
         <div className="sb-shellHeaderInner">
           <div className="sb-brandCluster">
@@ -1669,7 +1704,7 @@ export default function SquareBase() {
               Explore
             </button>
             <button
-              className={`sb-navItem ${activeTab === "blackbook" ? "sb-navItem--active" : ""}`}
+              className="sb-navItem"
               type="button"
               onClick={() => handleTabChange("blackbook")}
             >
@@ -1731,7 +1766,7 @@ export default function SquareBase() {
               Explore
             </button>
             <button
-              className={`sb-navItem ${activeTab === "blackbook" ? "sb-navItem--active" : ""}`}
+              className="sb-navItem"
               type="button"
               onClick={() => handleTabChange("blackbook")}
             >
@@ -1784,6 +1819,7 @@ export default function SquareBase() {
           </div>
         </div>
       </header>
+      )}
 
       <main className="sb-main">
         {activeTab === "explore" && <div className="sb-particles" aria-hidden="true" />}
@@ -1893,10 +1929,8 @@ export default function SquareBase() {
           )}
 
           {contentVisible && activeTab === "blackbook" && (
-            <div className="sb-analysis">
-              <div className="sb-analysisBoard">
-                <div className="sb-analysisBoardInner">
-                  <div className="sb-blackbook">
+            <div className="sb-blackbookPage">
+              <div className="sb-blackbook">
                     {!showBlackBookResult || !blackBookResult ? (
                       <div className="sb-blackbookCard">
                         <div className="sb-blackbookTitle">BlackBook OPX</div>
@@ -1998,10 +2032,20 @@ export default function SquareBase() {
                                     <h3>Playing as White</h3>
                                   </div>
                                   <div className="sb-opxOpeningList">
-                                    {(blackBookResult.openings?.white || []).slice(0, 2).map((opening) => (
-                                      <div className="sb-opxOpeningCard" key={`white-${opening.name}`}>
+                                    {(blackBookResult.openings?.white || []).slice(0, 5).map((opening) => (
+                                      <button
+                                        type="button"
+                                        className="sb-opxOpeningCard"
+                                        key={`white-${opening.name}`}
+                                        onClick={() => {
+                                          setDownloadColor("white");
+                                          setDownloadOpening(opening.name);
+                                        }}
+                                      >
                                         <h4>{opening.name}</h4>
-                                      </div>
+                                        <span>{opening.freq}%</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
                                     ))}
                                     {(blackBookResult.openings?.white || []).length === 0 && (
                                       <div className="sb-opxEmpty">No openings data yet.</div>
@@ -2014,10 +2058,20 @@ export default function SquareBase() {
                                     <h3>Playing as Black</h3>
                                   </div>
                                   <div className="sb-opxOpeningList">
-                                    {(blackBookResult.openings?.black || []).slice(0, 2).map((opening) => (
-                                      <div className="sb-opxOpeningCard" key={`black-${opening.name}`}>
+                                    {(blackBookResult.openings?.black || []).slice(0, 5).map((opening) => (
+                                      <button
+                                        type="button"
+                                        className="sb-opxOpeningCard"
+                                        key={`black-${opening.name}`}
+                                        onClick={() => {
+                                          setDownloadColor("black");
+                                          setDownloadOpening(opening.name);
+                                        }}
+                                      >
                                         <h4>{opening.name}</h4>
-                                      </div>
+                                        <span>{opening.freq}%</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
                                     ))}
                                     {(blackBookResult.openings?.black || []).length === 0 && (
                                       <div className="sb-opxEmpty">No openings data yet.</div>
@@ -2037,8 +2091,6 @@ export default function SquareBase() {
                         </div>
                       </div>
                     )}
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -2296,5 +2348,6 @@ export default function SquareBase() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

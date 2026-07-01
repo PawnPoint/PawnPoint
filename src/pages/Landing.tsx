@@ -5,8 +5,6 @@ import {
   Bot,
   BookOpen,
   CircleHelp,
-  CheckCircle2,
-  ChevronDown,
   Flame,
   GraduationCap,
   Headset,
@@ -21,15 +19,27 @@ import {
   X,
 } from "lucide-react";
 import ReviewsMarquee from "../components/ReviewsMarquee";
-import BlurText from "../components/BlurText";
-import Aurora from "../components/Aurora";
+import FeatureBento from "../components/FeatureBento";
+import Globe from "../components/Globe";
 import pawnPointIcon from "../assets/App tab icon.png";
-import pawnPointAdVideo from "../assets/PawnPointAD.mp4";
+import accLogo from "../assets/chess/acc-favicon-512.png";
+import chessableLogo from "../assets/chess/chessable-transparent.png";
+import chessSaLogo from "../assets/chess/chessa.png";
+import ecuLogo from "../assets/chess/ecu-transparent.png";
+import fideLogo from "../assets/chess/fide_transparent_512.png";
+import lichessLogo from "../assets/chess/lichess-transparent.png";
+import pawnLogo from "../assets/chess/chess-pawn-favicon-512.png";
+import usChessLogo from "../assets/chess/uschess-transparent.png";
 
-const heroHighlights = [
-  "No credit card required",
-  "Start in minutes",
-  "Built for serious players",
+const chessLogos = [
+  { src: accLogo, alt: "Chess academy logo" },
+  { src: chessableLogo, alt: "Chessable logo" },
+  { src: usChessLogo, alt: "US Chess logo" },
+  { src: fideLogo, alt: "FIDE logo" },
+  { src: chessSaLogo, alt: "Chess SA logo" },
+  { src: pawnLogo, alt: "Chess pawn logo" },
+  { src: lichessLogo, alt: "Lichess logo", className: "pp-logo-mark-light" },
+  { src: ecuLogo, alt: "European Chess Union logo" },
 ];
 
 const featureCards = [
@@ -91,11 +101,9 @@ export default function Landing() {
   const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
   const featuresRef = useRef<HTMLDivElement | null>(null);
   const faqSectionRef = useRef<HTMLDivElement | null>(null);
-  const landingVideoRef = useRef<HTMLVideoElement | null>(null);
   const year = useMemo(() => new Date().getFullYear(), []);
 
   const goToLogin = () => navigate("/login");
-  const goToSignup = () => navigate("/signup");
   const goToPricing = () => navigate("/checkout");
   const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const scrollToFaqs = () => faqSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -120,16 +128,6 @@ export default function Landing() {
       observer.observe(node);
     });
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const video = landingVideoRef.current;
-    if (!video) return;
-
-    const playPromise = video.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {});
-    }
   }, []);
 
   useEffect(() => {
@@ -252,14 +250,11 @@ export default function Landing() {
         isLight ? "bg-[#f7f7fb] text-slate-900" : "bg-[#050608] text-white"
       }`}
     >
-      <div className="pp-landing-bg absolute inset-x-0 top-0 h-screen pointer-events-none" aria-hidden="true">
-        <div style={{ width: "100%", height: "100%", position: "relative" }}>
-          <Aurora colorStops={["#5227FF", "#7cff67", "#5227FF"]} amplitude={1} blend={0.5} />
-        </div>
-        <div className="pp-landing-radial" />
-        <div className="pp-landing-dots" />
-        <div className="pp-landing-vignette" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#050608]" />
+      <div className="pp-landing-bg fixed inset-0 pointer-events-none" aria-hidden="true">
+        <div className="pp-grid-base" />
+        <div className="pp-grid-layer pp-grid-layer-primary" />
+        <div className="pp-grid-layer pp-grid-layer-secondary" />
+        <div className="pp-grid-vignette" />
       </div>
 
       <div className="relative z-10">
@@ -311,82 +306,53 @@ export default function Landing() {
             >
               Log in
             </button>
-            <button
-              onClick={() => {
-                setContactOpen(true);
-                setFaqOpen(false);
-              }}
-              className={`rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition ${
-                isLight
-                  ? "bg-slate-900 text-white hover:bg-slate-800"
-                  : "bg-white text-black hover:bg-white/90"
-              }`}
-            >
-              Book demo
-            </button>
           </div>
         </div>
       </div>
 
-      <main className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-20 pt-28 sm:pt-32 min-h-[calc(100vh-72px)] flex items-center">
-        <section className="w-full flex flex-col items-center text-center">
-          <div className="w-full max-w-5xl">
-            <BlurText
-              text="Where Serious Players Get Better"
-              delay={100}
-              className="mx-auto text-4xl max-[540px]:text-3xl max-[480px]:max-w-[10ch] max-[480px]:text-[1.75rem] sm:text-5xl md:text-6xl font-semibold leading-[0.95] tracking-tight"
-              direction="top"
-              threshold={0.1}
-              stepDuration={0.35}
-            />
-            <BlurText
-              text="Designed for players who take improvement seriously."
-              delay={50}
-              className={`mt-6 text-base sm:text-lg md:text-xl leading-relaxed block ${
-                isLight ? "text-slate-700" : "text-white/80"
+      <main className="pp-hero-shell relative max-w-6xl w-full mx-auto px-4 sm:px-6">
+        <section className="pp-hero-copy w-full flex flex-col items-center text-center">
+          <div className="w-full max-w-6xl">
+            <h1 className="pp-hero-title fade-in">
+              <span className="pp-hero-title-script">Master the game.</span>
+              <span className="pp-hero-title-solid">Measure the progress.</span>
+            </h1>
+            <p
+              className={`fade-in delay-1 mx-auto mt-5 max-w-2xl text-sm leading-7 sm:text-base ${
+                isLight ? "text-slate-700" : "text-white/78"
               }`}
-              direction="top"
-              threshold={0.1}
-              stepDuration={0.35}
-            />
-            <div className="mt-8 fade-in flex flex-col sm:flex-row items-center justify-center gap-3 w-full">
+            >
+              All-in-one chess training platform built to help players improve faster, track progress, and train with purpose.
+            </p>
+            <div className="mt-8 fade-in delay-2 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
               <button
-                onClick={goToSignup}
-                className="w-full sm:w-auto rounded-xl border border-white/16 bg-transparent hover:bg-white/10 text-white px-5 py-3 text-sm font-semibold transition"
+                onClick={goToLogin}
+                className="rounded-xl bg-[#f4f1ea] px-5 py-3 text-sm font-semibold text-[#181713] shadow-[0_18px_45px_rgba(255,255,255,0.08)] transition hover:bg-white"
               >
-                Get Started Free
+                Get started
               </button>
-              <div className="block w-full rounded-xl border border-white/12 bg-transparent sm:inline-flex sm:w-auto">
-                <button
-                  onClick={goToLogin}
-                  className={`block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold leading-tight transition ${
-                    isLight ? "text-slate-900 hover:bg-black/5" : "text-white/95 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  I already have an account
-                </button>
-              </div>
-            </div>
-            <div className="mt-5 fade-in flex flex-wrap items-center justify-center gap-4 text-[12px] sm:text-[13px] font-league-spartan">
-              {heroHighlights.map((item) => (
-                <div key={item} className="flex items-center gap-2 text-white/65">
-                  <CheckCircle2
-                    className="h-3.5 w-3.5 text-emerald-300 drop-shadow-[0_0_8px_rgba(16,185,129,0.75)]"
-                    aria-hidden="true"
-                  />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-col items-center">
-              <div className="h-px w-24 bg-white/15" />
-              <ChevronDown className="mt-4 h-5 w-5 text-white/50 animate-bounce" aria-hidden="true" />
+              <button
+                onClick={scrollToFeatures}
+                className="rounded-xl border border-white/16 bg-black/20 px-5 py-3 text-sm font-semibold text-white/86 transition hover:border-white/28 hover:bg-white/8 hover:text-white"
+              >
+                Learn more
+              </button>
             </div>
           </div>
         </section>
+        <section className="pp-logo-carousel" aria-label="Chess organization logos">
+          <div className="pp-logo-carousel-track">
+            {[...chessLogos, ...chessLogos].map((logo, idx) => (
+              <div className="pp-logo-carousel-item" key={`${logo.alt}-${idx}`} aria-hidden={idx >= chessLogos.length}>
+                <img className={logo.className} src={logo.src} alt={idx < chessLogos.length ? logo.alt : ""} />
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
-      <section ref={featuresRef} className="relative w-full px-4 sm:px-6 pb-20">
-        <div className="max-w-6xl mx-auto">
+      <section ref={featuresRef} className="relative w-full px-4 sm:px-6 pt-[7.5rem] pb-20">
+        <FeatureBento />
+        <div className="hidden max-w-6xl mx-auto">
           <div className="text-center pb-10 sm:pb-12 fade-in">
             <div
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.2em] ${
@@ -433,24 +399,20 @@ export default function Landing() {
           </div>
         </div>
       </section>
-      <section className="relative w-full px-4 sm:px-6 pb-20">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="fade-in text-center text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
-            See Pawn Point in motion.
-          </h2>
-          <div className="fade-in mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-black/30 shadow-[0_30px_120px_rgba(0,0,0,0.4)] backdrop-blur-sm">
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_48%)]" />
-              <video
-                ref={landingVideoRef}
-                src={pawnPointAdVideo}
-                className="aspect-video w-full bg-black object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
-              />
+      <section className="relative w-full px-4 py-24 sm:px-6">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="fade-in max-w-xl">
+            <h2 className="whitespace-nowrap text-[clamp(1.45rem,5vw,3.5rem)] font-semibold tracking-tight text-white">
+              Users Across the globe
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-white/68 sm:text-base">
+              A focused training network for serious players, clubs, and coaches. Pawn Point connects improvement, progress, and competition into one shared chess ecosystem.
+            </p>
+          </div>
+
+          <div className="fade-in delay-1 flex justify-center lg:justify-end">
+            <div className="h-[340px] w-full max-w-[560px] sm:h-[460px] lg:h-[540px]" aria-hidden="true">
+              <Globe />
             </div>
           </div>
         </div>
@@ -490,7 +452,7 @@ export default function Landing() {
             })}
           </div>
 
-          <div className="fade-in delay-2 mt-12 rounded-[30px] border border-white/10 bg-white/[0.03] px-6 py-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:px-8 sm:py-10">
+          <div className="hidden fade-in delay-2 mt-12 rounded-[30px] border border-white/10 bg-white/[0.03] px-6 py-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:px-8 sm:py-10">
             <h3 className="text-2xl font-semibold tracking-tight text-white">
               Book a demo
             </h3>

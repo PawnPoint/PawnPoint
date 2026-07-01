@@ -7,8 +7,28 @@ import {
   normalizeProfileAvatarValue,
   resolveProfileAvatarUrl,
 } from "./profileAvatars";
+import { uploadProfileAvatarToSupabase } from "./supabaseContent";
 
 export type DailyPuzzleType = "easy" | "medium" | "hard";
+
+export type ExternalRatingRecord = {
+  username?: string;
+  displayName?: string;
+  rating?: number | null;
+  bullet?: number | null;
+  blitz?: number | null;
+  rapid?: number | null;
+  classical?: number | null;
+  rapidHistory?: { date: string; rating: number }[];
+  syncedAt?: number;
+  manuallyEditedAt?: number;
+};
+
+export type ExternalRatings = {
+  fide?: ExternalRatingRecord | null;
+  chesscom?: ExternalRatingRecord | null;
+  lichess?: ExternalRatingRecord | null;
+};
 
 export type UserProfile = {
   id: string;
@@ -39,6 +59,7 @@ export type UserProfile = {
   pawns?: number;
   chessUsername?: string;
   onlineRating?: number;
+  externalRatings?: ExternalRatings;
   totalXp: number;
   level: number;
   isAdmin: boolean;
@@ -67,9 +88,13 @@ export type Group = {
   createdBy: string;
   createdAt: number;
   locked?: boolean;
+  teamUrl?: string;
+  avatarUrl?: string;
   pausedMembers?: Record<string, GroupMember>;
   removedMembers?: Record<string, GroupRemovedMember>;
 };
+
+export type GroupProfileSettings = Pick<Group, "id" | "name" | "code" | "teamUrl" | "avatarUrl">;
 
 export type GroupMember = {
   id: string;
@@ -77,6 +102,14 @@ export type GroupMember = {
   email?: string;
   role: "admin" | "member";
   joinedAt?: number;
+};
+
+export type UserClubMembership = {
+  id: string;
+  name: string;
+  code: string;
+  role: "admin" | "member";
+  locked?: boolean;
 };
 
 export type Lesson = {
@@ -97,6 +130,7 @@ export type Course = {
   chapters?: Record<string, Chapter>;
   isShared?: boolean;
   managedByGroupId?: string | null;
+  contentUpdatedAt?: number;
 };
 
 export type Chapter = {
@@ -130,6 +164,8 @@ export type Subsection =
       id: string;
       type: "study";
       title: string;
+      pgn?: string;
+      fen?: string;
       index?: number;
       parentStudyId?: string;
       trainerNote?: string;
@@ -384,6 +420,17 @@ function scopedStorageKey(base: string, scope: DataScope) {
   return `${base}:${scope.cacheKey}`;
 }
 
+function courseSubsectionsPath(courseId: string, chapterId: string, user?: UserProfile | null, isShared = false) {
+  return isShared
+    ? `${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`
+    : scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user).path;
+}
+
+function isPermissionDeniedError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err || "");
+  return message.toLowerCase().includes("permission denied");
+}
+
 function resolveClubScope(user?: UserProfile | null): ScopedResource {
   const active = user || readUser();
   if (active?.groupId) {
@@ -565,6 +612,7 @@ function readUser(): UserProfile | null {
     parsed.selectedTagline = parsed.selectedTagline ?? "";
     parsed.avatarKey = normalizeProfileAvatarValue(parsed.avatarKey ?? parsed.avatarUrl);
     parsed.avatarUrl = normalizeAvatarUrl(parsed.avatarKey);
+    parsed.externalRatings = normalizeExternalRatings(parsed.externalRatings);
     parsed.onlineRating = typeof parsed.onlineRating === "number" ? parsed.onlineRating : 1000;
     parsed.dailyPuzzleTypes = normalizeDailyPuzzleTypes(parsed.dailyPuzzleTypes);
     parsed.boardTheme = resolveBoardTheme(parsed.boardTheme).key;
@@ -775,6 +823,14 @@ function cleanSubsection(sub: Subsection): Subsection {
   if (typeof base.index !== "number") {
     delete base.index;
   }
+  if ("pgn" in base) {
+    const pgn = typeof base.pgn === "string" ? base.pgn.trim() : "";
+    if (!pgn) {
+      delete base.pgn;
+    } else {
+      base.pgn = pgn;
+    }
+  }
   if ("fen" in base) {
     const fen = typeof base.fen === "string" ? base.fen.trim() : "";
     if (!fen) {
@@ -862,6 +918,33 @@ function normalizeCourseRecord(record: CourseRecord): CourseRecord {
   return next;
 }
 
+function countCourseContent(course: Course | null | undefined) {
+  if (!course?.chapters) return 0;
+  return Object.values(course.chapters).reduce((total, chapter) => {
+    return total + Object.keys(chapter.subsections || {}).length;
+  }, 0);
+}
+
+function chooseLatestCourseContent(left: Course | undefined, right: Course | undefined): Course | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  const leftUpdated = typeof left.contentUpdatedAt === "number" ? left.contentUpdatedAt : 0;
+  const rightUpdated = typeof right.contentUpdatedAt === "number" ? right.contentUpdatedAt : 0;
+  if (leftUpdated !== rightUpdated) return leftUpdated > rightUpdated ? left : right;
+  return countCourseContent(left) >= countCourseContent(right) ? left : right;
+}
+
+function mergeCourseRecords(...records: CourseRecord[]): CourseRecord {
+  const merged: CourseRecord = {};
+  records.forEach((record) => {
+    Object.entries(record || {}).forEach(([courseId, course]) => {
+      const chosen = chooseLatestCourseContent(merged[courseId], course);
+      if (chosen) merged[courseId] = chosen;
+    });
+  });
+  return normalizeCourseRecord(merged);
+}
+
 function stripUndefinedDeep<T>(input: T): T {
   if (Array.isArray(input)) {
     return input.map((item) => stripUndefinedDeep(item)) as unknown as T;
@@ -885,6 +968,74 @@ function stripUndefinedShallow<T extends Record<string, unknown>>(input: T): T {
     }
   });
   return next as T;
+}
+
+function normalizeExternalRatingValue(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : null;
+}
+
+function normalizeRatingHistory(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const history = value
+    .map((entry) => {
+      const date = typeof entry?.date === "string" ? entry.date.slice(0, 10) : "";
+      const rating = normalizeExternalRatingValue(entry?.rating);
+      if (!date || rating === null) return null;
+      return { date, rating };
+    })
+    .filter((entry): entry is { date: string; rating: number } => !!entry)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-12);
+  return history.length ? history : undefined;
+}
+
+function normalizeExternalRatingRecord(record: ExternalRatingRecord | null | undefined, source: keyof ExternalRatings) {
+  if (!record || typeof record !== "object") return null;
+  if (source === "fide") {
+    const rating = normalizeExternalRatingValue(record.rating);
+    if (rating === null) return null;
+    return stripUndefinedShallow({
+      rating,
+      manuallyEditedAt: typeof record.manuallyEditedAt === "number" ? record.manuallyEditedAt : Date.now(),
+    });
+  }
+
+  const username = String(record.username || "").trim();
+  if (!username) return null;
+  return stripUndefinedShallow({
+    username,
+    displayName: String(record.displayName || username).trim(),
+    bullet: normalizeExternalRatingValue(record.bullet),
+    blitz: normalizeExternalRatingValue(record.blitz),
+    rapid: normalizeExternalRatingValue(record.rapid),
+    classical: normalizeExternalRatingValue(record.classical),
+    rapidHistory: normalizeRatingHistory(record.rapidHistory),
+    syncedAt: typeof record.syncedAt === "number" ? record.syncedAt : Date.now(),
+  });
+}
+
+function normalizeExternalRatings(ratings?: ExternalRatings | null): ExternalRatings {
+  if (!ratings || typeof ratings !== "object") return {};
+  return stripUndefinedShallow({
+    fide: normalizeExternalRatingRecord(ratings.fide, "fide") || undefined,
+    chesscom: normalizeExternalRatingRecord(ratings.chesscom, "chesscom") || undefined,
+    lichess: normalizeExternalRatingRecord(ratings.lichess, "lichess") || undefined,
+  });
+}
+
+function deriveExternalOnlineRating(ratings: ExternalRatings | undefined, fallback = 1000) {
+  const chesscom = ratings?.chesscom;
+  const lichess = ratings?.lichess;
+  const fide = ratings?.fide;
+  return (
+    normalizeExternalRatingValue(chesscom?.rapid) ??
+    normalizeExternalRatingValue(chesscom?.blitz) ??
+    normalizeExternalRatingValue(lichess?.rapid) ??
+    normalizeExternalRatingValue(lichess?.blitz) ??
+    normalizeExternalRatingValue(fide?.rating) ??
+    Math.max(0, Math.round(fallback || 1000))
+  );
 }
 
 function buildUserSyncPayload(profile: UserProfile) {
@@ -914,6 +1065,7 @@ function buildUserSyncPayload(profile: UserProfile) {
     streakDeadlineAt: profile.streakDeadlineAt ?? nextDayDeadlineMs(new Date()),
     pawns: Math.max(0, profile.pawns ?? 0),
     chessUsername: profile.chessUsername || profile.displayName || profile.email.split("@")[0],
+    externalRatings: normalizeExternalRatings(profile.externalRatings),
     onlineRating: typeof profile.onlineRating === "number" ? profile.onlineRating : 1000,
     boardTheme: resolveBoardTheme(profile.boardTheme).key,
     pieceTheme: resolvePieceTheme(profile.pieceTheme).key,
@@ -1121,6 +1273,7 @@ async function writeChapterEntry(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [normalizedChapter.id]: normalizedChapter,
@@ -1134,6 +1287,7 @@ async function writeChapterEntry(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [normalizedChapter.id]: normalizedChapter,
@@ -1162,6 +1316,7 @@ async function updateChapterEntry(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1195,14 +1350,14 @@ async function deleteChapterEntry(courseId: string, chapterId: string, user?: Us
       if (!course?.chapters?.[chapterId]) return course;
       const chapters = { ...course.chapters };
       delete chapters[chapterId];
-      return { ...course, chapters };
+      return { ...course, chapters, contentUpdatedAt: Date.now() };
     });
   } catch (err) {
     mutateLocalCourse(courseId, user, (course) => {
       if (!course?.chapters?.[chapterId]) return course;
       const chapters = { ...course.chapters };
       delete chapters[chapterId];
-      return { ...course, chapters };
+      return { ...course, chapters, contentUpdatedAt: Date.now() };
     });
     console.error("Failed to delete chapter from Firebase; removed local copy instead.", err);
     throw new Error("Cloud save failed. Check network/Firebase rules.");
@@ -1212,20 +1367,19 @@ async function deleteChapterEntry(courseId: string, chapterId: string, user?: Us
 async function applySubsectionUpdates(
   courseId: string,
   chapterId: string,
-  updatesPayload: Record<string, unknown>,
+  _updatesPayload: Record<string, unknown>,
   nextChapter: Chapter,
   user?: UserProfile | null,
 ): Promise<Chapter> {
   const normalizedChapter = normalizeChapterEntry(nextChapter);
-  const safePayload = stripUndefinedDeep(updatesPayload);
+  const { path } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}`, user);
   try {
-    if (Object.keys(safePayload).length > 0) {
-      await update(ref(db), safePayload);
-    }
+    await set(ref(db, path), normalizedChapter);
     mutateLocalCourse(courseId, user, (course) =>
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1239,6 +1393,7 @@ async function applySubsectionUpdates(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1260,6 +1415,7 @@ async function writeSharedChapterEntry(courseId: string, chapter: Chapter): Prom
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [normalizedChapter.id]: normalizedChapter,
@@ -1273,6 +1429,7 @@ async function writeSharedChapterEntry(courseId: string, chapter: Chapter): Prom
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [normalizedChapter.id]: normalizedChapter,
@@ -1300,6 +1457,7 @@ async function updateSharedChapterEntry(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1313,6 +1471,7 @@ async function updateSharedChapterEntry(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1333,14 +1492,14 @@ async function deleteSharedChapterEntry(courseId: string, chapterId: string): Pr
       if (!course?.chapters?.[chapterId]) return course;
       const chapters = { ...course.chapters };
       delete chapters[chapterId];
-      return { ...course, chapters };
+      return { ...course, chapters, contentUpdatedAt: Date.now() };
     });
   } catch (err) {
     mutateSharedLocalCourse(courseId, (course) => {
       if (!course?.chapters?.[chapterId]) return course;
       const chapters = { ...course.chapters };
       delete chapters[chapterId];
-      return { ...course, chapters };
+      return { ...course, chapters, contentUpdatedAt: Date.now() };
     });
     console.error("Failed to delete shared chapter from Firebase; removed local copy instead.", err);
     throw new Error("Cloud save failed. Check network/Firebase rules.");
@@ -1350,19 +1509,18 @@ async function deleteSharedChapterEntry(courseId: string, chapterId: string): Pr
 async function applySharedSubsectionUpdates(
   courseId: string,
   chapterId: string,
-  updatesPayload: Record<string, unknown>,
+  _updatesPayload: Record<string, unknown>,
   nextChapter: Chapter,
 ): Promise<Chapter> {
   const normalizedChapter = normalizeChapterEntry(nextChapter);
-  const safePayload = stripUndefinedDeep(updatesPayload);
+  const path = `${COURSES_PATH}/${courseId}/chapters/${chapterId}`;
   try {
-    if (Object.keys(safePayload).length > 0) {
-      await update(ref(db), safePayload);
-    }
+    await set(ref(db, path), normalizedChapter);
     mutateSharedLocalCourse(courseId, (course) =>
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1376,6 +1534,7 @@ async function applySharedSubsectionUpdates(
       course
         ? {
             ...course,
+            contentUpdatedAt: Date.now(),
             chapters: {
               ...(course.chapters || {}),
               [chapterId]: normalizedChapter,
@@ -1406,10 +1565,13 @@ async function fetchCourseRecord(user?: UserProfile | null): Promise<CourseRecor
           writeCoursesLocal(patched, scope);
         }
       }
-      return patched;
+      const local = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
+      const merged = stripUndefinedDeep(mergeCourseRecords(patched, local));
+      writeCoursesLocal(merged, scope);
+      return merged;
     }
-    // if nothing exists, return empty (no auto-seed)
-    return {};
+    const local = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
+    return local;
   } catch (err) {
     const local = stripUndefinedDeep(normalizeCourseRecord(readCoursesLocal(scope)));
     if (Object.keys(local).length) {
@@ -1436,10 +1598,12 @@ async function fetchSharedCourseRecord(): Promise<CourseRecord> {
           .map(([id, course]) => [id, { ...course, isShared: true, managedByGroupId: null }]),
       ) as CourseRecord;
       const normalized = stripUndefinedDeep(normalizeCourseRecord(filtered));
-      writeSharedCoursesLocal(normalized);
-      return normalized;
+      const local = stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
+      const mergedBase = mergeCourseRecords(normalized, local);
+      writeSharedCoursesLocal(mergedBase);
+      return mergedBase;
     }
-    return {};
+    return stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
   } catch (err) {
     const local = stripUndefinedDeep(normalizeCourseRecord(readSharedCoursesLocal()));
     if (Object.keys(local).length) {
@@ -1447,7 +1611,9 @@ async function fetchSharedCourseRecord(): Promise<CourseRecord> {
         Object.entries(local).filter(([id]) => PLATFORM_COURSE_IDS.has(id)),
       ) as CourseRecord;
     }
-    console.warn("Failed to fetch shared courses; returning local/empty.", err);
+    if (!isPermissionDeniedError(err)) {
+      console.warn("Failed to fetch shared courses; returning local/empty.", err);
+    }
     return {};
   }
 }
@@ -1559,6 +1725,14 @@ export function listenCourse(
   const isSharedCourse = PLATFORM_COURSE_IDS.has(courseId);
   const path = isSharedCourse ? `${COURSES_PATH}/${courseId}` : scopedPath(`${COURSES_PATH}/${courseId}`, user).path;
   const courseRef = ref(db, path);
+
+  const emitMergedCourse = (firebaseCourse: Course | null) => {
+    const local = isSharedCourse ? readSharedCoursesLocal() : readCoursesLocal(scope);
+    const localCourse = local[courseId] ? normalizeCourseEntry(local[courseId]) : null;
+    const immediate = chooseLatestCourseContent(firebaseCourse || undefined, localCourse || undefined) || null;
+    callback(immediate);
+  };
+
   const off = onValue(
     courseRef,
     (snap) => {
@@ -1575,14 +1749,16 @@ export function listenCourse(
           : val
             ? { ...val, thumbnailUrl: DEFAULT_COURSE_THUMBNAIL }
             : null;
-      callback(normalized || null);
+      emitMergedCourse(normalized || null);
     },
     () => {
       const local = isSharedCourse ? readSharedCoursesLocal() : readCoursesLocal(scope);
-      callback(local[courseId] || null);
+      emitMergedCourse(local[courseId] ? normalizeCourseEntry(local[courseId]) : null);
     },
   );
-  return () => off();
+  return () => {
+    off();
+  };
 }
 
 function readProgress(): Record<string, CourseProgress> {
@@ -1606,17 +1782,33 @@ type ProgressRecord = {
   lastUpdated?: number;
 };
 
-function listTrackableSubsections(course: Course | null): Subsection[] {
-  if (!course?.chapters) return [];
+export function subsectionHasInlinePgn(subsection: Subsection | null | undefined): boolean {
+  return !!subsection && typeof (subsection as { pgn?: string }).pgn === "string" && !!(subsection as { pgn?: string }).pgn?.trim();
+}
 
-  const subsections = Object.values(course.chapters).flatMap((chapter) => Object.values(chapter.subsections || {}));
-  const parentStudyIds = new Set(
+function buildAttachedStudyIdSet(subsections: Subsection[]): Set<string> {
+  return new Set(
     subsections
       .map((subsection) => ("parentStudyId" in subsection ? subsection.parentStudyId : undefined))
       .filter((value): value is string => typeof value === "string" && value.trim().length > 0),
   );
+}
 
-  return subsections.filter((subsection) => subsection.type !== "study" || !parentStudyIds.has(subsection.id));
+export function isTrackableCourseSubsection(
+  subsection: Subsection,
+  attachedStudyIds?: ReadonlySet<string>,
+): boolean {
+  if (subsection.type === "video") return false;
+  if (subsection.type !== "study") return true;
+  return subsectionHasInlinePgn(subsection) || !attachedStudyIds?.has(subsection.id);
+}
+
+function listTrackableSubsections(course: Course | null): Subsection[] {
+  if (!course?.chapters) return [];
+
+  const subsections = Object.values(course.chapters).flatMap((chapter) => Object.values(chapter.subsections || {}));
+  const attachedStudyIds = buildAttachedStudyIdSet(subsections);
+  return subsections.filter((subsection) => isTrackableCourseSubsection(subsection, attachedStudyIds));
 }
 
 function normalizeStreakRow(base: Partial<StreakRow> | null | undefined, userId: string, today = toLocalDateKey()): StreakRow {
@@ -2270,6 +2462,7 @@ export async function ensureProfile(
       createdAt: remoteProfile.createdAt ?? baseProfile.createdAt,
       xpReachedAt: remoteProfile.xpReachedAt ?? baseProfile.xpReachedAt ?? baseProfile.createdAt ?? Date.now(),
       pawns: remoteProfile.pawns ?? baseProfile.pawns ?? 0,
+      externalRatings: normalizeExternalRatings(remoteProfile.externalRatings ?? baseProfile.externalRatings),
       onlineRating: remoteProfile.onlineRating ?? baseProfile.onlineRating ?? 1000,
       totalXp: remoteProfile.totalXp ?? baseProfile.totalXp,
       level: remoteProfile.level ?? baseProfile.level,
@@ -2755,6 +2948,27 @@ export async function updateOnlineRating(userId: string, rating: number): Promis
   return normalized;
 }
 
+export async function updateExternalRatings(
+  userId: string,
+  ratings: ExternalRatings,
+): Promise<UserProfile | null> {
+  const user = readUser();
+  if (!user || user.id !== userId) return null;
+  const externalRatings = normalizeExternalRatings(ratings);
+  const onlineRating = deriveExternalOnlineRating(externalRatings, user.onlineRating);
+  const normalized = normalizeUser({ ...user, externalRatings, onlineRating });
+  writeUser(normalized);
+  try {
+    await update(ref(db, `users/${userId}`), {
+      externalRatings,
+      onlineRating,
+    });
+  } catch (err) {
+    console.warn("Failed to sync external ratings", err);
+  }
+  return normalized;
+}
+
 export async function updateBoardTheme(theme: string, pieceTheme?: string): Promise<UserProfile | null> {
   const user = readUser();
   if (!user) return null;
@@ -3066,6 +3280,87 @@ export async function choosePersonalAccount(): Promise<UserProfile | null> {
   return updated;
 }
 
+export async function getUserClubMemberships(userId?: string | null): Promise<UserClubMembership[]> {
+  const user = readUser();
+  const activeUserId = userId || user?.id;
+  if (!activeUserId) return [];
+  try {
+    const snap = await get(ref(db, "groups"));
+    if (!snap.exists()) return [];
+    const groups = snap.val() as Record<string, Group & { members?: Record<string, GroupMember> }>;
+    return Object.entries(groups || {})
+      .map(([id, group]) => {
+        const member = group?.members?.[activeUserId];
+        const isCreator = group?.createdBy === activeUserId;
+        if (!member && !isCreator) return null;
+        const role: GroupMember["role"] =
+          member?.role === "admin" || member?.role === "member"
+            ? member.role
+            : isCreator
+              ? "admin"
+              : "member";
+        return {
+          id: group.id || id,
+          name: group.name || DEFAULT_GROUP_NAME,
+          code: group.code || "",
+          role,
+          locked: !!group.locked,
+        };
+      })
+      .filter((group): group is UserClubMembership => !!group)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  } catch (err) {
+    console.warn("Failed to load user club memberships", err);
+    return [];
+  }
+}
+
+export async function switchActiveClub(groupId: string): Promise<UserProfile | null> {
+  const user = readUser();
+  if (!user) return null;
+  const groupData = await fetchGroupById(groupId);
+  if (!groupData) throw new Error("That club no longer exists.");
+  if (groupData.locked) throw new Error("This club is paused. Ask the owner to resubscribe.");
+
+  const member = groupData.members?.[user.id] ?? null;
+  const isCreator = groupData.createdBy === user.id;
+  if (!member && !isCreator) throw new Error("You are not a member of that club.");
+
+  const role: GroupMember["role"] =
+    member?.role === "admin" || member?.role === "member" ? member.role : isCreator ? "admin" : "member";
+  if (!member && isCreator) {
+    try {
+      await set(ref(db, `groups/${groupData.id || groupId}/members/${user.id}`), {
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        role,
+        joinedAt: Date.now(),
+      } satisfies GroupMember);
+    } catch (err) {
+      console.warn("Failed to restore creator membership", err);
+    }
+  }
+
+  const updated: UserProfile = normalizeUser({
+    ...user,
+    accountType: "group",
+    groupId: groupData.id || groupId,
+    groupCode: groupData.code || "",
+    groupName: groupData.name || DEFAULT_GROUP_NAME,
+    groupRole: role,
+    groupLocked: !!groupData.locked,
+  });
+  writeUser(updated);
+  try {
+    await update(ref(db, `users/${user.id}`), buildUserSyncPayload(updated));
+  } catch (err) {
+    console.warn("Failed to sync active club", err);
+  }
+  await fetchCourseRecord(updated).catch(() => undefined);
+  return updated;
+}
+
 export async function createGroupForUser(
   name?: string,
 ): Promise<{ group: Group; profile: UserProfile } | null> {
@@ -3323,6 +3618,86 @@ export async function renameGroup(admin: UserProfile | null, newName: string): P
     code: existingGroup?.code || admin.groupCode || "",
     createdBy: existingGroup?.createdBy || admin.id,
     createdAt: existingGroup?.createdAt || Date.now(),
+    teamUrl: existingGroup?.teamUrl,
+    avatarUrl: existingGroup?.avatarUrl,
+  };
+}
+
+export async function getGroupProfileSettings(admin: UserProfile | null): Promise<GroupProfileSettings | null> {
+  if (!admin?.groupId || admin.groupRole !== "admin") return null;
+  const group = await fetchGroupById(admin.groupId);
+  if (!group) return null;
+  return {
+    id: group.id || admin.groupId,
+    name: group.name || admin.groupName || "Group",
+    code: group.code || admin.groupCode || "",
+    teamUrl: group.teamUrl || "",
+    avatarUrl: group.avatarUrl || "",
+  };
+}
+
+export async function updateGroupProfileSettings(
+  admin: UserProfile | null,
+  patch: { name?: string; teamUrl?: string; avatarUrl?: string },
+): Promise<GroupProfileSettings | null> {
+  if (!admin?.groupId || admin.groupRole !== "admin") throw new Error("Only group admins can edit team settings.");
+  const group = await fetchGroupById(admin.groupId);
+  if (!group) throw new Error("That team no longer exists.");
+
+  const updates: Partial<Group> = {};
+  const nextName = patch.name?.trim();
+  if (nextName !== undefined) {
+    if (!nextName) throw new Error("Enter a team name.");
+    if (nextName.length > 32) throw new Error("Use 32 characters at maximum.");
+    updates.name = nextName;
+  }
+  const nextUrl = patch.teamUrl?.trim().toLowerCase();
+  if (nextUrl !== undefined) {
+    if (nextUrl.length > 48) throw new Error("Use 48 characters at maximum.");
+    if (nextUrl && !/^[a-z0-9][a-z0-9-]{0,47}$/.test(nextUrl)) {
+      throw new Error("Use lowercase letters, numbers, and hyphens only.");
+    }
+    updates.teamUrl = nextUrl;
+  }
+  if (patch.avatarUrl !== undefined) {
+    try {
+      updates.avatarUrl = await uploadProfileAvatarToSupabase(`group-${admin.groupId}`, patch.avatarUrl);
+    } catch (err) {
+      console.warn("Supabase team profile picture upload failed; saving existing avatar value.", err);
+      updates.avatarUrl = patch.avatarUrl;
+    }
+  }
+
+  if (Object.keys(updates).length) {
+    await update(ref(db, `groups/${admin.groupId}`), updates).catch((err) => {
+      console.warn("Failed to update group profile settings", err);
+      throw new Error("Could not save team settings.");
+    });
+  }
+
+  if (updates.name) {
+    const members = await getGroupMembers(admin.groupId);
+    await Promise.all(
+      members.map(async (member) => {
+        try {
+          await update(ref(db, `users/${member.id}`), { groupName: updates.name });
+        } catch (err) {
+          console.warn("Failed to sync team name update", err);
+        }
+      }),
+    );
+    if (admin.id === readUser()?.id) {
+      writeUser({ ...admin, groupName: updates.name });
+    }
+  }
+
+  const latest = await fetchGroupById(admin.groupId);
+  return {
+    id: latest?.id || admin.groupId,
+    name: latest?.name || updates.name || admin.groupName || "Group",
+    code: latest?.code || admin.groupCode || "",
+    teamUrl: latest?.teamUrl || "",
+    avatarUrl: latest?.avatarUrl || "",
   };
 }
 
@@ -3571,7 +3946,7 @@ export async function saveSubsection(
   cleanedExisting[id] = cleanSubsection({ ...subsection, id, index: nextIndex } as Subsection);
   const reindexed = reindexSubsections(cleanedExisting);
   const nextChapter = { ...chapter, subsections: reindexed };
-  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const subsectionsPath = courseSubsectionsPath(courseId, chapterId, user, isShared);
   const updates: Record<string, unknown> = {
     [`${subsectionsPath}/${id}`]: reindexed[id],
   };
@@ -3623,7 +3998,7 @@ export async function reorderSubsections(
 
   const reindexed = reindexSubsections(reordered, orderedIds);
   const nextChapter = { ...chapter, subsections: reindexed };
-  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const subsectionsPath = courseSubsectionsPath(courseId, chapterId, user, isShared);
   const updates: Record<string, unknown> = {};
   Object.entries(reindexed).forEach(([id, sub]) => {
     if (subs[id]?.index !== sub.index) {
@@ -3649,7 +4024,7 @@ export async function deleteSubsection(courseId: string, chapterId: string, subs
   delete remaining[subsectionId];
   const reindexed = reindexSubsections(remaining);
   const nextChapter = { ...chapter, subsections: reindexed };
-  const { path: subsectionsPath } = scopedPath(`${COURSES_PATH}/${courseId}/chapters/${chapterId}/subsections`, user);
+  const subsectionsPath = courseSubsectionsPath(courseId, chapterId, user, isShared);
   const updates: Record<string, unknown> = {
     [`${subsectionsPath}/${subsectionId}`]: null,
   };
@@ -3739,6 +4114,7 @@ function normalizeUser(u: UserProfile): UserProfile {
     unlockedSets: u.unlockedSets || [],
     selectedTagline: u.selectedTagline ?? "",
     taglinesEnabled: u.taglinesEnabled ?? true,
+    externalRatings: normalizeExternalRatings(u.externalRatings),
     onlineRating: typeof u.onlineRating === "number" ? u.onlineRating : 1000,
     premiumAccess: u.premiumAccess ?? false,
     paypalSubscriptionId: u.paypalSubscriptionId ?? null,
@@ -3790,7 +4166,13 @@ export async function updateProfileAvatar(
 ): Promise<UserProfile | null> {
   const user = readUser();
   if (!user || user.id !== userId) return null;
-  const avatarKey = normalizeProfileAvatarValue(avatarValue);
+  let resolvedAvatarValue = avatarValue;
+  try {
+    resolvedAvatarValue = await uploadProfileAvatarToSupabase(userId, avatarValue);
+  } catch (err) {
+    console.warn("Supabase profile picture upload failed; saving existing avatar value.", err);
+  }
+  const avatarKey = normalizeProfileAvatarValue(resolvedAvatarValue);
   const normalized = normalizeUser({
     ...user,
     avatarKey,

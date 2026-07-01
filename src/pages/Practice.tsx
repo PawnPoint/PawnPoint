@@ -463,6 +463,14 @@ type EngineLine = {
   pv?: string[];
 };
 
+const getFenSideToMove = (fenString: string): Color => (fenString.split(/\s+/)[1] === "b" ? "b" : "w");
+
+const normalizeUciScoreForWhite = (score: number, fenString: string) =>
+  getFenSideToMove(fenString) === "b" ? -score : score;
+
+const mateScoreToDisplayScore = (mate: number) =>
+  mate >= 0 ? 100000 - Math.abs(mate) : -100000 + Math.abs(mate);
+
 function parseBestMove(raw: string): { from: Square; to: Square; promotion?: PieceSymbol } | null {
   const tokens = raw.trim().split(/\s+/);
   const idx = tokens.indexOf("bestmove");
@@ -562,6 +570,7 @@ export function PracticeBoard({
   const [makeMovesOpen, setMakeMovesOpen] = useState(false);
   const [multipvLines, setMultipvLines] = useState<EngineLine[]>([]);
   const analysisSearchIdRef = useRef(0);
+  const analysisFenRef = useRef(gameRef.current.fen());
   const [currentMoveIdx, setCurrentMoveIdx] = useState(0);
   const boardWrapRef = useRef<HTMLDivElement | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -1116,6 +1125,7 @@ export function PracticeBoard({
     if (!isAnalysisMode || !makeMovesOpen || boardEditorOpen) return;
     if (!engineRef.current || !engineReady) return;
     const searchId = ++analysisSearchIdRef.current;
+    analysisFenRef.current = fen;
     multipvRef.current = { gameId: searchId, entries: [] };
     setMultipvLines([]);
     engineRef.current.postMessage("stop");
@@ -1445,7 +1455,6 @@ export function PracticeBoard({
       fallback.onmessage = engine.onmessage as any;
       fallback.onerror = engine.onerror as any;
       fallback.postMessage("uci");
-      fallback.postMessage("isready");
       startFallbackTimer();
     };
 
@@ -1467,7 +1476,10 @@ export function PracticeBoard({
           const scoreVal = parseInt(match[3], 10);
           const pvMoves = match[4].trim().split(/\s+/).slice(0, 20);
           const moveStr = pvMoves[0];
-          const score = type === "mate" ? (scoreVal >= 0 ? 100000 - Math.abs(scoreVal) : -100000 + Math.abs(scoreVal)) : scoreVal;
+          const scoreFromPerspective = isAnalysisMode
+            ? normalizeUciScoreForWhite(scoreVal, analysisFenRef.current)
+            : scoreVal;
+          const score = type === "mate" ? mateScoreToDisplayScore(scoreFromPerspective) : scoreFromPerspective;
           const currentEntries = multipvRef.current.entries ?? [];
           const nextEntries = [...currentEntries];
           nextEntries[idx] = { move: moveStr, score, type, pv: pvMoves };
@@ -1478,6 +1490,7 @@ export function PracticeBoard({
 
       if (msg === "uciok") {
         setEngineMessage("Engine online. Initialising...");
+        engineRef.current?.postMessage("isready");
         startFallbackTimer();
         return;
       }
@@ -1643,7 +1656,6 @@ export function PracticeBoard({
     };
 
     engine.postMessage("uci");
-    engine.postMessage("isready");
     startFallbackTimer();
 
     return () => {
@@ -2325,8 +2337,8 @@ export function PracticeBoard({
             }`}
           >
             <div className="flex justify-center w-full flex-shrink-0">
-              <div className="pp-analysis-row w-full">
-                <div className="pp-board-stack flex flex-col items-center w-full">
+              <div className="pp-analysis-row flex w-full items-start justify-center gap-4">
+                <div className="pp-board-stack flex w-full max-w-[780px] min-w-0 flex-col items-center">
                   {boardElement}
                   {embedded && (
                     <div className="pp-moves-nav-mobile w-full px-2 mt-4">
@@ -2362,20 +2374,14 @@ export function PracticeBoard({
                     </div>
                   )}
                 </div>
-                {evalBarOn && embedded && (
-                  <div className="pp-eval-mobile flex flex-col items-center flex-shrink-0">
-                  <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={evalHeight} />
+                {evalBarOn && (
+                  <div className="pp-eval-inline flex flex-col items-center flex-shrink-0">
+                    <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={evalHeight} />
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex flex-col lg:flex-row gap-4 items-center lg:items-start lg:self-center">
-              {evalBarOn && (
-                <div className="pp-eval-desktop flex flex-col items-center flex-shrink-0">
-                  <EvaluationBar eval={evalState.eval} isThinking={evalState.isThinking} height={evalHeight} />
-                </div>
-              )}
-              <div className="w-full max-w-2xl lg:w-full flex flex-col gap-4 lg:h-[780px] lg:max-h-[780px]">
+            <div className="w-full max-w-2xl lg:w-full flex flex-col gap-4 lg:h-[780px] lg:max-h-[780px] lg:self-center">
                 <div
                   className={`rounded-2xl bg-black border border-white/10 p-4 shadow-xl space-y-4 ${
                     hideAnalysisTools ? "hidden" : ""
@@ -2574,22 +2580,24 @@ export function PracticeBoard({
                             </div>
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          {recommendedLines.map((line, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-xs text-white/80"
-                            >
-                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-white/10 border border-white/15 text-white/70 text-[11px]">
-                                {idx + 1}
-                              </span>
-                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-semibold text-emerald-200">
-                                {line.score}
-                              </span>
-                              <span className="whitespace-pre-wrap break-words text-[12px]">{line.line}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {evalBarOn && (
+                          <div className="space-y-2">
+                            {recommendedLines.map((line, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-xs text-white/80"
+                              >
+                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-white/10 border border-white/15 text-white/70 text-[11px]">
+                                  {idx + 1}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-semibold text-emerald-200">
+                                  {line.score}
+                                </span>
+                                <span className="whitespace-pre-wrap break-words text-[12px]">{line.line}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
@@ -2597,7 +2605,7 @@ export function PracticeBoard({
                           className="w-full flex items-center justify-between px-3 py-3 text-sm font-semibold text-white hover:bg-white/5"
                           onClick={() => setMakeMovesOpen(true)}
                         >
-                          <span>Make Moves</span>
+                          <span>Analysis</span>
                           <span className="text-white/50">{">"}</span>
                         </button>
                         <button
@@ -2619,7 +2627,7 @@ export function PracticeBoard({
                             <span className="text-white/50">{importPanelOpen ? "v" : ">"}</span>
                           </button>
                           {importPanelOpen && (
-                            <div className="px-3 pb-3 space-y-3">
+                            <div className="pp-import-game-panel mt-5 px-3 pb-3 space-y-3">
                               <textarea
                                 placeholder="Paste or enter your game..."
                                 className="w-full rounded-xl border border-white/20 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
@@ -2772,7 +2780,6 @@ export function PracticeBoard({
                   </div>
                 </div>
               </div>
-            </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,1fr)_320px] gap-4 items-start">
             <div className="relative">{boardElement}</div>
@@ -3024,4 +3031,3 @@ export function PracticeBoard({
 export default function Practice() {
   return <PracticeBoard />;
 }
-

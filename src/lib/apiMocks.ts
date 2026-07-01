@@ -1,7 +1,7 @@
 import { attachPaypalSubscription, cancelPaypalSubscriptionLocally, updateSubscriptionStatusFromWebhook } from "./mockApi";
 
 let mocksInstalled = false;
-const PROFILE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+const PROFILE_WINDOW_MS = 183 * 24 * 60 * 60 * 1000;
 const PROFILE_MAX_GAMES = 500;
 
 const mockNormalizeCountry = (country: string | null | undefined) => {
@@ -106,6 +106,45 @@ const mockSummarizeGames = (games: any[]) => {
     else if (game.result === "draw") draws += 1;
   });
   return { games: wins + losses + draws, wins, losses, draws };
+};
+
+const mockBuildRapidHistory = (games: any[], currentRapid: unknown) => {
+  const cutoff = Date.now() - PROFILE_WINDOW_MS;
+  const buckets = new Map<string, { date: string; rating: number; ts: number }>();
+  games.forEach((game) => {
+    const rating = mockSafeNumber(game?.playerRating);
+    if (game?.timeControl !== "rapid" || !game?.playedAt || !Number.isFinite(Number(rating))) return;
+    const ts = Date.parse(game.playedAt);
+    if (!Number.isFinite(ts) || ts < cutoff) return;
+    const date = new Date(ts);
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const existing = buckets.get(key);
+    if (!existing || ts >= existing.ts) {
+      buckets.set(key, {
+        date: date.toISOString().slice(0, 10),
+        rating: Math.round(Number(rating)),
+        ts,
+      });
+    }
+  });
+
+  const current = mockSafeNumber(currentRapid);
+  if (Number.isFinite(Number(current))) {
+    const today = new Date();
+    const key = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        date: today.toISOString().slice(0, 10),
+        rating: Math.round(Number(current)),
+        ts: today.getTime(),
+      });
+    }
+  }
+
+  return Array.from(buckets.values())
+    .sort((a, b) => a.ts - b.ts)
+    .slice(-6)
+    .map(({ date, rating }) => ({ date, rating }));
 };
 
 const mockComputeOpenings = (games: any[]) => {
@@ -232,11 +271,19 @@ function mockNormalizeLichess(username: string, profile: any, games: any[]) {
         username: opponentUser?.name || opponentUser?.id || null,
         rating: mockSafeNumber(game?.players?.[opponentColor]?.rating),
       },
+      playerRating: mockSafeNumber(game?.players?.[color || "white"]?.rating),
       pgn: game?.pgn || null,
       opening: game?.opening?.name || null,
     };
     return { ...normalized, opening: mockResolveOpeningName(normalized) };
   });
+
+  const ratings = {
+    bullet: mockSafeNumber(perfs?.bullet?.rating),
+    blitz: mockSafeNumber(perfs?.blitz?.rating),
+    rapid: mockSafeNumber(perfs?.rapid?.rating),
+    classical: mockSafeNumber(perfs?.classical?.rating),
+  };
 
   return {
     platform: "lichess",
@@ -246,11 +293,9 @@ function mockNormalizeLichess(username: string, profile: any, games: any[]) {
     country: profile?.profile?.country || null,
     title: profile?.title || null,
     lastOnline: mockToIso(profile?.seenAt),
-    ratings: {
-      bullet: mockSafeNumber(perfs?.bullet?.rating),
-      blitz: mockSafeNumber(perfs?.blitz?.rating),
-      rapid: mockSafeNumber(perfs?.rapid?.rating),
-      classical: mockSafeNumber(perfs?.classical?.rating),
+    ratings,
+    ratingHistory: {
+      rapid: mockBuildRapidHistory(normalizedGames, ratings.rapid),
     },
     stats: mockSummarizeGames(normalizedGames),
     openings: mockComputeOpenings(normalizedGames),
@@ -276,12 +321,20 @@ function mockNormalizeChessCom(username: string, profile: any, stats: any, games
         username: opponent?.username || null,
         rating: mockSafeNumber(opponent?.rating),
       },
+      playerRating: mockSafeNumber(player?.rating),
       pgn: game?.pgn || null,
       opening: null,
       eco: game?.eco || game?.eco_url || null,
     };
     return { ...normalized, opening: mockResolveOpeningName(normalized) };
   });
+
+  const ratings = {
+    bullet: mockSafeNumber(stats?.chess_bullet?.last?.rating),
+    blitz: mockSafeNumber(stats?.chess_blitz?.last?.rating),
+    rapid: mockSafeNumber(stats?.chess_rapid?.last?.rating),
+    classical: mockSafeNumber(stats?.chess_daily?.last?.rating),
+  };
 
   return {
     platform: "chesscom",
@@ -291,11 +344,9 @@ function mockNormalizeChessCom(username: string, profile: any, stats: any, games
     country: mockNormalizeCountry(profile?.country),
     title: profile?.title || null,
     lastOnline: mockToIso((profile?.last_online || 0) * 1000),
-    ratings: {
-      bullet: mockSafeNumber(stats?.chess_bullet?.last?.rating),
-      blitz: mockSafeNumber(stats?.chess_blitz?.last?.rating),
-      rapid: mockSafeNumber(stats?.chess_rapid?.last?.rating),
-      classical: mockSafeNumber(stats?.chess_daily?.last?.rating),
+    ratings,
+    ratingHistory: {
+      rapid: mockBuildRapidHistory(normalizedGames, ratings.rapid),
     },
     stats: mockSummarizeGames(normalizedGames),
     openings: mockComputeOpenings(normalizedGames),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Menu,
@@ -10,27 +10,36 @@ import {
   Settings,
   MessageCircle,
   XCircle,
-  Gift,
   ArrowLeft,
   Crown,
   ChevronDown,
-  Clipboard,
   Puzzle,
   Archive,
+  Search,
+  ListFilter,
+  PanelLeftClose,
+  PanelLeftOpen,
+  LineChart,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./ui/Button";
-import pawnPointIcon from "../assets/App tab icon.png";
+import pawnPointIcon from "../assets/Pawn Point Icon.png";
 import avatarFallback from "../assets/Easter Default.png";
 import "../pages/dashboard-editorial.css";
 import {
   choosePersonalAccount,
   createGroupForUser,
+  getUserClubMemberships,
   joinGroupWithCode,
   setAdminStatus,
+  switchActiveClub,
+  type UserClubMembership,
 } from "../lib/mockApi";
 import { submitFeedbackInboxMessage } from "../lib/feedbackInbox";
 import { PodiumBarsIcon } from "./icons/PodiumBars";
+import { checkoutPath } from "../lib/checkoutRedirect";
+import { canAccessBlackBook, hasActiveSubscription } from "../lib/access";
 
 const baseLinks = [
   { label: "Home", href: "/dashboard", icon: Home },
@@ -42,7 +51,8 @@ const baseLinks = [
 
 const mobileLinkTail = [
   { label: "Puzzles", href: "/puzzles", icon: Puzzle },
-  { label: "SquareBase", href: "/squarebase", icon: Clipboard },
+  { label: "Training", href: "/training", icon: Dumbbell },
+  { label: "BlackBook", href: "/blackbook", icon: BookOpen },
   { label: "Profile", href: "/profile", icon: UserRound },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
@@ -62,9 +72,17 @@ export function AppShell({
   variant?: "default" | "dashboard-editorial";
 }) {
   const { user, logout, setUser } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTrainingOnly, setSearchTrainingOnly] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [clubMemberships, setClubMemberships] = useState<UserClubMembership[]>([]);
   const isLight = false;
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -90,13 +108,50 @@ export function AppShell({
   const xp = user?.totalXp ?? 0;
   const avatarSrc = user?.avatarUrl || avatarFallback;
   const forceGroupChoice = !!user && !user.accountType;
-  const hasActiveSubscription = !!(user?.premiumAccess || user?.subscriptionStatus === "active");
+  const userHasActiveSubscription = hasActiveSubscription(user);
   const canViewStandings =
     user?.groupId === SOUTH_KNIGHTS_GROUP_ID || user?.groupCode?.includes(SOUTH_KNIGHTS_GROUP_CODE);
   const navLinks = canViewStandings
     ? baseLinks
     : baseLinks.filter((link) => link.href !== "/leaderboard");
   const mobileLinks = [...navLinks, ...mobileLinkTail];
+  const trainingLinks = [
+    { label: "Puzzles", href: "/puzzles", icon: Puzzle },
+    { label: "Analysis", href: "/analysis", icon: LineChart },
+    { label: "Training", href: "/training", icon: Dumbbell },
+    { label: "BlackBook", href: "/blackbook", icon: BookOpen },
+  ];
+  const accountLinks = [
+    { label: "Profile", href: "/profile", icon: UserRound },
+    { label: "Settings", href: "/settings", icon: Settings },
+  ];
+  const allSearchLinks = [...navLinks, ...trainingLinks, ...accountLinks];
+  const filteredSearchLinks = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const scopedLinks = searchTrainingOnly ? trainingLinks : allSearchLinks;
+    if (!query) return scopedLinks;
+    return scopedLinks.filter((item) => {
+      const haystack = `${item.label} ${item.href}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [allSearchLinks, searchQuery, searchTrainingOnly, trainingLinks]);
+  const shellNavGroups = [
+    { heading: undefined, items: navLinks },
+    { heading: "Training", items: trainingLinks },
+    { heading: "Account", items: accountLinks },
+  ];
+  const currentPageTitle =
+    [...navLinks, ...trainingLinks, ...accountLinks].find((item) =>
+      item.href === "/dashboard" ? location === item.href : location.startsWith(item.href.split("?")[0]),
+    )?.label || "Workspace";
+  const roleLabel =
+    user?.accountType === "group" ? (user?.groupRole === "admin" ? "Admin" : "Student") : "Personal Workspace";
+  const accountLabel =
+    user?.accountType === "group" && user?.groupName
+      ? user.groupName
+      : user?.accountType === "personal"
+        ? "Personal Workspace"
+        : "Pawn Point";
 
   const emotions = [
     { label: "Angry", emoji: "😠" },
@@ -143,15 +198,37 @@ export function AppShell({
   }, []);
 
   const practiceRef = useRef<HTMLDivElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (practiceOpen && practiceRef.current && !practiceRef.current.contains(e.target as Node)) {
         setPracticeOpen(false);
       }
+      if (workspaceOpen && workspaceRef.current && !workspaceRef.current.contains(e.target as Node)) {
+        setWorkspaceOpen(false);
+      }
     };
     window.addEventListener("mousedown", handleOutside);
     return () => window.removeEventListener("mousedown", handleOutside);
-  }, [practiceOpen]);
+  }, [practiceOpen, workspaceOpen]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setClubMemberships([]);
+      return;
+    }
+    let cancelled = false;
+    getUserClubMemberships(user.id)
+      .then((memberships) => {
+        if (!cancelled) setClubMemberships(memberships);
+      })
+      .catch(() => {
+        if (!cancelled) setClubMemberships([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.groupId, user?.groupRole]);
 
   const closeFeedback = () => {
     setFeedbackOpen(false);
@@ -253,9 +330,9 @@ export function AppShell({
       setGroupError("Name your group to continue.");
       return;
     }
-    if (!hasActiveSubscription) {
+    if (!userHasActiveSubscription) {
       setGroupModalOpen(false);
-      navigate("/checkout");
+      navigate(checkoutPath(location || "/dashboard"));
       return;
     }
     await executeCreateGroup(groupName.trim());
@@ -281,8 +358,336 @@ export function AppShell({
     }
   };
 
+  const isActiveRoute = (href: string) => {
+    if (href === "/dashboard") return location === href;
+    if (href.includes("?")) return location === href;
+    return location.startsWith(href);
+  };
+
+  const resetFloatingPanels = () => {
+    setProfileOpen(false);
+    setPracticeOpen(false);
+    setSearchOpen(false);
+    setWorkspaceOpen(false);
+  };
+
+  const handleNavigate = (href: string) => {
+    if (href === "/blackbook" && !canAccessBlackBook(user)) {
+      navigate(checkoutPath("/blackbook"));
+      setOpen(false);
+      resetFloatingPanels();
+      return;
+    }
+    navigate(href);
+    setOpen(false);
+    resetFloatingPanels();
+  };
+
+  const openFeedbackPanel = () => {
+    setFeedbackOpen(true);
+    setFeedbackMood("Meh");
+    setFeedbackText("");
+    setFeedbackStatus("");
+    setProfileOpen(false);
+    setSearchOpen(false);
+    setOpen(false);
+  };
+
+  const openSearchPanel = (trainingOnly = false) => {
+    setSearchTrainingOnly(trainingOnly);
+    setSearchOpen(true);
+    setProfileOpen(false);
+    setWorkspaceOpen(false);
+  };
+
+  const handleShellLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const handleWorkspacePersonal = async () => {
+    setWorkspaceBusy(true);
+    setWorkspaceError("");
+    try {
+      const updated = await choosePersonalAccount();
+      if (updated) setUser(updated);
+      setWorkspaceOpen(false);
+    } catch (err: any) {
+      setWorkspaceError(err?.message || "Could not switch workspace.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleWorkspaceClub = async (clubId: string) => {
+    if (clubId === user?.groupId) {
+      setWorkspaceOpen(false);
+      return;
+    }
+    setWorkspaceBusy(true);
+    setWorkspaceError("");
+    try {
+      const updated = await switchActiveClub(clubId);
+      if (updated) setUser(updated);
+      setWorkspaceOpen(false);
+    } catch (err: any) {
+      setWorkspaceError(err?.message || "Could not switch club.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleWorkspaceCreate = () => {
+    setWorkspaceOpen(false);
+    navigate("/settings?account=switch&mode=create");
+  };
+
+  const renderShellNavGroups = (mode: "desktop" | "mobile" = "desktop") => (
+    <nav className={mode === "mobile" ? "pp-shell-nav-list pp-shell-nav-list--mobile" : "pp-shell-nav-list"}>
+      {shellNavGroups.map((group, groupIndex) => (
+        <div className="pp-shell-nav-group" key={group.heading || `primary-${groupIndex}`}>
+          {group.heading && <div className="pp-shell-nav-heading">{group.heading}</div>}
+          <div className="pp-shell-nav-items">
+            {group.items.map(({ href, label, icon: Icon }) => {
+              const active = isActiveRoute(href);
+              const iconSize = Icon === PodiumBarsIcon ? "h-5 w-5" : "h-4 w-4";
+              return (
+                <button
+                  key={href}
+                  type="button"
+                  className={`pp-shell-nav-item ${active ? "is-active" : ""}`}
+                  onClick={() => handleNavigate(href)}
+                  aria-current={active ? "page" : undefined}
+                  title={sidebarCollapsed && mode === "desktop" ? label : undefined}
+                >
+                  <Icon className={iconSize} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+
   return (
     <div className={`min-h-screen relative overflow-x-hidden ${shellClassName}`} style={shellStyle}>
+      {editorialShell ? (
+        <>
+          {backgroundOverlay}
+          <div className={`pp-app-frame ${sidebarCollapsed ? "is-collapsed" : ""}`}>
+            <aside className="pp-app-sidebar" aria-label="Main navigation">
+              <div className="pp-workspace" ref={workspaceRef}>
+                <button
+                  type="button"
+                  className="pp-workspace-switcher"
+                  onClick={() => {
+                    setWorkspaceOpen((value) => !value);
+                    setSearchOpen(false);
+                    setProfileOpen(false);
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={workspaceOpen}
+                >
+                  <span className="pp-workspace-mark">
+                    <img src={pawnPointIcon} alt="" />
+                  </span>
+                  <span className="pp-workspace-copy">
+                    <strong>{accountLabel}</strong>
+                    <span>{roleLabel}</span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 pp-workspace-chevron" />
+                </button>
+
+                {workspaceOpen && (
+                  <div className="pp-workspace-menu" role="menu">
+                    {user?.accountType === "group" && user?.groupId && (
+                      <button
+                        type="button"
+                        className="pp-workspace-menu-item is-active"
+                        onClick={() => setWorkspaceOpen(false)}
+                        disabled={workspaceBusy}
+                      >
+                        {user.groupName || accountLabel}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className={`pp-workspace-menu-item ${user?.accountType === "personal" ? "is-active" : ""}`}
+                      onClick={handleWorkspacePersonal}
+                      disabled={workspaceBusy}
+                    >
+                      Personal Workspace
+                    </button>
+
+                    {clubMemberships
+                      .filter((club) => club.id !== user?.groupId)
+                      .map((club) => (
+                        <button
+                          type="button"
+                          className="pp-workspace-menu-item"
+                          key={club.id}
+                          onClick={() => handleWorkspaceClub(club.id)}
+                          disabled={workspaceBusy || club.locked}
+                          title={club.locked ? "This club is paused" : undefined}
+                        >
+                          <span>{club.name}</span>
+                          <em>{club.role === "admin" ? "Admin" : "Student"}</em>
+                        </button>
+                      ))}
+
+                    {workspaceError && <div className="pp-workspace-error">{workspaceError}</div>}
+
+                    <div className="pp-workspace-divider" />
+                    <button type="button" className="pp-workspace-menu-item pp-workspace-create" onClick={handleWorkspaceCreate}>
+                      <span aria-hidden="true">+</span>
+                      Create Workspace
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="pp-sidebar-search">
+                <button type="button" className="pp-sidebar-search-main" onClick={() => openSearchPanel(false)}>
+                  <Search className="h-4 w-4" />
+                  <span>Search</span>
+                </button>
+                <button
+                  type="button"
+                  className={`pp-sidebar-search-filter ${searchTrainingOnly ? "is-active" : ""}`}
+                  onClick={() => openSearchPanel(true)}
+                  aria-label="Search training tools"
+                  title="Search training tools"
+                >
+                  <ListFilter className="h-4 w-4" />
+                </button>
+              </div>
+
+              {renderShellNavGroups("desktop")}
+
+              <div className="pp-sidebar-footer">
+                <button type="button" className="pp-shell-nav-item" onClick={openFeedbackPanel}>
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Feedback</span>
+                </button>
+                <button type="button" className="pp-shell-nav-item" onClick={handleShellLogout}>
+                  <LogOut className="h-4 w-4" />
+                  <span>Log out</span>
+                </button>
+              </div>
+            </aside>
+
+            <div className="pp-app-content">
+              <header className="pp-app-topbar">
+                <div className="pp-topbar-left">
+                  <button
+                    type="button"
+                    className="pp-shell-icon-button pp-sidebar-toggle"
+                    onClick={() => setSidebarCollapsed((value) => !value)}
+                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  >
+                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    className="pp-shell-icon-button pp-mobile-nav-toggle"
+                    onClick={() => setOpen(true)}
+                    aria-label="Open navigation"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </button>
+                  <div className="pp-shell-breadcrumb" aria-label="Breadcrumb">
+                    <span>Pawn Point</span>
+                    <span>/</span>
+                    <strong>{currentPageTitle}</strong>
+                  </div>
+                </div>
+
+                <div className="pp-topbar-spacer" aria-hidden="true" />
+              </header>
+
+              <main className="pp-shell-main pp-app-main">{children}</main>
+            </div>
+          </div>
+
+          {open && (
+            <div className="pp-mobile-shell" role="dialog" aria-modal="true" aria-label="Navigation menu">
+              <button
+                type="button"
+                className="pp-mobile-shell-backdrop"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation"
+              />
+              <aside className="pp-mobile-shell-panel">
+                <div className="pp-mobile-shell-head">
+                  <div className="pp-workspace-mark">
+                    <img src={pawnPointIcon} alt="" />
+                  </div>
+                  <div>
+                    <strong>{accountLabel}</strong>
+                    <span>{roleLabel}</span>
+                  </div>
+                  <button type="button" className="pp-shell-icon-button" onClick={() => setOpen(false)} aria-label="Close navigation">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                {renderShellNavGroups("mobile")}
+                <div className="pp-sidebar-footer pp-sidebar-footer--mobile">
+                  <button type="button" className="pp-shell-nav-item" onClick={openFeedbackPanel}>
+                    <MessageCircle className="h-4 w-4" />
+                    <span>Feedback</span>
+                  </button>
+                  <button type="button" className="pp-shell-nav-item" onClick={handleShellLogout}>
+                    <LogOut className="h-4 w-4" />
+                    <span>Log out</span>
+                  </button>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {searchOpen && (
+            <div className="pp-command-overlay" role="dialog" aria-modal="true" aria-label="Quick navigation">
+              <button type="button" className="pp-command-backdrop" onClick={() => setSearchOpen(false)} aria-label="Close search" />
+              <div className="pp-command-panel">
+                <div className="pp-command-input">
+                  <Search className="h-4 w-4" />
+                  <input
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search pages and training tools"
+                    aria-label="Search Pawn Point"
+                  />
+                  <button
+                    type="button"
+                    className={`pp-command-filter ${searchTrainingOnly ? "is-active" : ""}`}
+                    onClick={() => setSearchTrainingOnly((value) => !value)}
+                    aria-pressed={searchTrainingOnly}
+                  >
+                    <ListFilter className="h-4 w-4" />
+                    <span>{searchTrainingOnly ? "Training" : "All"}</span>
+                  </button>
+                </div>
+                <div className="pp-command-list">
+                  {filteredSearchLinks.map(({ href, label, icon: Icon }) => (
+                    <button key={href} type="button" onClick={() => handleNavigate(href)}>
+                      <Icon className={Icon === PodiumBarsIcon ? "h-5 w-5" : "h-4 w-4"} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                  {!filteredSearchLinks.length && (
+                    <div className="pp-command-empty">No matching pages found.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+      <>
       {backgroundOverlay}
       <div className="relative z-10">
         <header
@@ -370,12 +775,12 @@ export function AppShell({
                                 : "text-gray-200 hover:bg-gray-700"
                           }`}
                           onClick={() => {
-                            navigate("/squarebase");
+                            navigate("/blackbook");
                             setPracticeOpen(false);
                           }}
                         >
-                          <Clipboard className="h-4 w-4" />
-                          SquareBase
+                          <BookOpen className="h-4 w-4" />
+                          BlackBook
                         </button>
                       </div>
                     )}
@@ -616,6 +1021,8 @@ export function AppShell({
           {children}
         </main>
       </div>
+      </>
+      )}
 
       {groupModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">

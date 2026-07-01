@@ -42,6 +42,7 @@ import { BOARD_THEMES, resolveBoardTheme } from "../lib/boardThemes";
 import { PIECE_THEMES, resolvePieceTheme, type PieceTheme } from "../lib/pieceThemes";
 import { auth } from "../lib/firebase";
 import { cancelPaypalSubscription } from "../lib/cancelPaypalSubscription";
+import { checkoutPath } from "../lib/checkoutRedirect";
 
 const pageBackground = {
   backgroundImage: `
@@ -73,6 +74,7 @@ type Option = { label: string; value: string };
 
 export default function Settings() {
   const { user, logout, setUser } = useAuth();
+  const [location, navigate] = useLocation();
   const [boardModalOpen, setBoardModalOpen] = useState(false);
   const [boardTheme, setBoardTheme] = useState(() => resolveBoardTheme(user?.boardTheme).key);
   const [pieceTheme, setPieceTheme] = useState(() => resolvePieceTheme(user?.pieceTheme).key);
@@ -99,7 +101,6 @@ export default function Settings() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelStatus, setCancelStatus] = useState<string>("");
-  const [, navigate] = useLocation();
   const sampleFen = "k5rr/5R2/8/2p1P1p1/1p2Q3/1P6/K2p4/3b4 w - - 0 1";
   const sampleSquares = useMemo(() => buildBoard(sampleFen), []);
   const activePieces = useMemo(() => resolvePieceTheme(pieceTheme).pieces, [pieceTheme]);
@@ -124,6 +125,16 @@ export default function Settings() {
   useEffect(() => {
     setEmailInput(user?.email || "");
   }, [user?.email]);
+
+  useEffect(() => {
+    const query = location.split("?")[1] || "";
+    const params = new URLSearchParams(query);
+    if (params.get("account") !== "switch") return;
+    setSwitchModalOpen(true);
+    setGroupActionError("");
+    setGroupJoinCode("");
+    setGroupNameInput(params.get("mode") === "create" ? "" : user?.groupName || "");
+  }, [location, user?.groupName]);
 
   useEffect(() => {
     if (manageGroupOpen && inGroup) {
@@ -242,7 +253,7 @@ export default function Settings() {
       await executeCreateGroup();
       return;
     }
-    navigate("/checkout");
+    navigate(checkoutPath(location || "/settings"));
   };
 
   const handleCancelSubscription = () => {
@@ -371,7 +382,7 @@ export default function Settings() {
           if (isPro) {
             setCancelModalOpen(true);
           } else {
-            navigate("/checkout");
+            navigate(checkoutPath(location || "/settings"));
           }
         },
       },
@@ -595,14 +606,14 @@ export default function Settings() {
                 </div>
               </div>
               <button
-                className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
+                className="pp-modal-close-circle"
                 onClick={() => {
                   setSwitchModalOpen(false);
                   setGroupActionError("");
                 }}
                 aria-label="Close"
               >
-                X
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -612,64 +623,62 @@ export default function Settings() {
               </div>
             )}
 
-            {inGroup ? (
-              <div className="space-y-3">
+            <div className="space-y-4">
+              {inGroup ? (
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
                   <div className="text-sm text-white/70">Current group</div>
                   <div className="text-lg font-semibold">{user?.groupName || "Unnamed group"}</div>
                   <div className="text-xs text-white/60">Code: {user?.groupCode || "N/A"}</div>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center"
+                    onClick={handleLeaveGroup}
+                    disabled={groupActionLoading}
+                  >
+                    {groupActionLoading ? "Leaving..." : "Leave group and use personal account"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center"
-                  onClick={handleLeaveGroup}
-                  disabled={groupActionLoading}
-                >
-                  {groupActionLoading ? "Leaving..." : "Leave group and use personal account"}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
+              ) : (
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                   <div className="text-sm font-semibold">Personal account</div>
                   <div className="text-xs text-white/70">You are currently using a personal account.</div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-white/80">Join a group with code</label>
-                  <input
-                    value={groupJoinCode}
-                    onChange={(e) => setGroupJoinCode(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="#1234"
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
-                    onClick={handleJoinGroup}
-                    disabled={groupActionLoading}
-                  >
-                    {groupActionLoading ? "Joining..." : "Join Group"}
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-white/80">Create a new group</label>
-                  <input
-                    value={groupNameInput}
-                    onChange={(e) => setGroupNameInput(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
-                    placeholder="Team Knights"
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
-                    onClick={handleCreateGroup}
-                    disabled={groupActionLoading}
-                  >
-                    {groupActionLoading ? "Creating..." : "Create Group"}
-                  </Button>
-                </div>
+              )}
+              <div className="space-y-2">
+                <label className="text-sm text-white/80">Join a group with code</label>
+                <input
+                  value={groupJoinCode}
+                  onChange={(e) => setGroupJoinCode(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="#1234"
+                />
+                <Button
+                  variant="outline"
+                  className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
+                  onClick={handleJoinGroup}
+                  disabled={groupActionLoading}
+                >
+                  {groupActionLoading ? "Joining..." : "Join Group"}
+                </Button>
               </div>
-            )}
+              <div className="space-y-2">
+                <label className="text-sm text-white/80">Create a new group</label>
+                <input
+                  value={groupNameInput}
+                  onChange={(e) => setGroupNameInput(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="Team Knights"
+                />
+                <Button
+                  variant="outline"
+                  className="w-full justify-center bg-white/5 hover:bg-white/10 border-white/20"
+                  onClick={handleCreateGroup}
+                  disabled={groupActionLoading}
+                >
+                  {groupActionLoading ? "Creating..." : "Create Group"}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

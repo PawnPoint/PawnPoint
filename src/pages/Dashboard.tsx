@@ -2,21 +2,25 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   type LucideIcon,
+  BarChart3,
   BookOpen,
+  BookMarked,
   Brain,
+  CalendarDays,
   Check,
   ChevronRight,
   Circle,
+  Clock3,
   Crown,
   Flame,
+  LineChart,
   Play,
   Puzzle,
+  ScanLine,
   Star,
   Target,
   TrendingUp,
   Trophy,
-  X,
-  Youtube,
   Zap,
 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -33,7 +37,6 @@ import {
   type UserProfile,
 } from "../lib/mockApi";
 import { resolveRankBand } from "../lib/ranks";
-import pawnPointIcon from "../assets/App tab icon.png";
 import avatarFallback from "../assets/Easter Default.png";
 
 const backgroundStyle = {
@@ -48,29 +51,6 @@ const backgroundOverlay = (
     <div className="pp-dashboard-grain" />
   </div>
 );
-
-const FAQ_ITEMS = [
-  {
-    question: "What is Pawn Point?",
-    answer:
-      "Pawn Point is a premium chess training platform built to sharpen calculation, structure training, and help serious players improve faster.",
-  },
-  {
-    question: "How does membership work?",
-    answer:
-      "Membership unlocks the full training stack: courses, puzzles, rankings, and the broader Pawn Point improvement system.",
-  },
-  {
-    question: "Can I cancel anytime?",
-    answer:
-      "Yes. Subscription changes can be handled from your account settings and apply to future access periods.",
-  },
-  {
-    question: "Do you support group training?",
-    answer:
-      "Yes. Pawn Point supports groups for clubs, teams, and coaches who want a shared training environment and rankings.",
-  },
-] as const;
 
 const wholeNumber = new Intl.NumberFormat("en-US");
 const compactNumber = new Intl.NumberFormat("en-US", {
@@ -315,9 +295,6 @@ function TrainingTask({
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [contactOpen, setContactOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState(false);
-  const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(null);
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", user?.id, user?.groupId, user?.accountType],
@@ -350,7 +327,6 @@ export default function Dashboard() {
 
   const nowHour = new Date().getHours();
   const greeting = nowHour < 12 ? "Good morning" : nowHour < 18 ? "Good afternoon" : "Good evening";
-  const year = new Date().getFullYear();
   const firstName =
     user.displayName?.trim().split(" ")[0] ||
     user.chessUsername?.trim().split(" ")[0] ||
@@ -515,6 +491,222 @@ export default function Dashboard() {
     : allCoursesCompleted
       ? "Every course is complete. Review your strongest lines or sharpen up with puzzles."
       : "Build early momentum with puzzles, then move directly into your next course.";
+
+  const courseRows = (featuredCourseSelection.courseEntries.length
+    ? featuredCourseSelection.courseEntries
+    : suggestedCourses.map((course, index) => ({
+        course,
+        progress: progressByCourse[course.id]?.progressPercent || 0,
+        index,
+      }))
+  )
+    .slice(0, 3)
+    .map(({ course, progress }) => ({
+      id: course.id,
+      title: course.title,
+      progress: Math.max(0, Math.min(100, Math.round(progress))),
+      detail: `${progressByCourse[course.id]?.completedLessonIds.length || 0} / ${course.lessons?.length || 0} lessons completed`,
+      icon: course.category === "endgame" ? Target : course.category === "middlegame" ? Brain : BarChart3,
+    }));
+
+  const reviewedGames = dailyXp > 0 ? 1 : 0;
+  const completedLessonsToday = featuredPercent > 0 ? 1 : 0;
+  const dailyTasks = [
+    {
+      label: "Solve 3 puzzles",
+      current: Math.min(dailyPuzzleCount, 3),
+      goal: 3,
+      done: dailyPuzzleCount >= 3,
+      href: "/puzzles",
+    },
+    {
+      label: "Review 1 game",
+      current: reviewedGames,
+      goal: 1,
+      done: reviewedGames >= 1,
+      href: "/analysis",
+    },
+    {
+      label: "Complete 1 lesson",
+      current: completedLessonsToday,
+      goal: 1,
+      done: completedLessonsToday >= 1,
+      href: primaryCourseHref,
+    },
+  ];
+  const completedDailyTasks = dailyTasks.filter((task) => task.done).length;
+
+  const weeklyActivity = [
+    { label: "Puzzles solved", value: wholeNumber.format(dailyPuzzleCount), icon: Puzzle },
+    { label: "Games analysed", value: wholeNumber.format(reviewedGames), icon: BarChart3 },
+    { label: "Time spent", value: `${Math.max(0.3, Math.round((weeklyXp / 120) * 10) / 10)}h`, icon: Clock3 },
+    { label: "XP earned", value: `+${wholeNumber.format(weeklyXp)}`, icon: TrendingUp },
+  ];
+
+  const upcomingTasks = [
+    { label: "Daily training reset", detail: `In ${countdownHours}h ${countdownMinutes}m`, icon: CalendarDays },
+    { label: "Weekly leaderboard update", detail: "In 2d 10h", icon: Trophy },
+    {
+      label: "Next course milestone",
+      detail: featuredCourse ? `${Math.max(0, (featuredCourse.lessons?.length || 0) - (featuredProgress?.completedLessonIds.length || 0))} lessons left` : "Choose a course",
+      icon: Star,
+    },
+  ];
+
+  return (
+    <AppShell backgroundStyle={backgroundStyle} variant="dashboard-editorial">
+      <div className="mx-auto max-w-[1380px] px-3 pb-8 pt-7 text-white sm:px-5 lg:px-8">
+        <section className="mb-6">
+          <h1 className="text-[clamp(2rem,3.8vw,3.05rem)] font-semibold tracking-[-0.02em] text-white">
+            {greeting}, {firstName}
+          </h1>
+          <p className="mt-2 text-base text-white/55">Ready to continue your training?</p>
+
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button type="button" onClick={() => navigate(primaryCourseHref)} className="inline-flex h-12 items-center gap-3 rounded-lg bg-white px-7 text-sm font-semibold text-black transition hover:bg-white/90">
+              <Play className="h-4 w-4" />
+              Continue Course
+            </button>
+            <button type="button" onClick={() => navigate("/puzzles")} className="inline-flex h-12 items-center gap-3 rounded-lg border border-white/14 bg-black px-6 text-sm font-semibold text-white transition hover:border-white/28">
+              <Puzzle className="h-4 w-4" />
+              Daily Training
+            </button>
+            <button type="button" onClick={() => navigate("/blackbook")} className="inline-flex h-12 items-center gap-3 rounded-lg border border-white/14 bg-black px-6 text-sm font-semibold text-white transition hover:border-white/28">
+              <ScanLine className="h-4 w-4" />
+              Scan Opponent
+            </button>
+          </div>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Level", value: `Lv. ${wholeNumber.format(Math.max(1, user.level || 1))}`, detail: `${rankBand.label} rank`, icon: Zap },
+            { label: "Total XP", value: wholeNumber.format(totalXp), detail: `+${wholeNumber.format(dailyXp)} today`, icon: Star },
+            { label: "Current Streak", value: wholeNumber.format(streak), detail: streak > 0 ? "Keep the streak alive" : "Start a new streak today", icon: Flame },
+            { label: "Global Rank", value: `#${wholeNumber.format(leaderboard.rank)}`, detail: `${wholeNumber.format(leaderboard.total)} tracked players`, icon: Trophy },
+          ].map(({ label, value, detail, icon: Icon }) => (
+            <article key={label} className="rounded-lg border border-white/12 bg-[#070707] p-5">
+              <div className="flex items-start gap-4">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/80">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/42">{label}</div>
+                  <div className="mt-2 text-2xl font-medium tracking-tight text-white">{value}</div>
+                  <div className="mt-1 text-sm text-white/45">{detail}</div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="mt-3 grid gap-3 xl:grid-cols-[1fr_1.05fr]">
+          <article className="rounded-lg border border-white/12 bg-[#070707] p-6">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold tracking-tight">Continue Learning</h2>
+              <button type="button" onClick={() => navigate("/courses")} className="inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white">
+                View all courses <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {(courseRows.length ? courseRows : [{ id: "empty", title: "Choose your first course", progress: 0, detail: "0 / 0 lessons completed", icon: BookOpen }]).map(({ id, title, progress, detail, icon: Icon }) => (
+                <button key={id} type="button" onClick={() => navigate(id === "empty" ? "/courses" : `/courses/${id}`)} className="grid w-full grid-cols-[44px_1fr_auto] items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-left transition hover:border-white/20">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/8 text-white/78">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-white">{title}</span>
+                    <span className="mt-1 block text-xs text-white/48">{detail}</span>
+                  </span>
+                  <span className="flex min-w-[190px] items-center gap-4 max-sm:hidden">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/12">
+                      <span className="block h-full rounded-full bg-white" style={{ width: `${progress}%` }} />
+                    </span>
+                    <span className="w-9 text-right text-xs text-white/55">{progress}%</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-white/12 bg-[#070707] p-6">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold tracking-tight">Today&apos;s Training</h2>
+              <span className="text-sm text-white/55">{completedDailyTasks} / {dailyTasks.length} completed</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/12">
+              <span className="block h-full rounded-full bg-white" style={{ width: `${Math.round((completedDailyTasks / dailyTasks.length) * 100)}%` }} />
+            </div>
+            <div className="mt-5 divide-y divide-white/10">
+              {dailyTasks.map((task) => (
+                <button key={task.label} type="button" onClick={() => navigate(task.href)} className="grid w-full grid-cols-[24px_1fr_auto_16px] items-center gap-3 py-3 text-left">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-[3px] border border-white/60">
+                    {task.done ? <Check className="h-3 w-3" /> : null}
+                  </span>
+                  <span className="text-sm font-medium text-white/88">{task.label}</span>
+                  <span className="text-sm text-white/55">{task.current} / {task.goal}</span>
+                  <ChevronRight className="h-4 w-4 text-white/45" />
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <span className="inline-flex items-center gap-2 text-white/45">
+                <Clock3 className="pp-reset-clock h-4 w-4" />
+                Resets in {countdownHours}h {countdownMinutes}m
+              </span>
+            </div>
+          </article>
+        </section>
+
+        <section className="mt-3 grid gap-3 xl:grid-cols-[1fr_1.05fr]">
+          <article className="rounded-lg border border-white/12 bg-[#070707] p-6">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold tracking-tight">Weekly Activity</h2>
+              <button type="button" onClick={() => navigate("/ranks")} className="inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white">
+                View full activity <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-4">
+              {weeklyActivity.map(({ label, value, icon: Icon }) => (
+                <div key={label} className="border-white/10 sm:border-r sm:last:border-r-0">
+                  <Icon className="mb-4 h-5 w-5 text-white/82" />
+                  <div className="text-2xl font-medium tracking-tight text-white">{value}</div>
+                  <div className="mt-1 text-sm text-white/48">{label}</div>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-white/12 bg-[#070707] p-6">
+            <h2 className="mb-5 text-lg font-semibold tracking-tight">Upcoming Tasks</h2>
+            <div className="grid gap-6 md:grid-cols-[1fr_0.72fr]">
+              <div className="space-y-4">
+                {upcomingTasks.map(({ label, detail, icon: Icon }) => (
+                  <div key={label} className="grid grid-cols-[24px_1fr_auto] items-center gap-3">
+                    <Icon className="h-4 w-4 text-white/75" />
+                    <span className="text-sm text-white/86">{label}</span>
+                    <span className="text-sm text-white/45">{detail}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex h-full flex-col justify-center space-y-2">
+                {[
+                  { label: "Puzzles", href: "/puzzles", icon: Puzzle },
+                  { label: "Analysis", href: "/analysis", icon: LineChart },
+                  { label: "BlackBook", href: "/blackbook", icon: BookMarked },
+                ].map(({ label, href, icon: Icon }) => (
+                  <button key={label} type="button" onClick={() => navigate(href)} className="flex w-full items-center justify-between rounded-lg border border-white/12 px-4 py-3 text-sm font-medium text-white/88 transition hover:border-white/24">
+                    <span className="inline-flex items-center gap-3"><Icon className="h-4 w-4" />{label}</span>
+                    <ChevronRight className="h-4 w-4 text-white/45" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    </AppShell>
+  );
 
   return (
     <AppShell
@@ -988,171 +1180,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <footer className="pp-dashboard-footer px-1 pt-4">
-          <div className="flex flex-col gap-6 py-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 overflow-hidden rounded-[14px] border border-[rgba(214,197,162,0.14)] bg-white/[0.03]">
-                <img src={pawnPointIcon} alt="Pawn Point logo" className="h-full w-full object-cover" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-[#f3ede3]">Pawn Point</p>
-                <p className="text-sm text-[#b5aa9a]">
-                  Built to set the standard for world-class chess training.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-5 text-sm font-semibold">
-              <a href="/checkout">Membership Plans</a>
-              <button
-                type="button"
-                onClick={() => {
-                  setContactOpen(true);
-                  setFaqOpen(false);
-                }}
-              >
-                Contact Us
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFaqOpen(true);
-                  setFaqOpenIdx(null);
-                  setContactOpen(false);
-                }}
-              >
-                FAQ
-              </button>
-              <a
-                href="https://www.youtube.com/@Pawn-Point"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Pawn Point YouTube"
-                className="inline-flex items-center justify-center"
-              >
-                <Youtube className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-[rgba(214,197,162,0.14)] py-6 text-xs md:flex-row md:items-center md:justify-between">
-            <div>(c) {year} Pawn Point. All rights reserved.</div>
-            <div className="flex flex-wrap gap-4">
-              <a href="/terms-of-use">Terms of Use</a>
-              <a href="/privacy-policy">Privacy</a>
-              <a href="/cookie-policy">Cookie Policy</a>
-            </div>
-          </div>
-        </footer>
       </div>
-
-      {contactOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setContactOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="pp-dashboard-modal relative z-10 w-full max-w-md p-6 text-[#f3ede3]"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="pp-dashboard-overline">Contact</div>
-                <div className="mt-3 text-lg font-semibold">Contact Us</div>
-                <p className="mt-2 text-sm leading-7 text-[#b5aa9a]">
-                  Reach the Pawn Point team directly for support and business enquiries.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setContactOpen(false)}
-                className="pp-dashboard-modal-close"
-                aria-label="Close contact dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="mt-6 border-t border-[rgba(214,197,162,0.14)] pt-6 text-sm text-[#f3ede3]">
-              officialpawnpoint@gmail.com
-            </p>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setContactOpen(false)}
-                className="pp-dashboard-primary-btn"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {faqOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => setFaqOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="pp-dashboard-modal relative z-10 w-full max-w-2xl p-6 text-[#f3ede3]"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="pp-dashboard-overline">Reference</div>
-                <div className="mt-3 text-lg font-semibold">FAQ</div>
-                <p className="mt-2 text-sm leading-7 text-[#b5aa9a]">
-                  Core answers for members, teams, and future Pawn Point players.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFaqOpen(false)}
-                className="pp-dashboard-modal-close"
-                aria-label="Close FAQ dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-6">
-              {FAQ_ITEMS.map((item, index) => {
-                const open = faqOpenIdx === index;
-                return (
-                  <div key={item.question} className="pp-dashboard-faq-item">
-                    <button
-                      type="button"
-                      onClick={() => setFaqOpenIdx((current) => (current === index ? null : index))}
-                      className="flex w-full items-center justify-between gap-4 text-left"
-                    >
-                      <span className="font-semibold text-[#f3ede3]">{item.question}</span>
-                      <span className="text-xl text-[#8d8374]">{open ? "-" : "+"}</span>
-                    </button>
-                    {open && <p className="mt-3 text-sm leading-7 text-[#b5aa9a]">{item.answer}</p>}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setFaqOpen(false)}
-                className="pp-dashboard-primary-btn"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </AppShell>
   );
 }
-

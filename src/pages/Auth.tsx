@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, Mail, Lock } from "lucide-react";
-import { Button } from "../components/ui/Button";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import loginBg from "../assets/Login screen.png";
+
+const chessAuthAssets = import.meta.glob("../assets/chess/*.{png,jpg,jpeg,webp}", {
+  eager: true,
+  import: "default",
+  query: "?url",
+}) as Record<string, string>;
+const authVisual =
+  chessAuthAssets["../assets/chess/loginsigninscreen.png"] ??
+  chessAuthAssets["../assets/chess/Loginsignin screen.png"] ??
+  "";
 
 type Mode = "login" | "signup";
 
@@ -38,6 +46,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [lockoutUntil, setLockoutUntil] = useState<number>(0);
+  const [showPassword, setShowPassword] = useState(false);
   const isLogin = mode === "login";
   const now = Date.now();
   const locked = lockoutUntil > now;
@@ -112,114 +121,160 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   };
 
   return (
-    <div className="min-h-screen relative bg-slate-950 text-white flex items-center justify-center px-4">
-      <div
-        className="absolute inset-0 bg-cover bg-center opacity-40"
-        style={{
-          backgroundImage: `url(${loginBg})`,
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-950/50 to-black/60" />
+    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      {authVisual && (
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-20 md:hidden"
+          style={{ backgroundImage: `url(${authVisual})` }}
+        />
+      )}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,rgba(0,0,0,0.72),#000)]" />
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="absolute top-6 left-5 z-20 h-10 w-10 rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition"
+        className="absolute left-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
         aria-label="Back to landing page"
       >
-        <ArrowLeft className="h-4 w-4 mx-auto" />
+        <ArrowLeft className="h-4 w-4" />
       </button>
-      <div className="relative z-10 w-full max-w-lg rounded-3xl p-8 shadow-2xl border border-white/10 bg-white/5 backdrop-blur-xl">
-        <div className="text-center mb-6 space-y-2">
-          <div className="pill glass inline-flex items-center gap-2 border-white/10">
-            <div className="h-2 w-2 rounded-full bg-brand.pink" />
-            <span>Pawn Point</span>
-          </div>
-          <h1 className="text-3xl font-semibold">{isLogin ? "Log In" : "Create Account"}</h1>
-          <p className="text-white/70 text-sm">
-            Train, track XP, and climb the group leaderboard.
-          </p>
-        </div>
 
-        <div className="space-y-3">
-          <button
-            type="button"
-            className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-[#d6d9de] bg-white px-4 text-[15px] font-medium leading-none text-[#202124] shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_6px_rgba(0,0,0,0.18)] active:bg-[#f1f3f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/35 disabled:cursor-not-allowed disabled:opacity-70"
-            onClick={handleGoogle}
-            disabled={loading || locked}
-          >
-            <GoogleIcon />
-            {loading ? "Please wait..." : "Continue with Google"}
-          </button>
-
-          <div className="flex items-center gap-3 text-xs text-white/60">
-            <span className="h-px flex-1 bg-white/10" />
-            or
-            <span className="h-px flex-1 bg-white/10" />
-          </div>
-
-          {error && (
-            <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-100 px-3 py-2 text-sm">
-              {error} {locked && lockSeconds > 0 ? `(wait ${lockSeconds}s)` : ""}
+      <main className="relative z-10 grid min-h-screen md:grid-cols-[minmax(420px,49vw)_1fr]">
+        <section className="flex min-h-screen items-center justify-center px-6 py-20 sm:px-8 lg:px-12">
+          <div className="w-full max-w-[350px]">
+            <div className="mb-8 text-center">
+              <h1 className="text-[26px] font-bold leading-tight tracking-[-0.01em] text-white">
+                {isLogin ? "Sign in to your account" : "Create your account"}
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-white/68">
+                {isLogin ? "Enter your email below to sign in" : "Enter your details below to sign up"}
+              </p>
             </div>
-          )}
 
-          {!isLogin && (
-            <div>
-              <label className="text-sm text-white/80">Display name</label>
-              <div className="mt-1 relative">
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSubmit();
+              }}
+            >
+              {error && (
+                <div className="rounded-xl border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+                  {error} {locked && lockSeconds > 0 ? `(wait ${lockSeconds}s)` : ""}
+                </div>
+              )}
+
+              {!isLogin && (
+                <div>
+                  <label htmlFor="auth-name" className="text-sm font-semibold text-white">
+                    Display name
+                  </label>
+                  <input
+                    id="auth-name"
+                    className="mt-2 h-10 w-full rounded-2xl border border-white/10 bg-black/45 px-4 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-white/35 focus:border-white/30 focus:bg-black/60"
+                    placeholder="Chess Shark"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="auth-email" className="text-sm font-semibold text-white">
+                  Email
+                </label>
                 <input
-                  className="w-full rounded-xl bg-white/10 border border-white/10 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-brand.pink"
-                  placeholder="Chess Shark"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  id="auth-email"
+                  type="email"
+                  className="mt-2 h-10 w-full rounded-2xl border border-white/10 bg-black/45 px-4 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-white/35 focus:border-white/30 focus:bg-black/60"
+                  placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               </div>
+
+              <div>
+                <label htmlFor="auth-password" className="text-sm font-semibold text-white">
+                  Password
+                </label>
+                <div className="relative mt-2">
+                  <input
+                    id="auth-password"
+                    type={showPassword ? "text" : "password"}
+                    className="h-10 w-full rounded-2xl border border-white/10 bg-black/45 px-4 pr-11 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-white/35 focus:border-white/30 focus:bg-black/60"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-white/50 transition hover:text-white"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || locked}
+                className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-2xl border border-white/10 bg-black/30 px-4 text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Please wait..." : locked ? `Please wait${lockSeconds ? ` (${lockSeconds}s)` : "..."}` : isLogin ? "Sign In" : "Sign Up"}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-sm font-semibold text-white">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              <button
+                type="button"
+                className="text-white underline-offset-4 transition hover:underline"
+                onClick={() => navigate(isLogin ? "/signup" : "/login")}
+              >
+                {isLogin ? "Sign up" : "Sign in"}
+              </button>
             </div>
-          )}
 
-          <div>
-            <label className="text-sm text-white/80">Email</label>
-            <div className="mt-1 relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-white/50" />
-              <input
-                type="email"
-                className="w-full rounded-xl bg-white/10 border border-white/10 px-10 py-3 focus:outline-none focus:ring-2 focus:ring-brand.pink"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            <div className="my-6 flex items-center gap-3 text-sm text-white/56">
+              <span className="h-px flex-1 bg-white/10" />
+              Or continue with
+              <span className="h-px flex-1 bg-white/10" />
             </div>
-          </div>
 
-          <div>
-            <label className="text-sm text-white/80">Password</label>
-            <div className="mt-1 relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-white/50" />
-              <input
-                type="password"
-                className="w-full rounded-xl bg-white/10 border border-white/10 px-10 py-3 focus:outline-none focus:ring-2 focus:ring-brand.pink"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <Button className="w-full justify-center" onClick={handleSubmit} disabled={loading || locked}>
-            {loading ? "One moment..." : locked ? `Please wait${lockSeconds ? ` (${lockSeconds}s)` : "..."}` : isLogin ? "Log In" : "Create Account"}
-          </Button>
-
-          <div className="text-sm text-white/70 text-center">
-            {isLogin ? "New to Pawn Point?" : "Already have an account?"}{" "}
             <button
-              className="text-brand.pink underline"
-              onClick={() => navigate(isLogin ? "/signup" : "/login")}
+              type="button"
+              onClick={handleGoogle}
+              disabled={loading || locked}
+              className="inline-flex h-10 w-full items-center justify-center gap-4 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isLogin ? "Create account" : "Log in"}
+              <GoogleIcon />
+              Continue with Google
             </button>
           </div>
-        </div>
-      </div>
+        </section>
+
+        <section className="relative hidden min-h-screen overflow-hidden md:block">
+          {authVisual ? (
+            <img
+              src={authVisual}
+              alt="Pawn Point chess pieces with lightning"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,255,0.08),transparent_34%),#000]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/0 to-black/10" />
+          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black via-black/82 to-transparent" />
+          <blockquote className="absolute inset-x-8 bottom-8 text-center text-white">
+            <p className="text-lg font-bold">"Welcome Back! The journey continues."</p>
+            <cite className="mt-3 block text-sm not-italic text-white/58">-- Pawn Point</cite>
+          </blockquote>
+        </section>
+      </main>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 const PROFILE_TTL_MS = 10 * 60 * 1000;
 const GAMES_TTL_MS = 2 * 60 * 1000;
 const MAX_GAMES = 500;
-const WINDOW_DAYS = 90;
+const WINDOW_DAYS = 183;
 const WINDOW_MS = WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const USERNAME_RE = /^[A-Za-z0-9_-]{2,30}$/;
 
@@ -68,6 +68,41 @@ const summarizeGames = (games) => {
   });
   const total = wins + losses + draws;
   return { games: total, wins, losses, draws };
+};
+
+const buildRapidHistory = (games, currentRapid) => {
+  const cutoff = Date.now() - WINDOW_MS;
+  const buckets = new Map();
+  games.forEach((game) => {
+    if (game.timeControl !== "rapid" || !game.playedAt || !Number.isFinite(Number(game.playerRating))) return;
+    const ts = Date.parse(game.playedAt);
+    if (!Number.isFinite(ts) || ts < cutoff) return;
+    const date = new Date(ts);
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const existing = buckets.get(key);
+    if (!existing || ts >= existing.ts) {
+      buckets.set(key, {
+        date: date.toISOString().slice(0, 10),
+        rating: Math.round(Number(game.playerRating)),
+        ts,
+      });
+    }
+  });
+
+  const today = new Date();
+  const currentMonth = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (Number.isFinite(Number(currentRapid)) && !buckets.has(currentMonth)) {
+    buckets.set(currentMonth, {
+      date: today.toISOString().slice(0, 10),
+      rating: Math.round(Number(currentRapid)),
+      ts: today.getTime(),
+    });
+  }
+
+  return Array.from(buckets.values())
+    .sort((a, b) => a.ts - b.ts)
+    .slice(-6)
+    .map(({ date, rating }) => ({ date, rating }));
 };
 
 const parseChessComTimeClass = (game) => {
@@ -267,11 +302,18 @@ function normalizeLichess(username, profile, games) {
         username: opponentUser?.name || opponentUser?.id || null,
         rating: safeNumber(game?.players?.[opponentColor]?.rating),
       },
+      playerRating: safeNumber(game?.players?.[color]?.rating),
       pgn: game?.pgn || null,
       opening: game?.opening?.name || null,
     };
     return { ...normalized, opening: resolveOpeningName(normalized) };
   });
+  const ratings = {
+    bullet: safeNumber(perfs?.bullet?.rating),
+    blitz: safeNumber(perfs?.blitz?.rating),
+    rapid: safeNumber(perfs?.rapid?.rating),
+    classical: safeNumber(perfs?.classical?.rating),
+  };
   return {
     platform: "lichess",
     username: String(profile?.id || username).toLowerCase(),
@@ -280,11 +322,9 @@ function normalizeLichess(username, profile, games) {
     country: profile?.profile?.country || null,
     title: profile?.title || null,
     lastOnline: toIso(profile?.seenAt),
-    ratings: {
-      bullet: safeNumber(perfs?.bullet?.rating),
-      blitz: safeNumber(perfs?.blitz?.rating),
-      rapid: safeNumber(perfs?.rapid?.rating),
-      classical: safeNumber(perfs?.classical?.rating),
+    ratings,
+    ratingHistory: {
+      rapid: buildRapidHistory(normalizedGames, ratings.rapid),
     },
     stats: summarizeGames(normalizedGames),
     openings: computeOpenings(normalizedGames),
@@ -310,12 +350,19 @@ function normalizeChessCom(username, profile, stats, games) {
         username: opponent?.username || null,
         rating: safeNumber(opponent?.rating),
       },
+      playerRating: safeNumber(player?.rating),
       pgn: game?.pgn || null,
       opening: null,
       eco: game?.eco || game?.eco_url || null,
     };
     return { ...normalized, opening: resolveOpeningName(normalized) };
   });
+  const ratings = {
+    bullet: safeNumber(stats?.chess_bullet?.last?.rating),
+    blitz: safeNumber(stats?.chess_blitz?.last?.rating),
+    rapid: safeNumber(stats?.chess_rapid?.last?.rating),
+    classical: safeNumber(stats?.chess_daily?.last?.rating),
+  };
   return {
     platform: "chesscom",
     username: profile?.username ? String(profile.username).toLowerCase() : username.toLowerCase(),
@@ -324,11 +371,9 @@ function normalizeChessCom(username, profile, stats, games) {
     country: normalizeCountry(profile?.country),
     title: profile?.title || null,
     lastOnline: toIso((profile?.last_online || 0) * 1000),
-    ratings: {
-      bullet: safeNumber(stats?.chess_bullet?.last?.rating),
-      blitz: safeNumber(stats?.chess_blitz?.last?.rating),
-      rapid: safeNumber(stats?.chess_rapid?.last?.rating),
-      classical: safeNumber(stats?.chess_daily?.last?.rating),
+    ratings,
+    ratingHistory: {
+      rapid: buildRapidHistory(normalizedGames, ratings.rapid),
     },
     stats: summarizeGames(normalizedGames),
     openings: computeOpenings(normalizedGames),

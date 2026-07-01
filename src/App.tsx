@@ -24,10 +24,21 @@ import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CookiePolicy from "./pages/CookiePolicy";
 import ZacOnly from "./pages/ZacOnly";
+import { rememberCheckoutReturnPath } from "./lib/checkoutRedirect";
 
 const SOUTH_KNIGHTS_GROUP_ID = "south-knight";
 const SOUTH_KNIGHTS_GROUP_CODE = "0055";
 const ZAC_ONLY_UID = "FeXOccEwugQBmJtcFgydgAnrlUA3";
+
+function CheckoutReturnTracker() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    rememberCheckoutReturnPath(location);
+  }, [location]);
+
+  return null;
+}
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -224,6 +235,20 @@ function Router() {
           </Protected>
         )}
       </Route>
+      <Route path="/blackbook">
+        {() => (
+          <Protected>
+            <SquareBase />
+          </Protected>
+        )}
+      </Route>
+      <Route path="/training">
+        {() => (
+          <Protected>
+            <SquareBase />
+          </Protected>
+        )}
+      </Route>
       <Route path="/profile">
         {() => (
           <Protected>
@@ -258,6 +283,7 @@ function Router() {
 export default function App() {
   return (
     <AuthProvider>
+      <CheckoutReturnTracker />
       <Router />
       <Analytics />
     </AuthProvider>

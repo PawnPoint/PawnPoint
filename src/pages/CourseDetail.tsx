@@ -6,6 +6,8 @@ import {
   getProgressForCourse,
   updateLessonProgress,
   canEditCourse,
+  isTrackableCourseSubsection,
+  subsectionHasInlinePgn,
   type CourseProgress,
   type Course,
   type Chapter,
@@ -41,6 +43,77 @@ const pageBackground = {
 } as const;
 
 type OrderedChapter = Chapter & { subsections: Record<string, Subsection> };
+type StudySubsection = Extract<Subsection, { type: "study" }>;
+type PgnSubsection = Extract<Subsection, { type: "pgn" }>;
+type QuizSubsection = Extract<Subsection, { type: "quiz" }>;
+type ChapterItems = {
+  studies: StudySubsection[];
+  pgns: PgnSubsection[];
+  quizzes: QuizSubsection[];
+  trackableIds: string[];
+};
+
+const EMPTY_CHAPTER_ITEMS: ChapterItems = {
+  studies: [],
+  pgns: [],
+  quizzes: [],
+  trackableIds: [],
+};
+
+type QuizImportDraft = {
+  title?: string;
+  prompt: string;
+  fen: string;
+  options: string[];
+  correctIndex: number;
+};
+
+function normalizeQuizImportDraft(raw: any): QuizImportDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const fen = String(raw.fen || raw.FEN || raw.position || "").trim();
+  const prompt = String(raw.prompt || raw.question || raw.title || "").trim();
+  const options: string[] = Array.isArray(raw.options)
+    ? (raw.options as unknown[]).map((option: unknown) => String(option || "").trim()).filter(Boolean)
+    : ([raw.a, raw.b, raw.c, raw.d, raw.answerA, raw.answerB, raw.answerC, raw.answerD] as unknown[])
+        .map((option: unknown) => String(option || "").trim())
+        .filter(Boolean);
+  if (!fen || !prompt || options.length < 2) return null;
+
+  let correctIndex = Number.isFinite(Number(raw.correctIndex)) ? Number(raw.correctIndex) : 0;
+  if (Number.isFinite(Number(raw.correctOption))) {
+    correctIndex = Number(raw.correctOption);
+  }
+  if (typeof raw.correct === "string") {
+    const normalizedCorrect = raw.correct.trim();
+    const letterIndex = "abcd".indexOf(normalizedCorrect.toLowerCase());
+    const optionIndex = options.findIndex((option) => option.toLowerCase() === normalizedCorrect.toLowerCase());
+    if (letterIndex >= 0) correctIndex = letterIndex;
+    if (optionIndex >= 0) correctIndex = optionIndex;
+  }
+  if (correctIndex >= 1 && correctIndex <= options.length && raw.correctIndex == null) {
+    correctIndex -= 1;
+  }
+
+  return {
+    title: String(raw.title || "").trim() || undefined,
+    prompt,
+    fen,
+    options,
+    correctIndex: Math.min(Math.max(correctIndex, 0), options.length - 1),
+  };
+}
+
+function parseQuizImportDrafts(text: string): QuizImportDraft[] {
+  const parsed = JSON.parse(text);
+  const candidates: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.quizzes)
+      ? parsed.quizzes
+      : Array.isArray(parsed?.questions)
+        ? parsed.questions
+        : [parsed];
+  return candidates.map(normalizeQuizImportDraft).filter((draft): draft is QuizImportDraft => !!draft);
+}
 
 export default function CourseDetail({ id }: { id: string }) {
   const { user } = useAuth();
@@ -51,15 +124,19 @@ export default function CourseDetail({ id }: { id: string }) {
   const [newType, setNewType] = useState<"study" | "pgn" | "quiz">("study");
   const [newTitle, setNewTitle] = useState("");
   const [newPgn, setNewPgn] = useState("");
+  const [newPgnFen, setNewPgnFen] = useState("");
   const [newQuizPrompt, setNewQuizPrompt] = useState("");
   const [quizFen, setQuizFen] = useState("");
   const [quizOptions, setQuizOptions] = useState<string[]>(["Option A", "Option B", "Option C", "Option D"]);
   const [correctOption, setCorrectOption] = useState(0);
+  const [importedQuizDrafts, setImportedQuizDrafts] = useState<QuizImportDraft[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null);
   const [isDraggingPgn, setIsDraggingPgn] = useState(false);
+  const [isDraggingQuizImport, setIsDraggingQuizImport] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [savingContent, setSavingContent] = useState(false);
 
   const { data: course } = useQuery({
     queryKey: ["course", id, user?.groupId, user?.accountType],
@@ -81,7 +158,7 @@ export default function CourseDetail({ id }: { id: string }) {
     },
   });
 
-const orderedChapters: OrderedChapter[] = useMemo(() => {
+  const orderedChapters: OrderedChapter[] = useMemo(() => {
     const chapters = course?.chapters
       ? Object.values(course.chapters).sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
       : [];
@@ -102,21 +179,33 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   }, [selectedChapterId]);
 
   const chapterItems = useMemo(() => {
-    const map: Record<string, { pgns: Subsection[]; quizzes: Subsection[] }> = {};
+    const map: Record<string, ChapterItems> = {};
     orderedChapters.forEach((ch) => {
-      const subs = Object.values(ch.subsections || {});
-      const pgns = subs.filter((s) => s.type === "pgn");
-      const quizzes = subs.filter((s) => s.type === "quiz");
-      map[ch.id] = { pgns, quizzes };
+      const subs = Object.values(ch.subsections || {})
+        .filter((subsection) => subsection.type !== "video")
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      const studies = subs.filter((s): s is StudySubsection => s.type === "study");
+      const pgns = subs.filter((s): s is PgnSubsection => s.type === "pgn");
+      const quizzes = subs.filter((s): s is QuizSubsection => s.type === "quiz");
+      const attachedStudyIds = new Set(
+        [...pgns, ...quizzes]
+          .map((subsection) => subsection.parentStudyId)
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+      );
+      map[ch.id] = {
+        studies,
+        pgns,
+        quizzes,
+        trackableIds: subs
+          .filter((subsection) => isTrackableCourseSubsection(subsection, attachedStudyIds))
+          .map((subsection) => subsection.id),
+      };
     });
     return map;
   }, [orderedChapters]);
 
   const courseSubIds = useMemo(
-    () =>
-      Object.values(chapterItems)
-        .flatMap((group) => [...group.pgns, ...group.quizzes])
-        .map((s) => s.id),
+    () => Object.values(chapterItems).flatMap((group) => group.trackableIds),
     [chapterItems],
   );
 
@@ -126,14 +215,13 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
   const chapterPercentById = useMemo(() => {
     const map: Record<string, number> = {};
     orderedChapters.forEach((ch) => {
-      const items = chapterItems[ch.id] || { pgns: [], quizzes: [] };
-      const subs = [...items.pgns, ...items.quizzes];
-      if (!subs.length) {
+      const items = chapterItems[ch.id] || EMPTY_CHAPTER_ITEMS;
+      if (!items.trackableIds.length) {
         map[ch.id] = 0;
         return;
       }
-      const done = subs.filter((s) => completed.has(s.id)).length;
-      const pct = Math.min(100, Math.round((done / subs.length) * 100));
+      const done = items.trackableIds.filter((subId) => completed.has(subId)).length;
+      const pct = Math.min(100, Math.round((done / items.trackableIds.length) * 100));
       map[ch.id] = pct;
     });
     return map;
@@ -150,18 +238,43 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
     return { icon: BookOpen, label: "Study" };
   };
 
+  const applyQuizImportText = (text: string) => {
+    try {
+      const drafts = parseQuizImportDrafts(text);
+      if (!drafts.length) {
+        setToast("Quiz import needs JSON with fen, prompt/question, options, and correct/correctIndex.");
+        return;
+      }
+      const first = drafts[0];
+      setImportedQuizDrafts(drafts);
+      setQuizFen(first.fen);
+      setNewQuizPrompt(first.prompt);
+      setQuizOptions(first.options);
+      setCorrectOption(first.correctIndex);
+      if (!newTitle.trim() && first.title) {
+        setNewTitle(first.title);
+      }
+      setToast(drafts.length === 1 ? "Imported quiz draft." : `Imported ${drafts.length} quiz drafts.`);
+    } catch {
+      setToast("Quiz import must be valid JSON.");
+    }
+  };
+
   const handleCreateSubsection = async () => {
-    if (!canManageCourse) return;
+    if (savingContent) return;
+    if (!canManageCourse || !course) {
+      setToast("This course is not editable from this account.");
+      return;
+    }
     if (!selectedChapterId) {
       setToast("Select a chapter first.");
       return;
     }
-    // Require a target study for PGN/Quiz attachments
-    if ((newType === "pgn" || newType === "quiz") && !selectedStudyId) {
-      setToast("Select a study to attach this item.");
+    if (newType === "pgn" && !newPgn.trim()) {
+      setToast("Paste or upload a PGN before saving.");
       return;
     }
-    const baseTitle = newTitle.trim() || (newType === "quiz" ? "New Quiz" : "New Study");
+    const baseTitle = newTitle.trim() || (newType === "quiz" ? "New Quiz" : newType === "pgn" ? "New PGN" : "New Study");
     const chapterSubs = orderedChapters.find((ch) => ch.id === selectedChapterId)?.subsections || {};
     const studies = Object.values(chapterSubs).filter((s) => s.type === "study");
     const orderedSubs = Object.values(chapterSubs).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
@@ -172,85 +285,135 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
             orderedSubs.length,
           )
         : orderedSubs.length;
-    let payload: Subsection;
+    let payloads: Subsection[] = [];
     if (newType === "quiz") {
-      if (!quizFen.trim()) return;
-      payload = {
-        id: "",
-        type: "quiz",
-        title: baseTitle,
-        fen: quizFen.trim() || undefined,
-        questions: [
-          {
-            id: "q1",
-            prompt: newQuizPrompt.trim() || "Sample question",
-            options: (() => {
-              const trimmed = quizOptions.map((opt) => opt.trim()).filter(Boolean);
-              if (trimmed.length < 2) {
-                return ["Option A", "Option B"];
-              }
-              return trimmed;
-            })(),
-            correctIndex: (() => {
-              const trimmed = quizOptions.map((opt) => opt.trim()).filter(Boolean);
-              const idx = Math.min(Math.max(correctOption, 0), Math.max(trimmed.length - 1, 0));
-              return trimmed.length < 2 ? 0 : idx;
-            })(),
-            parentStudyId: selectedStudyId || undefined,
-          },
-        ],
-        index: targetIdx,
-        parentStudyId: selectedStudyId || undefined,
-      };
+      const drafts =
+        importedQuizDrafts.length > 0
+          ? importedQuizDrafts
+          : [
+              {
+                title: baseTitle,
+                prompt: newQuizPrompt.trim() || "Sample question",
+                fen: quizFen.trim(),
+                options: quizOptions.map((opt) => opt.trim()).filter(Boolean),
+                correctIndex: correctOption,
+              },
+            ];
+      if (!drafts.every((draft) => draft.fen.trim())) {
+        setToast("Add a FEN for every quiz.");
+        return;
+      }
+      payloads = drafts.map((draft, idx) => {
+        const options = draft.options.length < 2 ? ["Option A", "Option B"] : draft.options;
+        return {
+          id: "",
+          type: "quiz",
+          title: draft.title || (drafts.length > 1 ? `${baseTitle} ${idx + 1}` : baseTitle),
+          fen: draft.fen.trim(),
+          questions: [
+            {
+              id: "q1",
+              prompt: draft.prompt.trim() || "Sample question",
+              options,
+              correctIndex: Math.min(Math.max(draft.correctIndex, 0), options.length - 1),
+            },
+          ],
+          index: targetIdx + idx,
+          parentStudyId: selectedStudyId || undefined,
+        };
+      });
     } else if (newType === "pgn") {
-      payload = {
+      payloads = [{
         id: "",
         type: "pgn",
         title: baseTitle,
         pgn:
           newPgn.trim() ||
           `[Event "New Study"]\n[Site "?"]\n[Result "*"]\n1.e4 e5 2.Nf3 Nc6 3.Bb5 *`,
+        fen: newPgnFen.trim() || undefined,
         index: targetIdx,
         parentStudyId: selectedStudyId || undefined,
-      };
+      }];
     } else {
       // new study container
-      payload = {
+      payloads = [{
         id: "",
         type: "study",
         title: baseTitle,
         index: studies.length,
-      };
+      }];
     }
-    await saveSubsection(course.id, selectedChapterId, payload);
+    const savedSubsections: Subsection[] = [];
+    try {
+      setSavingContent(true);
+      for (const payload of payloads) {
+        const saved = await saveSubsection(course.id, selectedChapterId, payload);
+        if (saved) savedSubsections.push(saved);
+      }
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Could not save this content.");
+      return;
+    } finally {
+      setSavingContent(false);
+    }
+    if (!savedSubsections.length) {
+      setToast("Could not save this content. Check that the course is editable and try again.");
+      return;
+    }
+    queryClient.setQueriesData<Course | undefined>({ queryKey: ["course", id] }, (current) => {
+      if (!current?.chapters?.[selectedChapterId]) return current;
+      const chapter = current.chapters[selectedChapterId];
+      const savedMap = savedSubsections.reduce<Record<string, Subsection>>((acc, subsection) => {
+        acc[subsection.id] = subsection;
+        return acc;
+      }, {});
+      return {
+        ...current,
+        contentUpdatedAt: Date.now(),
+        chapters: {
+          ...current.chapters,
+          [selectedChapterId]: {
+            ...chapter,
+            subsections: {
+              ...(chapter.subsections || {}),
+              ...savedMap,
+            },
+          },
+        },
+      };
+    });
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
     setToast("Added successfully");
+    setOpenChapterId(selectedChapterId);
+    setCreateModalOpen(false);
     setNewTitle("");
     setNewPgn("");
+    setNewPgnFen("");
     setNewQuizPrompt("");
     setQuizFen("");
     setQuizOptions(["Option A", "Option B", "Option C", "Option D"]);
     setCorrectOption(0);
+    setImportedQuizDrafts([]);
     setSelectedStudyId(null);
   };
 
   const handleDeleteSubsection = async (chapterId: string, subsectionId: string) => {
-    if (!canManageCourse) return;
+    if (!canManageCourse || !course) return;
     await deleteSubsection(course.id, chapterId, subsectionId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
-    if (!canManageCourse) return;
+    if (!canManageCourse || !course) return;
     await deleteChapter(course.id, chapterId);
     await queryClient.invalidateQueries({ queryKey: ["course", id] });
     await queryClient.invalidateQueries({ queryKey: ["progress", id] });
   };
 
   const handleCreateChapter = async () => {
-    if (!canManageCourse) return;
+    if (!canManageCourse || !course) return;
     const title = newChapterTitle.trim() || `Chapter ${orderedChapters.length + 1}`;
     const index = orderedChapters.length;
     const created = await addChapter(course.id, title, index);
@@ -316,22 +479,27 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
               const pct = chapterProgress(chapter);
               return (
                 <div key={chapter.id} className="rounded-xl border border-white/10 bg-[#2d3749]">
-                  <button
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                    onClick={() => setOpenChapterId(open ? null : chapter.id)}
-                  >
-                    <div className="flex flex-col gap-1 flex-1">
-                      <div className="text-xs text-white/60">Chapter {idx + 1}</div>
-                      <div className="font-semibold text-white">{chapter.title}</div>
-                    </div>
-                    <div className="w-40 hidden sm:flex flex-col gap-1">
-                      <div className="flex items-center justify-between text-xs text-white/70">
-                        <span>{pct}%</span>
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => setOpenChapterId(open ? null : chapter.id)}
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="text-xs text-white/60">Chapter {idx + 1}</div>
+                        <div className="truncate font-semibold text-white">{chapter.title}</div>
                       </div>
-                      <Progress value={pct} />
-                    </div>
+                      <div className="w-40 hidden sm:flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-xs text-white/70">
+                          <span>{pct}%</span>
+                        </div>
+                        <Progress value={pct} />
+                      </div>
+                      {open ? <ChevronUp className="h-4 w-4 shrink-0 text-white/70" /> : <ChevronDown className="h-4 w-4 shrink-0 text-white/70" />}
+                    </button>
                     {canManageCourse && (
                       <button
+                        type="button"
                         className="p-1 rounded-full hover:bg-white/10 text-white/70"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -342,37 +510,36 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
-                    {open ? <ChevronUp className="h-4 w-4 text-white/70" /> : <ChevronDown className="h-4 w-4 text-white/70" />}
-                  </button>
+                  </div>
                   {open && (
                     <div className="border-t border-white/10 px-4 py-3 space-y-3">
                       {(() => {
-                        const subs = Object.values(chapter.subsections || {}).sort(
-                          (a, b) => (a.index ?? 0) - (b.index ?? 0),
-                        );
-                        const studies = subs.filter((s) => s.type === "study");
-                        const orphanPgns = subs.filter((s) => s.type === "pgn" && !s.parentStudyId);
-                        const orphanQuizzes = subs.filter((s) => s.type === "quiz" && !s.parentStudyId);
-                        const groups = studies.length
-                          ? studies.map((study) => ({
+                        const items = chapterItems[chapter.id] || EMPTY_CHAPTER_ITEMS;
+                        const studies = items.studies;
+                        const orphanPgns = items.pgns.filter((s) => !s.parentStudyId);
+                        const orphanQuizzes = items.quizzes.filter((s) => !s.parentStudyId);
+                        const studyGroups = studies.map((study) => ({
                               study,
-                              pgns: subs.filter((p) => p.type === "pgn" && p.parentStudyId === study.id),
-                              quizzes: subs.filter((q) => q.type === "quiz" && q.parentStudyId === study.id),
-                            }))
-                          : [{ study: null, pgns: orphanPgns, quizzes: orphanQuizzes }];
+                              pgns: items.pgns.filter((p) => p.parentStudyId === study.id),
+                              quizzes: items.quizzes.filter((q) => q.parentStudyId === study.id),
+                            }));
+                        const groups =
+                          orphanPgns.length || orphanQuizzes.length || !studyGroups.length
+                            ? [...studyGroups, { study: null, pgns: orphanPgns, quizzes: orphanQuizzes }]
+                            : studyGroups;
 
                         return groups.length ? (
                           groups.map((group, gIdx) => {
                             const study = group.study;
                             const pgns = group.pgns;
                             const quizzes = group.quizzes;
-                            const studyIsGroupOnly = study?.type === "study";
-                            const studyMeta = study ? subsectionMeta(study) : null;
-                            const studyDone = study?.type === "pgn" ? completed.has(study.id) : false;
+                            const studyHasInlinePgn = subsectionHasInlinePgn(study);
+                            const studyIsTrackable = !!study && (studyHasInlinePgn || (!pgns.length && !quizzes.length));
+                            const studyDone = studyIsTrackable && study ? completed.has(study.id) : false;
                             const quizzesDone = quizzes.filter((q) => completed.has(q.id)).length;
                             const pgnDone = pgns.filter((p) => completed.has(p.id)).length;
-                            const totalItems = pgns.length + quizzes.length;
-                            const doneCount = pgnDone + quizzesDone;
+                            const totalItems = pgns.length + quizzes.length + (studyIsTrackable ? 1 : 0);
+                            const doneCount = pgnDone + quizzesDone + (studyDone ? 1 : 0);
                             return (
                               <div
                                 key={study?.id || `group-${gIdx}`}
@@ -396,15 +563,23 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                   )}
                                 </div>
                                 <div className="space-y-3 text-sm text-white/80">
+                                  {totalItems > 0 && (
+                                    <div className="text-xs text-white/50">
+                                      {doneCount}/{totalItems} complete
+                                    </div>
+                                  )}
                                   <div className="flex flex-wrap justify-center gap-3">
-                                    {study?.type === "pgn" && (
-                                      <button
-                                        className="flex items-center gap-3 text-left rounded-lg px-4 py-3 border border-transparent hover:border-white/20 hover:bg-white/10 transition text-base"
-                                        onClick={() => navigate(`/lesson/${course.id}?sub=${study.id}`)}
-                                      >
-                                        <BookOpen className="h-5 w-5 text-white" />
-                                        <span className="text-white">{study.title}</span>
-                                      </button>
+                                    {studyIsTrackable && study && (
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          className="flex items-center gap-3 text-left rounded-lg px-4 py-3 border border-transparent hover:border-white/20 hover:bg-white/10 transition text-base"
+                                          onClick={() => navigate(`/lesson/${course.id}?sub=${study.id}`)}
+                                        >
+                                          <BookOpen className="h-5 w-5 text-white" />
+                                          <span className="text-white">{study.title}</span>
+                                        </button>
+                                        {studyDone && <span className="text-xs text-emerald-300">Done</span>}
+                                      </div>
                                     )}
 
                                     {pgns.map((pgn) => {
@@ -427,7 +602,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                               <Trash2 className="h-4 w-4" />
                                             </button>
                                           )}
-                                          {done && <span className="text-xs text-emerald-300">✓</span>}
+                                          {done && <span className="text-xs text-emerald-300">Done</span>}
                                         </div>
                                       );
                                     })}
@@ -454,7 +629,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                                               <Trash2 className="h-4 w-4" />
                                             </button>
                                           )}
-                                          {done && <span className="text-xs text-emerald-300">✓</span>}
+                                          {done && <span className="text-xs text-emerald-300">Done</span>}
                                         </div>
                                       );
                                     })}
@@ -514,7 +689,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-semibold">Add new content</div>
-                <div className="text-xs text-white/60">Create a study (PGN) or quiz for this course.</div>
+                <div className="text-xs text-white/60">Create a study, import PGN, or add FEN-based quizzes for this course.</div>
               </div>
               <button
                 className="p-2 rounded-full hover:bg-white/10 text-white/70"
@@ -608,7 +783,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
               </div>
 
               <div className="text-xs text-white/60">
-                New {newType === "quiz" ? "quiz" : "study"} will be created inside the selected chapter
+                New {newType === "quiz" ? "quiz" : newType === "pgn" ? "PGN" : "study"} will be created inside the selected chapter
                 {selectedChapterId
                   ? ` (${orderedChapters.find((ch) => ch.id === selectedChapterId)?.title || "Current"})`
                   : ""}.
@@ -649,16 +824,76 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                     onChange={(e) => setNewPgn(e.target.value)}
                     placeholder='[Event "?"] ...'
                   />
+                  <input
+                    type="file"
+                    accept=".pgn,text/plain"
+                    className="text-xs text-white/70 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.currentTarget.value = "";
+                      if (!file) return;
+                      file.text().then((text) => {
+                        setNewPgn(text);
+                        if (!newTitle.trim()) setNewTitle(file.name.replace(/\.[^.]+$/, ""));
+                      });
+                    }}
+                  />
+                  <span>Starting FEN (optional)</span>
+                  <input
+                    className="bg-[#111724] border border-white/10 rounded-lg px-3 py-2 text-sm"
+                    value={newPgnFen}
+                    onChange={(e) => setNewPgnFen(e.target.value)}
+                    placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                  />
                 </label>
               )}
               {newType === "quiz" && (
                 <div className="space-y-2">
+                  <label
+                    className={`text-sm text-white/70 flex flex-col gap-2 rounded-lg border ${
+                      isDraggingQuizImport ? "border-emerald-400 bg-[#111724]/60" : "border-white/10"
+                    } p-2`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingQuizImport(true);
+                    }}
+                    onDragLeave={() => setIsDraggingQuizImport(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingQuizImport(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (!file) return;
+                      file.text().then(applyQuizImportText);
+                    }}
+                  >
+                    <span>Import quiz JSON (drop or upload)</span>
+                    <input
+                      type="file"
+                      accept=".json,application/json,text/plain"
+                      className="text-xs text-white/70 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = "";
+                        if (!file) return;
+                        file.text().then(applyQuizImportText);
+                      }}
+                    />
+                    <div className="text-xs text-white/45">
+                      Format: {"[{\"title\":\"Fork tactic\",\"fen\":\"...\",\"prompt\":\"Best move?\",\"options\":[\"Nxf7\",\"Bc4\"],\"correct\":0}]"}
+                    </div>
+                    {importedQuizDrafts.length > 0 && (
+                      <div className="text-xs text-emerald-300">{importedQuizDrafts.length} quiz draft(s) ready to save.</div>
+                    )}
+                  </label>
                   <label className="text-sm text-white/70 flex flex-col gap-1">
                     Question prompt
                     <input
                       className="bg-[#111724] border border-white/10 rounded-lg px-3 py-2 text-sm"
                       value={newQuizPrompt}
-                      onChange={(e) => setNewQuizPrompt(e.target.value)}
+                      onChange={(e) => {
+                        setNewQuizPrompt(e.target.value);
+                        setImportedQuizDrafts([]);
+                      }}
                       placeholder="Enter a question"
                     />
                   </label>
@@ -667,7 +902,10 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                     <input
                       className="bg-[#111724] border border-white/10 rounded-lg px-3 py-2 text-sm"
                       value={quizFen}
-                      onChange={(e) => setQuizFen(e.target.value)}
+                      onChange={(e) => {
+                        setQuizFen(e.target.value);
+                        setImportedQuizDrafts([]);
+                      }}
                       placeholder="Position FEN (required)"
                     />
                   </label>
@@ -681,7 +919,10 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                             name="correctOption"
                             className="h-4 w-4"
                             checked={correctOption === idx}
-                            onChange={() => setCorrectOption(idx)}
+                            onChange={() => {
+                              setCorrectOption(idx);
+                              setImportedQuizDrafts([]);
+                            }}
                           />
                           <input
                             className="flex-1 bg-[#111724] border border-white/10 rounded-lg px-3 py-2 text-sm"
@@ -690,6 +931,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                               const next = [...quizOptions];
                               next[idx] = e.target.value;
                               setQuizOptions(next);
+                              setImportedQuizDrafts([]);
                             }}
                             placeholder={`Option ${idx + 1}`}
                           />
@@ -699,6 +941,7 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                               onClick={() => {
                                 const next = quizOptions.filter((_, i) => i !== idx);
                                 setQuizOptions(next);
+                                setImportedQuizDrafts([]);
                                 if (correctOption >= next.length) {
                                   setCorrectOption(Math.max(0, next.length - 1));
                                 }
@@ -713,7 +956,10 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
                       <Button
                         variant="outline"
                         className="w-full"
-                        onClick={() => setQuizOptions((prev) => [...prev, ""])}
+                        onClick={() => {
+                          setQuizOptions((prev) => [...prev, ""]);
+                          setImportedQuizDrafts([]);
+                        }}
                         type="button"
                       >
                         Add option
@@ -728,8 +974,8 @@ const orderedChapters: OrderedChapter[] = useMemo(() => {
               <Button variant="ghost" onClick={() => setCreateModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateSubsection} disabled={!selectedChapterId}>
-                Save to Chapter
+              <Button onClick={handleCreateSubsection} disabled={!selectedChapterId || savingContent}>
+                {savingContent ? "Saving..." : "Save to Chapter"}
               </Button>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { FirebaseError } from "firebase/app";
 import { auth, storage } from "./firebase";
 import { nanoid } from "./nanoid";
+import { uploadCourseAssetToSupabase } from "./supabaseContent";
 
 type CourseAssetKind = "thumbnails" | "videos";
 
@@ -47,6 +48,15 @@ export async function uploadCourseAsset(file: File, options: UploadCourseAssetOp
     pathParts.push(sanitizePathSegment(options.chapterId));
   }
   pathParts.push(`${Date.now()}-${nanoid()}-${fileName}`);
+
+  try {
+    return await uploadCourseAssetToSupabase(file, {
+      ...options,
+      ownerId,
+    });
+  } catch (err) {
+    console.warn("Supabase course asset upload failed; falling back to Firebase Storage.", err);
+  }
 
   const assetRef = storageRef(storage, pathParts.join("/"));
   try {

@@ -26,6 +26,7 @@ let engineInitTimer: number | null = null;
 let engineCandidateIdx = 0;
 let engineFailed = false;
 const listeners = new Set<Listener>();
+const queuedCommands: string[] = [];
 
 const resetEngineState = () => {
   engineInitialized = false;
@@ -40,6 +41,7 @@ const resetEngineInstance = () => {
     /* ignore */
   }
   engine = null;
+  queuedCommands.length = 0;
   resetEngineState();
 };
 
@@ -95,9 +97,15 @@ const startEngine = (idx = 0): Worker | null => {
 
   worker.onmessage = (e: MessageEvent) => {
     const line = String(e.data || "");
-    if (line === "uciok" || line === "readyok") {
+    if (line === "uciok") {
+      worker.postMessage("isready");
+    }
+    if (line === "readyok") {
       engineInitialized = true;
       clearInitTimer();
+      while (queuedCommands.length) {
+        worker.postMessage(queuedCommands.shift()!);
+      }
     }
     listeners.forEach((fn) => fn(line));
   };
@@ -114,7 +122,6 @@ const startEngine = (idx = 0): Worker | null => {
   }, 6000);
 
   worker.postMessage("uci");
-  worker.postMessage("isready");
   return worker;
 };
 
@@ -134,6 +141,17 @@ function getEngine(): Worker | null {
     }, 1200);
   }
   return engine;
+}
+
+function sendEngineCommand(command: string) {
+  const eng = getEngine();
+  if (!eng) return false;
+  if (!engineInitialized) {
+    queuedCommands.push(command);
+    return true;
+  }
+  eng.postMessage(command);
+  return true;
 }
 
 const parseEval = (line: string): EngineEval | null => {
@@ -171,8 +189,7 @@ export function useStockfishEval(
   const activeFenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const eng = getEngine();
-    if (!eng) {
+    if (!getEngine()) {
       console.error("[SF] Engine unavailable - eval bar disabled.");
       setState({ eval: null, isThinking: false });
       return;
@@ -217,8 +234,7 @@ export function useStockfishEval(
     if (refreshKey) {
       resetEngineInstance();
     }
-    const eng = getEngine();
-    if (!eng) {
+    if (!getEngine()) {
       setState({ eval: null, isThinking: false });
       return;
     }
@@ -231,12 +247,15 @@ export function useStockfishEval(
       window.clearTimeout(settleTimerRef.current);
       settleTimerRef.current = null;
     }
+    if (!engineInitialized) {
+      queuedCommands.length = 0;
+    }
     console.log("[SF->] stop");
-    eng.postMessage("stop");
+    sendEngineCommand("stop");
     console.log("[SF->] position fen", fen);
-    eng.postMessage(`position fen ${fen}`);
-    console.log("[SF->] go movetime 250");
-    eng.postMessage("go movetime 250");
+    sendEngineCommand(`position fen ${fen}`);
+    console.log("[SF->] go depth", depth);
+    sendEngineCommand(`go depth ${depth}`);
     // Fallback: if the engine never emits bestmove, clear thinking state after a short window.
     settleTimerRef.current = window.setTimeout(() => {
       if (searchIdRef.current === searchId) {

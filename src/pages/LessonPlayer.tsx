@@ -21,12 +21,12 @@ import {
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { Button } from "../components/ui/Button";
+import { VideoPlayer } from "../components/VideoPlayer";
 import macCursorPointing from "../assets/Mac Cursor Pointing Hand.png";
 import macCursorClosed from "../assets/Mac Cursor Closed Hand.png";
 import { useAuth } from "../hooks/useAuth";
 import { resolveBoardTheme } from "../lib/boardThemes";
 import { resolvePieceTheme } from "../lib/pieceThemes";
-import { uploadCourseAsset } from "../lib/courseStorage";
 import {
   addChapter,
   canEditCourse,
@@ -363,6 +363,8 @@ const piecePalette: { label: string; color: Color; type: PieceSymbol | "empty" }
   { label: "­ƒº¢", color: "w", type: "empty" },
 ];
 
+type EditableSubsectionType = Exclude<Subsection["type"], "video">;
+
 export default function LessonPlayer({ id }: { id?: string }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -395,9 +397,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [subsectionModal, setSubsectionModal] = useState<{
     chapterId: string;
     mode: "create";
-    type: Subsection["type"];
+    type: EditableSubsectionType;
     title: string;
-    videoUrl: string;
     pgn: string;
     fen: string;
     quizQuestions: { id: string; prompt: string }[];
@@ -408,11 +409,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const [activeSubsection, setActiveSubsection] = useState<Subsection | null>(null);
   const [activeMoveFen, setActiveMoveFen] = useState<string | null>(null);
   const [activeMoveIndex, setActiveMoveIndex] = useState<number>(-1);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [savingSubsection, setSavingSubsection] = useState(false);
-  const videoUploadTokenRef = useRef(0);
   const [trainerNote, setTrainerNote] = useState<string | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -603,11 +601,11 @@ export default function LessonPlayer({ id }: { id?: string }) {
   useEffect(() => {
     if (courseId) return;
     setLoadingCourse(true);
-    getCourse("course-london").then((fallback) => {
+    getCourse("course-london", user || undefined).then((fallback) => {
       setCourseId(fallback?.id || "course-london");
       setLoadingCourse(false);
     });
-  }, [courseId]);
+  }, [courseId, user]);
 
   useEffect(() => {
     if (!courseId) return;
@@ -615,9 +613,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
     const unsub = listenCourse(courseId, (c) => {
       setCourse(c);
       setLoadingCourse(false);
-    });
+    }, user || undefined);
     return () => unsub();
-  }, [courseId]);
+  }, [courseId, user?.id, user?.groupId, user?.accountType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -639,14 +637,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
   useEffect(() => {
     if (!subsectionModal) {
-      videoUploadTokenRef.current += 1;
-      setUploadError(null);
       setSaveError(null);
-      setUploadingVideo(false);
-    } else if (subsectionModal.type !== "video") {
-      videoUploadTokenRef.current += 1;
-      setUploadError(null);
-      setUploadingVideo(false);
     }
   }, [subsectionModal]);
 
@@ -882,7 +873,12 @@ export default function LessonPlayer({ id }: { id?: string }) {
   };
 
   const handleSelectSubsection = (sub: Subsection) => {
+    if (sub.type === "video") {
+      setNavOpen(false);
+      return;
+    }
     setActiveSubsection(sub);
+    setNavOpen(false);
     if (sub.type === "study" || sub.type === "pgn") {
       setQuizAnswers([]);
       setSelectedOption(null);
@@ -936,25 +932,44 @@ export default function LessonPlayer({ id }: { id?: string }) {
       setDragFrom(null);
       setHistory([]);
       setStudyMainline([]);
+      setVariationsByFen({});
+      setMainlineByFen({});
+      setMainlineIndexByFen({});
       setActiveMoveIndex(-1);
       setActiveMoveFen(null);
       setStudyError(null);
-      setTrainerNote(sub.type === "video" ? sub.trainerNote?.trim() || null : null);
+      setLastMoveSquares([]);
+      setRedSquares(new Set());
+      setArrows([]);
+      setArrowStart(null);
+      setArrowTarget(null);
+      setTrainerNote(null);
     }
   };
 
-  useEffect(() => {
+  const requestedSubsectionId = useMemo(() => {
     const search = location.includes("?") ? location.split("?")[1] ?? "" : window.location.search.replace("?", "");
-    const subId = new URLSearchParams(search).get("sub");
-    if (!subId || !chapters.length) return;
-    if (activeSubsection?.id === subId) return;
-    const match = chapters
-      .flatMap((chapter) => Object.values(chapter.subsections || {}))
-      .find((item) => item.id === subId);
+    return new URLSearchParams(search).get("sub");
+  }, [location]);
+
+  const courseSubsections = useMemo(
+    () =>
+      chapters.flatMap((chapter) =>
+        Object.values(chapter.subsections || {})
+          .filter((subsection) => subsection.type !== "video")
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0)),
+      ),
+    [chapters],
+  );
+
+  useEffect(() => {
+    if (!requestedSubsectionId || !courseSubsections.length) return;
+    if (activeSubsection?.id === requestedSubsectionId) return;
+    const match = courseSubsections.find((item) => item.id === requestedSubsectionId);
     if (match) {
       handleSelectSubsection(match);
     }
-  }, [location, chapters, activeSubsection?.id]);
+  }, [requestedSubsectionId, courseSubsections, activeSubsection?.id]);
 
   // Keep quiz FEN in sync even after course reloads
   useEffect(() => {
@@ -1058,9 +1073,10 @@ export default function LessonPlayer({ id }: { id?: string }) {
   const canStepForward = history.length > 0 && activeMoveIndex < history.length - 1;
   const showBoardControls = activeSubsection?.type !== "video";
   const showMovesList = activeSubsection?.type !== "video";
-  const videoSource = getVideoSource(activeSubsection?.videoUrl);
   const isVideoSubsection = activeSubsection?.type === "video";
-  const rawVideoUrl = isVideoSubsection ? activeSubsection.videoUrl?.trim() || "" : "";
+  const videoSubsection = isVideoSubsection ? activeSubsection : null;
+  const videoSource = getVideoSource(videoSubsection?.videoUrl);
+  const rawVideoUrl = videoSubsection?.videoUrl?.trim() || "";
   const videoLinkLabel = useMemo(() => {
     if (!rawVideoUrl) return "No video link provided yet.";
     if (rawVideoUrl.startsWith("data:")) return "Embedded video file (data URL)";
@@ -1123,7 +1139,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
     (isStudyLike && studyError) ? studyError : activeSubsection?.type === "quiz" ? "Answer the questions below" : null;
 
   const openVideoInNewTab = () => {
-    if (!videoSource) return;
+    if (!videoSource || videoSource.type === "blocked") return;
     window.open(videoSource.src, "_blank", "noopener,noreferrer");
   };
 
@@ -1753,82 +1769,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
 
                       {videoSource?.type === "html5" && (
                         <div className="relative w-full">
-                          <video
-                            ref={videoRef}
-                            key={videoSource.src}
-                            src={videoSource.src}
-                            className="w-full aspect-video object-contain bg-black"
-                            playsInline
-                            onLoadedMetadata={handleLoadedMetadata}
-                            onTimeUpdate={handleTimeUpdate}
-                            onEnded={() => setIsPlaying(false)}
-                            onPause={() => setIsPlaying(false)}
-                            onPlay={() => setIsPlaying(true)}
-                            muted={isMuted}
-                            crossOrigin="anonymous"
-                          />
-
-                          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-4 pb-4 pt-6">
-                            <div className="flex items-center gap-3">
-                              <button
-                                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-                                onClick={handleTogglePlayback}
-                                aria-label={isPlaying ? "Pause" : "Play"}
-                              >
-                                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                              </button>
-                              <div className="flex items-center gap-2 text-xs text-white/80 min-w-[110px]">
-                                <span>{formatTime(progress)}</span>
-                                <span className="text-white/40">/</span>
-                                <span>{formatTime(duration)}</span>
-                              </div>
-                              <div className="flex-1">
-                                <input
-                                  type="range"
-                                  min={0}
-                                  max={Math.max(duration || 0, 0.1)}
-                                  step="0.1"
-                                  value={Math.min(progress, duration || 0)}
-                                  onChange={(e) => handleSeek(Number(e.target.value))}
-                                  onMouseDown={() => setIsScrubbing(true)}
-                                  onMouseUp={() => setIsScrubbing(false)}
-                                  onTouchStart={() => setIsScrubbing(true)}
-                                  onTouchEnd={() => setIsScrubbing(false)}
-                                  className="w-full accent-pink-400"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between gap-3 text-white/80 text-xs">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-                                  onClick={toggleMute}
-                                  aria-label={isMuted ? "Unmute" : "Mute"}
-                                >
-                                  {isMuted || volume === 0 ? (
-                                    <VolumeX className="h-5 w-5" />
-                                  ) : (
-                                    <Volume2 className="h-5 w-5" />
-                                  )}
-                                </button>
-                                <input
-                                  type="range"
-                                  min={0}
-                                  max={1}
-                                  step={0.05}
-                                  value={volume}
-                                  onChange={(e) => handleVolume(Number(e.target.value))}
-                                  className="w-28 accent-pink-400"
-                                />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="rounded-full bg-white/10 border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.15em] text-white/70">
-                                  Custom player
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                          <VideoPlayer src={videoSource.src} title={activeSubsection.title || "Video lesson"} />
 
                           <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-xs text-white/80">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -2181,9 +2122,9 @@ export default function LessonPlayer({ id }: { id?: string }) {
               )}
               {chapters.map((chapter) => {
                 const expanded = expandedChapters[chapter.id];
-                const subsections = Object.values(chapter.subsections || {}).sort(
-                  (a, b) => (a.index ?? 0) - (b.index ?? 0),
-                );
+                const subsections = Object.values(chapter.subsections || {})
+                  .filter((subsection) => subsection.type !== "video")
+                  .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
                 return (
                   <div
                     key={chapter.id}
@@ -2204,9 +2145,8 @@ export default function LessonPlayer({ id }: { id?: string }) {
                             setSubsectionModal({
                               chapterId: chapter.id,
                               mode: "create",
-                              type: "video",
+                              type: "study",
                               title: "",
-                              videoUrl: "",
                               pgn: "",
                               fen: "",
                               quizQuestions: [{ id: "q1", prompt: "" }],
@@ -2247,7 +2187,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                               <span>{item.title}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              {!canManageCourse && (item.type === "video" || item.type === "study" || item.type === "pgn") && (
+                              {!canManageCourse && (item.type === "study" || item.type === "pgn") && (
                                 completedSubsections.has(item.id) ? (
                                   <span className="text-emerald-300 text-xs font-semibold">Completed</span>
                                 ) : (
@@ -2401,7 +2341,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   </button>
                   {typeMenuOpen && (
                     <div className="absolute z-20 mt-2 w-full rounded-2xl bg-slate-800 border border-white/10 shadow-2xl overflow-hidden">
-                      {(["video", "study", "quiz"] as Subsection["type"][]).map((type) => (
+                      {(["study", "pgn", "quiz"] as EditableSubsectionType[]).map((type) => (
                         <button
                           key={type}
                           onClick={() => {
@@ -2427,73 +2367,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                 />
               </div>
 
-              {subsectionModal.type === "video" && (
-                <div className="space-y-2">
-                  <label className="text-sm text-white/80 flex items-center justify-between">
-                    <span>Video URL or Upload</span>
-                    <span className="text-xs text-white/60">Files are stored in Firebase Storage</span>
-                  </label>
-                  <input
-                    value={subsectionModal.videoUrl}
-                    onChange={(e) =>
-                      setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: e.target.value } : prev))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
-                    placeholder="https://..."
-                  />
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const uploadToken = ++videoUploadTokenRef.current;
-                      setUploadError(null);
-                      try {
-                        setUploadingVideo(true);
-                        const uploadedUrl = await uploadCourseAsset(file, {
-                          kind: "videos",
-                          courseId: courseId || course?.id || "draft-course",
-                          chapterId: subsectionModal.chapterId,
-                        });
-                        if (videoUploadTokenRef.current === uploadToken) {
-                          setSubsectionModal((prev) => (prev ? { ...prev, videoUrl: uploadedUrl } : prev));
-                        }
-                      } catch (err) {
-                        if (videoUploadTokenRef.current === uploadToken) {
-                          const message =
-                            err instanceof Error
-                              ? err.message
-                              : "Could not upload the video. Try again or paste a hosted video URL instead.";
-                          setUploadError(message);
-                        }
-                      } finally {
-                        if (videoUploadTokenRef.current === uploadToken) {
-                          setUploadingVideo(false);
-                        }
-                        e.target.value = "";
-                      }
-                    }}
-                    className="w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-none file:bg-white/10 file:px-3 file:py-2 file:text-white hover:file:bg-white/20"
-                  />
-                  {uploadError && <div className="text-xs text-red-300">{uploadError}</div>}
-                  {uploadingVideo && <div className="text-xs text-white/60">Uploading video to Firebase Storage...</div>}
-                  <div className="space-y-2">
-                    <label className="text-sm text-white/80">Trainer note (optional)</label>
-                    <textarea
-                      value={subsectionModal.trainerNote}
-                      onChange={(e) =>
-                        setSubsectionModal((prev) => (prev ? { ...prev, trainerNote: e.target.value } : prev))
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-400"
-                      rows={2}
-                      placeholder="Message to show in Trainer Note during this video"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {subsectionModal.type === "study" && (
+              {(subsectionModal.type === "study" || subsectionModal.type === "pgn") && (
                 <div className="space-y-2">
                   <label className="text-sm text-white/80 flex items-center justify-between">
                     <span>PGN</span>
@@ -2633,7 +2507,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                   Cancel
                 </Button>
                 <Button
-                  disabled={savingSubsection || uploadingVideo}
+                  disabled={savingSubsection}
                   onClick={async () => {
                     if (!subsectionModal) return;
                     setSaveError(null);
@@ -2649,40 +2523,15 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     const trainerNote = subsectionModal.trainerNote.trim();
                     let payload: Subsection | null = null;
 
-                    if (subsectionModal.type === "video") {
-                      const rawUrl = subsectionModal.videoUrl.trim();
-                      if (!rawUrl) {
-                        setSaveError("Add a video link or upload a file before saving.");
-                        return;
-                      }
-                      const parsedSource = getVideoSource(rawUrl);
-                      if (!parsedSource) {
-                        setSaveError("Video link is not valid. Use a direct MP4/WEBM/HLS URL or YouTube link.");
-                        return;
-                      }
-                      if (parsedSource.type === "blocked") {
-                        setSaveError(parsedSource.reason || "This video link cannot be played here.");
-                        return;
-                      }
-                      if (rawUrl.startsWith("data:")) {
-                        setSaveError("Inline video files are no longer supported. Upload the file again or paste a hosted URL.");
-                        return;
-                      }
-                      payload = {
-                        id: "",
-                        type: "video",
-                        title: trimmedTitle,
-                        videoUrl: rawUrl,
-                        ...(trainerNote ? { trainerNote } : {}),
-                      };
-                    } else if (subsectionModal.type === "study") {
+                    if (subsectionModal.type === "study" || subsectionModal.type === "pgn") {
                       const fenText = subsectionModal.fen.trim();
                       payload = {
                         id: "",
-                        type: "study",
+                        type: subsectionModal.type,
                         title: trimmedTitle,
                         pgn: subsectionModal.pgn.trim(),
                         ...(fenText ? { fen: fenText } : {}),
+                        ...(trainerNote ? { trainerNote } : {}),
                       };
                     } else {
                       const optionsArr = subsectionModal.quizQuestions.map((q) => q.prompt.trim());
@@ -2722,7 +2571,7 @@ export default function LessonPlayer({ id }: { id?: string }) {
                     }
                   }}
                 >
-                  {uploadingVideo ? "Uploading video..." : savingSubsection ? "Saving..." : "Save"}
+                  {savingSubsection ? "Saving..." : "Save"}
                 </Button>
               </div>
               {saveError && <div className="text-xs text-red-300 pt-1 text-right">{saveError}</div>}

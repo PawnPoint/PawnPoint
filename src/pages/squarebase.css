@@ -21,6 +21,73 @@
   mix-blend-mode: screen;
 }
 
+.sb-root--inside-shell {
+  min-height: auto;
+  background: transparent;
+  color: var(--pp-shell-text, rgba(255, 255, 255, 0.92));
+  font-family: inherit;
+}
+
+.sb-root--inside-shell::after {
+  display: none;
+}
+
+.sb-root--inside-shell .sb-shellHeader {
+  position: sticky;
+  top: 0;
+  padding: 0;
+  margin-bottom: 28px;
+}
+
+.sb-root--inside-shell .sb-shellHeaderInner {
+  max-width: none;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--pp-shell-panel, rgba(24, 24, 24, 0.92));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: var(--pp-shell-border, rgba(255, 255, 255, 0.08));
+  box-shadow: none;
+}
+
+.sb-root--inside-shell .sb-main {
+  padding-top: 0;
+}
+
+.sb-root--inside-shell .sb-mainInner {
+  max-width: none;
+  padding: 0;
+}
+
+.sb-root--inside-shell .sb-navItem--active {
+  color: var(--pp-shell-text, #f4f2ed);
+  text-shadow: none;
+}
+
+.sb-root--inside-shell .sb-shellReturn,
+.sb-root--inside-shell .sb-exit,
+.sb-root--inside-shell .sb-menuToggle,
+.sb-root--inside-shell .sb-actionCard,
+.sb-root--inside-shell .sb-profileCard,
+.sb-root--inside-shell .sb-blackbookCard,
+.sb-root--inside-shell .sb-surveyCard,
+.sb-root--inside-shell .sb-planCard,
+.sb-root--inside-shell .sb-modalCard,
+.sb-root--inside-shell .sb-overlay-card {
+  background: var(--pp-shell-panel, rgba(24, 24, 24, 0.94));
+  border-color: var(--pp-shell-border, rgba(255, 255, 255, 0.08));
+  box-shadow: none;
+}
+
+.sb-root--inside-shell .sb-actionButton,
+.sb-root--inside-shell .sb-blackbookAction,
+.sb-root--inside-shell .sb-opxAction,
+.sb-root--inside-shell .sb-surveySubmit,
+.sb-root--inside-shell .sb-planRetake {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
 /* Header */
 .sb-shellHeader {
   position: fixed;
@@ -554,13 +621,20 @@
   display: none;
 }
 
+.sb-blackbookPage {
+  width: 100%;
+  padding: 8px 0 48px;
+  background: transparent;
+}
+
 .sb-blackbook {
-  width: min(1120px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: clamp(360px, 60vh, 760px);
+  align-items: flex-start;
+  min-height: clamp(360px, 58vh, 720px);
+  background: transparent;
 }
 
 .sb-blackbookCard {
@@ -660,18 +734,22 @@
 }
 
 .sb-blackbookResult {
-  width: min(1120px, 100%);
+  width: min(1240px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   text-align: left;
-  color: rgba(255, 255, 255, 0.92);
+  color: #fafafa;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .sb-opxUnified {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 34px;
 }
 
 .sb-opxProfileHeader {
@@ -679,7 +757,8 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  padding: 0 4px;
+  padding: 4px 0 28px;
+  border-bottom: 1px solid #242424;
 }
 
 .sb-opxProfileHeading {
@@ -692,20 +771,17 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.45);
+  color: #71717a;
   font-weight: 700;
 }
 
 .sb-opxProfileName {
   margin: 0;
-  font-size: clamp(42px, 6vw, 64px);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1;
+  letter-spacing: -0.04em;
   font-weight: 700;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.58) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #fafafa;
 }
 
 .sb-opxProfileMeta {
@@ -714,14 +790,14 @@
   gap: 12px;
   flex-wrap: wrap;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.58);
+  color: #a1a1aa;
 }
 
 .sb-opxProfileDot {
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: #3f3f46;
 }
 
 .sb-opxActions {
@@ -736,97 +812,100 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 11px 16px;
+  border-radius: 8px;
+  border: 1px solid #242424;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .sb-opxAction:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .sb-opxAction--solid {
   background: #ffffff;
   color: #050505;
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: #ffffff;
 }
 
 .sb-opxAction--solid:hover {
-  background: rgba(255, 255, 255, 0.92);
+  background: #e5e5e5;
+  border-color: #e5e5e5;
 }
 
 .sb-opxAction--ghost {
-  background: rgba(25, 25, 27, 0.58);
-  color: rgba(255, 255, 255, 0.92);
+  background: transparent;
+  color: #fafafa;
 }
 
 .sb-opxAction--ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: #111111;
+  border-color: #3f3f46;
 }
 
 .sb-opxSurface {
-  border-radius: 28px;
-  padding: 40px;
-  background: rgba(25, 25, 27, 0.48);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5), 0 18px 36px -18px rgba(0, 0, 0, 0.5);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
-  gap: 42px;
+  gap: 38px;
 }
 
 .sb-opxBlock {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 .sb-opxBlockHeader {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .sb-opxBlockHeader h3 {
   margin: 0;
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.25em;
-  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.18em;
+  color: #a1a1aa;
   font-weight: 700;
 }
 
 .sb-opxBlockRule {
   height: 1px;
   flex: 1 1 auto;
-  background: rgba(255, 255, 255, 0.06);
+  background: #242424;
 }
 
 .sb-opxPerformanceGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .sb-opxPerformanceCard {
-  border-radius: 20px;
-  padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
-  transition: transform 300ms ease, border-color 300ms ease;
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid #242424;
+  background: #0a0a0a;
+  box-shadow: none;
+  transition: background 180ms ease, border-color 180ms ease;
 }
 
 .sb-opxPerformanceCard:hover {
-  transform: translateY(-4px);
-  border-color: rgba(0, 200, 83, 0.18);
+  transform: none;
+  background: #111111;
+  border-color: #333333;
 }
 
 .sb-opxPerformanceTop,
@@ -840,26 +919,27 @@
 .sb-opxPerformanceLabel {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.56);
+  color: #a1a1aa;
 }
 
 .sb-opxPerformanceValueRow {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .sb-opxPerformanceValue {
-  font-size: 42px;
+  font-size: 36px;
   font-weight: 700;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.04em;
+  color: #fafafa;
 }
 
 .sb-opxPerformanceTrack {
-  margin-top: 18px;
+  margin-top: 14px;
   width: 100%;
-  height: 4px;
+  height: 2px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: #242424;
 }
 
 .sb-opxPerformanceMeter {
@@ -868,33 +948,34 @@
 }
 
 .sb-opxPerformanceMeter--bullet {
-  background: rgba(96, 165, 250, 0.7);
+  background: #fafafa;
 }
 
 .sb-opxPerformanceMeter--blitz {
-  background: rgba(59, 130, 246, 0.8);
+  background: #d4d4d8;
 }
 
 .sb-opxPerformanceMeter--rapid {
-  background: rgba(37, 99, 235, 0.95);
+  background: #a1a1aa;
 }
 
 .sb-opxOpeningsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px;
+  gap: 42px;
 }
 
 .sb-opxOpeningColumn {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .sb-opxOpeningHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding-bottom: 6px;
 }
 
 .sb-opxOpeningHeader h3 {
@@ -902,12 +983,13 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: #fafafa;
 }
 
 .sb-opxOpeningSwatch {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
 }
 
 .sb-opxOpeningSwatch--white {
@@ -923,28 +1005,50 @@
 .sb-opxOpeningList {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
+  border-top: 1px solid #242424;
 }
 
 .sb-opxOpeningCard {
-  padding: 22px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 250ms ease, border-color 250ms ease, transform 250ms ease;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 4px;
+  border: 0;
+  border-bottom: 1px solid #242424;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, padding 160ms ease;
 }
 
 .sb-opxOpeningCard:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+  background: #111111;
+  transform: none;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .sb-opxOpeningCard h4 {
   margin: 0;
-  font-size: 15px;
+  min-width: 0;
+  font-size: 14px;
   line-height: 1.45;
   font-weight: 500;
+  color: #fafafa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-opxOpeningCard span {
+  color: #71717a;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .sb-opxDownloadFields {
@@ -1009,33 +1113,35 @@
 
 .sb-opxEmpty {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.02);
+  color: #71717a;
+  padding: 14px 4px;
+  border-bottom: 1px solid #242424;
+  background: transparent;
 }
 
 .sb-opxFooter {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  text-align: center;
+  justify-content: space-between;
+  gap: 18px;
+  text-align: left;
+  padding: 14px 0 0;
+  border-top: 1px solid #242424;
 }
 
 .sb-opxFooterLabel {
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.3em;
-  color: rgba(255, 255, 255, 0.44);
+  letter-spacing: 0.22em;
+  color: #71717a;
 }
 
 .sb-opxFooter p {
   margin: 0;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-  font-style: italic;
+  font-size: 12px;
+  color: #a1a1aa;
+  font-style: normal;
 }
 
 .sb-opxSectionTitle--avoid {
@@ -2441,7 +2547,7 @@
   }
 
   .sb-opxSurface {
-    padding: 24px;
+    padding: 0;
     gap: 28px;
   }
 
